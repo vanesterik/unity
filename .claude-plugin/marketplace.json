@@ -1,0 +1,13 @@
+{
+  "name": "agent-team",
+  "owner": {
+    "name": "Koen van Esterik"
+  },
+  "plugins": [
+    {
+      "name": "agent-team",
+      "source": "./",
+      "description": "Role-based development flow (architect -> build -> qa -> review) on GitHub issues and Projects."
+    }
+  ]
+}

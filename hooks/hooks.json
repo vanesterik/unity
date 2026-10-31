@@ -1,0 +1,28 @@
+{
+  "description": "agent-team guardrails: QA may only edit test paths while a QA run is active, and E2E files are linted after every edit.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/qa-guard.js\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/lint-e2e.js\"",
+            "statusMessage": "Running E2E lint checks..."
+          }
+        ]
+      }
+    ]
+  }
+}

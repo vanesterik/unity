@@ -1,0 +1,31 @@
+{
+  "project": {
+    "owner": "<your-github-user>",
+    "number": 0,
+    "id": "<filled by /agent-team:init>",
+    "statusFieldId": "<filled by init>",
+    "options": {
+      "Backlog": "<filled by init>",
+      "Design": "<filled by init>",
+      "Ready to Build": "<filled by init>",
+      "Building": "<filled by init>",
+      "QA": "<filled by init>",
+      "Review": "<filled by init>",
+      "Done": "<filled by init>"
+    }
+  },
+  "qa": {
+    "basePort": 4000,
+    "start": "PORT=$PORT docker compose -p qa-$ISSUE up -d --wait",
+    "stop": "docker compose -p qa-$ISSUE down -v",
+    "healthUrl": "http://localhost:$PORT/health",
+    "baseUrl": "http://localhost:$PORT",
+    "writablePaths": ["e2e/", "tests/integration/", "ai-evidence/"]
+  },
+  "e2e": {
+    "dir": "e2e",
+    "lintCommand": "pnpm exec eslint e2e",
+    "runCommand": "pnpm exec playwright test",
+    "runSingle": "pnpm exec playwright test -g \"$TITLE\" --repeat-each=5 --reporter=line"
+  }
+}

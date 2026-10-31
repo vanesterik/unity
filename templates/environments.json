@@ -1,0 +1,4 @@
+{
+  "local": { "name": "Local worktree", "url": "http://localhost:4000", "note": "/qa replaces the port per issue" },
+  "test": { "name": "Test", "url": "https://test.example.com" }
+}
