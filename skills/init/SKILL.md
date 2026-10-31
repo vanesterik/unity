@@ -1,11 +1,11 @@
 ---
 name: init
-description: Set up the agent-team workflow in the current repository - per-project config, CLAUDE.md workflow section, .gitignore, plugin settings, and the GitHub Project board IDs. Run once per project as /agent-team:init <owner> <project-number>.
+description: Set up the unity workflow in the current repository - per-project config, CLAUDE.md workflow section, .gitignore, plugin settings, and the GitHub Project board IDs. Run once per project as /unity:init <owner> <project-number>.
 disable-model-invocation: true
 allowed-tools: Bash, Read, Grep, Glob, Edit, Write
 ---
 
-# Init agent-team
+# Init unity
 
 Prepare this repository for the architect -> build -> qa -> review flow. The plugin holds the shared skills; this skill creates the per-project parts and fills them in from what the repository already contains.
 
@@ -39,7 +39,7 @@ It creates or updates:
 | --- | --- |
 | `.claude/pipeline.json` | created from the template if missing |
 | `environments.json` | created from the template if missing |
-| `CLAUDE.md` | workflow section appended (between `agent-team:workflow` markers) if not there yet |
+| `CLAUDE.md` | workflow section appended (between `unity:workflow` markers) if not there yet |
 | `.gitignore` | `ai-evidence/` added |
 | `.claude/settings.json` | marketplace registered and plugin enabled for this repo, merged with existing settings |
 
@@ -65,7 +65,7 @@ Inspect the repository and propose values for the `qa` and `e2e` blocks of `.cla
 
 Also set `qa.writablePaths` to the E2E directory, the integration test directory and `ai-evidence/`.
 
-Present the proposed values in one short list and ask the user to confirm or correct them, in a single question round. Mark anything you could not find as missing instead of guessing. Then write the confirmed values into `.claude/pipeline.json` and the **E2E testing** section of `CLAUDE.md`. Edit only inside the `agent-team:workflow` markers.
+Present the proposed values in one short list and ask the user to confirm or correct them, in a single question round. Mark anything you could not find as missing instead of guessing. Then write the confirmed values into `.claude/pipeline.json` and the **E2E testing** section of `CLAUDE.md`. Edit only inside the `unity:workflow` markers.
 
 ### 5. Check the tooling
 
@@ -82,7 +82,7 @@ Summarize in a few lines: the files created or changed, the board connection, an
 
 ```bash
 git add .claude/pipeline.json .claude/settings.json CLAUDE.md environments.json .gitignore
-git commit -m "chore: set up agent-team workflow"
+git commit -m "chore: set up unity workflow"
 ```
 
-Commit only if the user asks. End with the next step: write an issue, add the design and numbered acceptance criteria in the format from the `CLAUDE.md` workflow section (with `/agent-team:architect` once the plugin includes it, otherwise by hand), and move it to **Ready to Build**.
+Commit only if the user asks. End with the next step: write an issue, add the design and numbered acceptance criteria in the format from the `CLAUDE.md` workflow section (with `/unity:architect` once the plugin includes it, otherwise by hand), and move it to **Ready to Build**.

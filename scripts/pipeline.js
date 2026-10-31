@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Pipeline helper for the architect -> build -> qa -> review flow.
 // All GitHub access goes through the gh CLI (needs: gh auth refresh -s project).
-// Lives in the agent-team plugin; per-project settings are read from <project>/.claude/pipeline.json.
+// Lives in the unity plugin; per-project settings are read from <project>/.claude/pipeline.json.
 // Skills call it as: node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" <command>
 //
 //   pipeline.js init <owner> <project-number>   discover project/field/option IDs into .claude/pipeline.json
@@ -28,7 +28,7 @@ const git = (args) => { try { return execFileSync('git', args, { encoding: 'utf8
 const currentBranch = () => git(['branch', '--show-current']) || git(['rev-parse', '--abbrev-ref', 'HEAD']);
 
 const loadConfig = () => {
-  if (!fs.existsSync(configPath)) die(`Missing ${configPath}. Run /agent-team:init <owner> <project-number> in this project.`);
+  if (!fs.existsSync(configPath)) die(`Missing ${configPath}. Run /unity:init <owner> <project-number> in this project.`);
   return JSON.parse(fs.readFileSync(configPath, 'utf8'));
 };
 

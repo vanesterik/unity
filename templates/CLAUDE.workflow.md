@@ -1,11 +1,11 @@
-<!-- agent-team:workflow:start -->
-## Team workflow (agent-team)
+<!-- unity:workflow:start -->
+## Team workflow (unity)
 
-This project is built by one developer and Claude in four roles, each in a **fresh context**: `/agent-team:architect` -> `/agent-team:build` -> `/agent-team:qa` -> `/agent-team:review`. GitHub is the only handoff between roles.
+This project is built by one developer and Claude in four roles, each in a **fresh context**: `/unity:architect` -> `/unity:build` -> `/unity:qa` -> `/unity:review`. GitHub is the only handoff between roles.
 
 ### Board
 
-GitHub Project columns are the workflow state. IDs live in `.claude/pipeline.json` (written by `/agent-team:init`). Items are moved by the role skills, or by you on the board.
+GitHub Project columns are the workflow state. IDs live in `.claude/pipeline.json` (written by `/unity:init`). Items are moved by the role skills, or by you on the board.
 
 | Column | Meaning | Moved there by |
 | --- | --- | --- |
@@ -42,7 +42,7 @@ GitHub Project columns are the workflow state. IDs live in `.claude/pipeline.jso
 
 ### E2E testing
 
-<!-- Filled in by /agent-team:init; adjust as needed. write-e2e-test reads this section. -->
+<!-- Filled in by /unity:init; adjust as needed. write-e2e-test reads this section. -->
 
 - E2E directory: `e2e/` (fixtures in `e2e/fixtures/`, API fixture in `e2e/fixtures/api.ts`)
 - Translations: `<path to messages file, or "none">`; helper: `<translation helper name>`
@@ -50,4 +50,4 @@ GitHub Project columns are the workflow state. IDs live in `.claude/pipeline.jso
 - API layer: `<GraphQL services / REST routes path>`
 - Start the app for QA: see `qa.start` in `.claude/pipeline.json`
 - Test users and data: `<where they come from>`
-<!-- agent-team:workflow:end -->
+<!-- unity:workflow:end -->

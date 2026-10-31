@@ -2,7 +2,7 @@
   "project": {
     "owner": "<your-github-user>",
     "number": 0,
-    "id": "<filled by /agent-team:init>",
+    "id": "<filled by /unity:init>",
     "statusFieldId": "<filled by init>",
     "options": {
       "Backlog": "<filled by init>",

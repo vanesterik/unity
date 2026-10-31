@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Deterministic part of /agent-team:init: puts the per-project files in place.
+// Deterministic part of /unity:init: puts the per-project files in place.
 // Idempotent: never overwrites existing files, only adds what's missing.
 //
 //   node "${CLAUDE_SKILL_DIR}/../../scripts/init-project.js" [--check]
@@ -51,7 +51,7 @@ const section = fs.readFileSync(path.join(templates, 'CLAUDE.workflow.md'), 'utf
 const claudeMd = read('CLAUDE.md');
 if (claudeMd === null) {
   write('CLAUDE.md', `# ${path.basename(root)}\n\n${section}`, 'created with workflow section');
-} else if (!claudeMd.includes('<!-- agent-team:workflow:start -->')) {
+} else if (!claudeMd.includes('<!-- unity:workflow:start -->')) {
   write('CLAUDE.md', `${claudeMd.replace(/\s*$/, '')}\n\n${section}`, 'workflow section appended');
 }
 
@@ -59,14 +59,14 @@ if (claudeMd === null) {
 const gitignore = read('.gitignore');
 if (gitignore === null || !gitignore.split(/\r?\n/).some((line) => line.trim().replace(/^\//, '') === 'ai-evidence/')) {
   const base = gitignore === null ? '' : `${gitignore.replace(/\s*$/, '')}\n`;
-  write('.gitignore', `${base}\n# agent-team QA evidence (local only)\nai-evidence/\n`, gitignore === null ? 'created' : 'ai-evidence/ added');
+  write('.gitignore', `${base}\n# unity QA evidence (local only)\nai-evidence/\n`, gitignore === null ? 'created' : 'ai-evidence/ added');
 }
 
 // 5. .claude/settings.json: register the marketplace and enable the plugin for this repo
 const settingsRaw = read('.claude/settings.json');
 let settings = {};
 try { settings = settingsRaw ? JSON.parse(settingsRaw) : {}; } catch {
-  console.error('.claude/settings.json is not valid JSON; left untouched. Add the agent-team entries by hand.');
+  console.error('.claude/settings.json is not valid JSON; left untouched. Add the unity entries by hand.');
   settings = null;
 }
 if (settings) {

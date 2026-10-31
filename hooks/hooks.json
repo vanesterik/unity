@@ -1,5 +1,5 @@
 {
-  "description": "agent-team guardrails: QA may only edit test paths while a QA run is active, and E2E files are linted after every edit.",
+  "description": "unity guardrails: QA may only edit test paths while a QA run is active, and E2E files are linted after every edit.",
   "hooks": {
     "PreToolUse": [
       {

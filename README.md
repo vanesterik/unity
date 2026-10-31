@@ -1,4 +1,4 @@
-# agent-team
+# unity
 
 A Claude Code plugin for a role-based development flow on GitHub: **architect -> build -> qa -> review**. Each role runs in a fresh context, and GitHub issues, PRs and a Project board are the only handoff between roles.
 
@@ -8,28 +8,28 @@ This version ships the **QA role** and the shared plumbing. `architect`, `build`
 
 The repository is its own marketplace.
 
-**Per project (recommended).** Run `/agent-team:init` once; it adds this to the project's `.claude/settings.json`, so the flow is enabled for that repo:
+**Per project (recommended).** Run `/unity:init` once; it adds this to the project's `.claude/settings.json`, so the flow is enabled for that repo:
 
 ```json
 {
   "extraKnownMarketplaces": {
-    "agent-team": { "source": { "source": "github", "repo": "vanesterik/agent-team" }, "autoUpdate": true }
+    "unity": { "source": { "source": "github", "repo": "vanesterik/unity" }, "autoUpdate": true }
   },
-  "enabledPlugins": { "agent-team@agent-team": true }
+  "enabledPlugins": { "unity@unity": true }
 }
 ```
 
-**First time on a machine**, install it at user level so `/agent-team:init` is available before a project is set up:
+**First time on a machine**, install it at user level so `/unity:init` is available before a project is set up:
 
 ```
-/plugin marketplace add vanesterik/agent-team
-/plugin install agent-team@agent-team
+/plugin marketplace add vanesterik/unity
+/plugin install unity@unity
 ```
 
 Then, in each project:
 
 ```
-/agent-team:init <owner> <project-number>
+/unity:init <owner> <project-number>
 ```
 
 Prerequisites: `gh` with project access (`gh auth refresh -s project`), Node, and for web projects Playwright, `eslint-plugin-playwright` and the `playwright-cli` skill.
@@ -38,11 +38,11 @@ Prerequisites: `gh` with project access (`gh auth refresh -s project`), Node, an
 
 | Command | What it does |
 | --- | --- |
-| `/agent-team:init <owner> <project>` | Sets up a repo: config, `CLAUDE.md` section, `.gitignore`, plugin settings, board IDs, detected start/test commands |
-| `/agent-team:qa <issue> [auto]` | QA phase: explore against acceptance criteria, write scripted tests, post the result on the PR, move the issue on the board |
-| `/agent-team:test-user-story <issue or story>` | Exploratory browser testing with an evidence report; also usable on its own |
-| `/agent-team:write-e2e-test` | Write and stabilize Playwright tests; also usable on its own |
-| `/agent-team:get-user-story <issue>` | Issue + latest design + acceptance criteria, as used by the skills above |
+| `/unity:init <owner> <project>` | Sets up a repo: config, `CLAUDE.md` section, `.gitignore`, plugin settings, board IDs, detected start/test commands |
+| `/unity:qa <issue> [auto]` | QA phase: explore against acceptance criteria, write scripted tests, post the result on the PR, move the issue on the board |
+| `/unity:test-user-story <issue or story>` | Exploratory browser testing with an evidence report; also usable on its own |
+| `/unity:write-e2e-test` | Write and stabilize Playwright tests; also usable on its own |
+| `/unity:get-user-story <issue>` | Issue + latest design + acceptance criteria, as used by the skills above |
 
 ## Board
 
@@ -83,11 +83,11 @@ Skills locate plugin files through `${CLAUDE_SKILL_DIR}`, and hooks through `${C
 
 ## How the QA guard works
 
-`/agent-team:qa` writes `ai-evidence/.qa-active` when a run starts and removes it at the end. While that file exists, `qa-guard.js` blocks Edit/Write outside `qa.writablePaths`. Outside a QA run the guard does nothing. If a run is interrupted and edits stay blocked, delete `ai-evidence/.qa-active`.
+`/unity:qa` writes `ai-evidence/.qa-active` when a run starts and removes it at the end. While that file exists, `qa-guard.js` blocks Edit/Write outside `qa.writablePaths`. Outside a QA run the guard does nothing. If a run is interrupted and edits stay blocked, delete `ai-evidence/.qa-active`.
 
 ## Updating
 
-Bump `version` in `.claude-plugin/plugin.json` with each change. Projects with `autoUpdate: true` pick up new versions automatically; otherwise run `/plugin marketplace update agent-team`.
+Bump `version` in `.claude-plugin/plugin.json` with each change. Projects with `autoUpdate: true` pick up new versions automatically; otherwise run `/plugin marketplace update unity`.
 
 ## Credits
 

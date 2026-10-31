@@ -24,12 +24,12 @@ ISSUE: $ARGUMENTS (an issue number, `#42`, an issue or PR URL, or empty for "the
 
 2. If the command cannot determine the issue, run `node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" queue QA` and ask the user which issue they mean. Do not guess.
 
-   If it reports a missing `.claude/pipeline.json`, the project is not set up yet: point the user to `/agent-team:init`.
+   If it reports a missing `.claude/pipeline.json`, the project is not set up yet: point the user to `/unity:init`.
 
 3. Check the criteria:
    - `criteriaSource: "architect-comment"`: use them as they are.
    - `criteriaSource: "issue-body"`: use them, but say the design comment has no acceptance criteria.
-   - `criteria` is empty: stop and report that the issue has no numbered acceptance criteria. The fix belongs in `/agent-team:architect`. Do not invent criteria from the description, because QA would then be testing its own interpretation instead of what was agreed.
+   - `criteria` is empty: stop and report that the issue has no numbered acceptance criteria. The fix belongs in `/unity:architect`. Do not invent criteria from the description, because QA would then be testing its own interpretation instead of what was agreed.
 
 ## Output
 

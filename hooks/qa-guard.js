@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // PreToolUse guard for the QA role. Active only while a QA run is in progress,
-// which /agent-team:qa signals by writing ai-evidence/.qa-active in the project.
+// which /unity:qa signals by writing ai-evidence/.qa-active in the project.
 // While active, Edit/Write/MultiEdit outside qa.writablePaths (.claude/pipeline.json) is blocked (exit 2).
 // This is a guardrail, not a sandbox: shell commands are not intercepted.
 const fs = require('fs');

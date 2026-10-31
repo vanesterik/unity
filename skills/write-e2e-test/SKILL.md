@@ -1,6 +1,6 @@
 ---
 name: write-e2e-test
-description: Systematically write scripted Playwright E2E or integration tests, from planning through implementation and stability validation, following the project's conventions. Use when the user asks to "write an e2e test", "add e2e tests for [feature]", or to codify scenarios found by test-user-story. Used by /agent-team:qa to turn explored scenarios into regression tests.
+description: Systematically write scripted Playwright E2E or integration tests, from planning through implementation and stability validation, following the project's conventions. Use when the user asks to "write an e2e test", "add e2e tests for [feature]", or to codify scenarios found by test-user-story. Used by /unity:qa to turn explored scenarios into regression tests.
 ---
 
 # Write E2E Test
@@ -9,7 +9,7 @@ Create scripted end-to-end or integration tests with Playwright, following the p
 
 Based on Tim Lolkema's write-e2e-test skill, adapted for the architect -> build -> qa -> review pipeline. Project-specific paths now live in `CLAUDE.md` (section **E2E testing**) and `.claude/pipeline.json` (`e2e`), so this skill works across repositories.
 
-The agent-team plugin enforces two things with hooks: every edit to a file in `e2e.dir` is linted (`e2e.lintCommand`; lint errors block until fixed), and during a QA run edits outside the test paths are blocked.
+The unity plugin enforces two things with hooks: every edit to a file in `e2e.dir` is linted (`e2e.lintCommand`; lint errors block until fixed), and during a QA run edits outside the test paths are blocked.
 
 ## Prerequisites
 
@@ -26,7 +26,7 @@ If that section is missing, ask the user for these locations and suggest adding 
 
 ### 1. Define test requirements
 
-**Inside /agent-team:qa**, the requirements already exist: the cases executed by `test-user-story` and the acceptance criteria. Select the ones worth codifying:
+**Inside /unity:qa**, the requirements already exist: the cases executed by `test-user-story` and the acceptance criteria. Select the ones worth codifying:
 
 - every case that verifies an acceptance criterion
 - every FAIL caused by the application (the test becomes the builder's target)
@@ -60,7 +60,7 @@ You read the implementation to learn how to drive and observe the UI. Never use 
 
 ### 3. Approval
 
-Inside /agent-team:qa in pipeline mode, skip this step; the selection rules in step 1 apply.
+Inside /unity:qa in pipeline mode, skip this step; the selection rules in step 1 apply.
 
 Otherwise, present the plan: the tests you will write, what each covers and which criterion it verifies. Wait for approval.
 

@@ -1,6 +1,6 @@
 ---
 name: qa
-description: QA phase of the architect -> build -> qa -> review pipeline. Tests a built issue as a black box against its acceptance criteria - exploratory testing with evidence, then scripted E2E/integration tests - posts the result on the PR and moves the issue on the project board. Run manually as /agent-team:qa <issue> [auto].
+description: QA phase of the architect -> build -> qa -> review pipeline. Tests a built issue as a black box against its acceptance criteria - exploratory testing with evidence, then scripted E2E/integration tests - posts the result on the PR and moves the issue on the project board. Run manually as /unity:qa <issue> [auto].
 disable-model-invocation: true
 allowed-tools: Bash, Read, Grep, Glob, Edit, Write, Skill
 ---
@@ -29,10 +29,10 @@ ARGS: $ARGUMENTS
 
 ### 1. Load the story
 
-Use the `agent-team:get-user-story` skill with the issue from ARGS.
+Use the `unity:get-user-story` skill with the issue from ARGS.
 
 - If no issue was given and the branch has none, run `node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" queue QA`. If exactly one issue is listed, use it; otherwise ask which one.
-- Stop if there are no acceptance criteria. That is an `/agent-team:architect` gap, not something QA fills in.
+- Stop if there are no acceptance criteria. That is an `/unity:architect` gap, not something QA fills in.
 - Stop if there is no open PR for the issue. Nothing has been handed over to QA yet.
 - Make sure the PR branch is checked out (`gh pr checkout <pr>`) and up to date, and record the commit (`git rev-parse --short HEAD`). The report is only valid for that commit.
 
@@ -61,7 +61,7 @@ Never test against a shared or production environment from this skill.
 
 ### 3. Explore (agentic)
 
-Use the `agent-team:test-user-story` skill in pipeline mode, passing:
+Use the `unity:test-user-story` skill in pipeline mode, passing:
 
 ```
 pipeline issue=<n> environment="local worktree" url=<environment URL> evidence=screenshots
@@ -75,7 +75,7 @@ For a project without a UI (CLI tool, MCP server, API), explore the same way, bu
 
 ### 4. Codify (scripted)
 
-Use the `agent-team:write-e2e-test` skill in pipeline mode on the cases from step 3. It selects the cases to codify, writes the tests with `@issue-<n>` and criterion tags, and validates them with repeated isolated runs.
+Use the `unity:write-e2e-test` skill in pipeline mode on the cases from step 3. It selects the cases to codify, writes the tests with `@issue-<n>` and criterion tags, and validates them with repeated isolated runs.
 
 For a project without a browser UI, write integration tests in the project's test framework under the integration directory instead, with the same rules: tagged by criterion, stable over repeated runs, and failing tests kept when the application is wrong.
 
@@ -121,7 +121,7 @@ Based on the generator's `overallStatus`:
 | --- | --- |
 | **PASS** | `node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" status <n> Review` |
 | **FAILURE** | `node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" status <n> Building`. The failing tests on the branch are the builder's target. |
-| **INCOMPLETE** | Leave it in **QA**. Tell the user which criteria are UNTESTED or which cases were skipped and why, and let them decide: test it another way, accept the gap, or send it back to `/agent-team:architect`. |
+| **INCOMPLETE** | Leave it in **QA**. Tell the user which criteria are UNTESTED or which cases were skipped and why, and let them decide: test it another way, accept the gap, or send it back to `/unity:architect`. |
 
 ### 7. Clean up
 
