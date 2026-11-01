@@ -25,5 +25,9 @@
     "dir": "e2e",
     "runCommand": "pnpm exec playwright test",
     "runSingle": "pnpm exec playwright test -g \"$TITLE\" --repeat-each=5 --reporter=line"
+  },
+  "integration": {
+    "dir": "tests/integration",
+    "runCommand": "<command that runs every integration test>"
   }
 }
