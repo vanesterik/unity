@@ -32,7 +32,12 @@ Then, in each project:
 /unity:init <owner> <project-number>
 ```
 
-Prerequisites: `gh` with project access (`gh auth refresh -s project`), Node, and for web projects Playwright and the `playwright-cli` skill.
+Prerequisites:
+
+- [Superpowers](https://github.com/obra/superpowers), which the role skills build on for brainstorming, plans, TDD, verification and code review: `/plugin install superpowers@claude-plugins-official`
+- `gh` with project access (`gh auth refresh -s project`)
+- Node
+- for web projects: Playwright and the `playwright-cli` skill
 
 ## Commands
 
