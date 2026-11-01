@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// Pipeline helper for the architect -> build -> qa -> review flow.
+// Pipeline helper for the design -> build -> test -> review flow.
 // All GitHub access goes through the gh CLI (needs: gh auth refresh -s project).
 // Lives in the unity plugin; per-project settings are read from <project>/.claude/pipeline.json.
 // Skills call it as: node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" <command>
 //
 //   pipeline.js init <owner> <project-number>   discover project/field/option IDs into .claude/pipeline.json
 //   pipeline.js resolve [arg]                   print the issue number (arg, #n, URL, or current branch)
-//   pipeline.js story [arg]                     issue + latest architect design + acceptance criteria as JSON
+//   pipeline.js story [arg]                     issue + latest design + acceptance criteria as JSON
 //   pipeline.js queue <Column>                  issues of this repo in a board column, as JSON
 //   pipeline.js status <issue> <Column>         move the issue's project item to a column
 //   pipeline.js port <issue>                    deterministic local port for this issue's worktree
@@ -58,7 +58,7 @@ const issueFromPr = (pr) => {
 
 // ---------- design + acceptance criteria parsing ----------
 
-const ARCHITECT_MARKER = '<!-- role:architect';
+const DESIGN_MARKER = '<!-- role:design';
 
 const parseCriteria = (markdown = '') => {
   const lines = markdown.split(/\r?\n/);
@@ -77,10 +77,10 @@ const story = (arg) => {
   const number = resolveIssue(arg);
   if (!number) die('Could not determine the issue. Pass a number, or run on a feature/<n>-<slug> branch.');
   const issue = ghJson(['issue', 'view', String(number), '--json', 'number,title,url,body,state,comments']);
-  const designs = (issue.comments || []).filter((comment) => (comment.body || '').includes(ARCHITECT_MARKER));
+  const designs = (issue.comments || []).filter((comment) => (comment.body || '').includes(DESIGN_MARKER));
   const design = designs.length ? designs[designs.length - 1] : null;
   let criteria = design ? parseCriteria(design.body) : [];
-  let criteriaSource = design ? 'architect-comment' : null;
+  let criteriaSource = design ? 'design-comment' : null;
   if (!criteria.length) {
     criteria = parseCriteria(issue.body);
     criteriaSource = criteria.length ? 'issue-body' : null;
@@ -99,7 +99,7 @@ const story = (arg) => {
     state: issue.state,
     body: issue.body,
     design: design ? design.body : null,
-    designVersion: design ? ((design.body.match(/role:architect\s+(v\d+)/) || [])[1] || 'v1') : null,
+    designVersion: design ? ((design.body.match(/role:design\s+(v\d+)/) || [])[1] || 'v1') : null,
     criteria,
     criteriaSource,
     branch,
@@ -129,7 +129,7 @@ const init = (owner, projectNumber) => {
   };
   fs.mkdirSync(path.dirname(configPath), { recursive: true });
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
-  const expected = ['Backlog', 'Design', 'Ready to Build', 'Building', 'QA', 'Review', 'Done'];
+  const expected = ['Backlog', 'Design', 'Build', 'Test', 'Review', 'Done'];
   const missing = expected.filter((name) => !config.project.options[name]);
   console.log(`Wrote ${configPath}`);
   if (missing.length) console.log(`Warning: board is missing columns: ${missing.join(', ')}`);
@@ -165,7 +165,7 @@ const port = (issueArg) => {
   const number = resolveIssue(issueArg);
   if (!number) die('Usage: pipeline.js port <issue>');
   const config = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {};
-  const base = (config.qa && config.qa.basePort) || 4000;
+  const base = (config.test && config.test.basePort) || 4000;
   console.log(base + (number % 1000));
 };
 

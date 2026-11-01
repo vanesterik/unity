@@ -57,9 +57,9 @@ if (claudeMd === null) {
 
 // 4. .gitignore
 const gitignore = read('.gitignore');
-if (gitignore === null || !gitignore.split(/\r?\n/).some((line) => line.trim().replace(/^\//, '') === 'ai-evidence/')) {
+if (gitignore === null || !gitignore.split(/\r?\n/).some((line) => line.trim().replace(/^\//, '') === 'artifacts/')) {
   const base = gitignore === null ? '' : `${gitignore.replace(/\s*$/, '')}\n`;
-  write('.gitignore', `${base}\n# unity QA evidence (local only)\nai-evidence/\n`, gitignore === null ? 'created' : 'ai-evidence/ added');
+  write('.gitignore', `${base}\n# unity test evidence (local only)\nartifacts/\n`, gitignore === null ? 'created' : 'artifacts/ added');
 }
 
 // 5. .claude/settings.json: register the marketplace and enable the plugin for this repo

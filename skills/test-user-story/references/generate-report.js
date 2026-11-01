@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // Adapted from Tim Lolkema's test-user-story report generator.
-// Changes for the architect -> build -> qa -> review pipeline:
+// Changes for the design -> build -> test -> review pipeline:
 // - acceptance criteria are first-class: every case maps to criteria, the report shows coverage
 // - overall status and counts are computed here, never trusted from the input
 // - an untested criterion or skipped case makes the run INCOMPLETE instead of PASS/FAILURE
-// - writes summary.md next to index.html so /unity:qa can post it on the PR unchanged
+// - writes summary.md next to index.html so /unity:test can post it on the PR unchanged
 // - braces in user content are escaped so text like "{{x}}" can't trip the placeholder check
 const fs = require('fs');
 const path = require('path');
@@ -269,8 +269,8 @@ if (remainingPlaceholders) {
 
 const icon = { PASS: '✅', FAILURE: '❌', INCOMPLETE: '⚠️' }[overallStatus];
 const md = [];
-md.push('<!-- role:qa -->');
-md.push(`## ${icon} QA ${overallStatus}${issueLabel ? ` · ${issueLabel}` : ''} · ${cell(data.storyName || issue.title || 'User story')}`);
+md.push('<!-- role:test -->');
+md.push(`## ${icon} Test ${overallStatus}${issueLabel ? ` · ${issueLabel}` : ''} · ${cell(data.storyName || issue.title || 'User story')}`);
 md.push('');
 md.push(`**Cases:** ${passedCases}/${cases.length} passed${failedCases ? ` · ${failedCases} failed` : ''}${skippedCases ? ` · ${skippedCases} skipped` : ''}  `);
 md.push(`**Criteria tested:** ${coveredCriteria}/${coverage.length}  `);

@@ -1,5 +1,5 @@
 {
-  "description": "unity guardrails: QA may only edit test paths while a QA run is active, and E2E files are linted after every edit.",
+  "description": "unity guardrails: the test role may only edit test paths while a test run is active, and E2E files are linted after every edit.",
   "hooks": {
     "PreToolUse": [
       {
@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/qa-guard.js\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/test-guard.js\""
           }
         ]
       }
