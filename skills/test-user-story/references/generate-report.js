@@ -41,7 +41,10 @@ const escapeHtml = (value = '') => String(value)
   .replace(/\}/g, '&#125;');
 
 // Markdown table cells: no pipes or line breaks.
-const cell = (value = '') => String(value).replace(/\|/g, '\\|').replace(/\s*\n\s*/g, ' ').trim();
+const flat = (value = '') => String(value).replace(/\|/g, '\\|').replace(/\s*\n\s*/g, ' ').trim();
+// Prose: also wrap @words in backticks, so GitHub doesn't turn test tags like @AC1 into user mentions.
+const cell = (value = '') => flat(value).replace(/(^|[^\w`])@([A-Za-z0-9][\w-]*)/g, '$1`@$2`');
+const code = (value = '') => `\`${flat(value)}\``;
 
 const templateById = (id) => {
   const match = template.match(new RegExp(`<template id="${id}">([\\s\\S]*?)<\\/template>`));
@@ -275,7 +278,7 @@ md.push('');
 md.push(`**Cases:** ${passedCases}/${cases.length} passed${failedCases ? ` · ${failedCases} failed` : ''}${skippedCases ? ` · ${skippedCases} skipped` : ''}  `);
 md.push(`**Criteria tested:** ${coveredCriteria}/${coverage.length}  `);
 md.push(`**Environment:** ${cell(data.environment || '—')} (${cell(data.environmentUrl || '—')})  `);
-md.push(`**Commit:** \`${cell(data.commit || '—')}\` on \`${cell(data.branch || '—')}\``);
+md.push(`**Commit:** ${code(data.commit || '—')} on ${code(data.branch || '—')}`);
 md.push('');
 md.push('### Acceptance criteria');
 md.push('');
@@ -325,8 +328,15 @@ if (flaky.length) {
 
 if (Array.isArray(data.e2eTests) && data.e2eTests.length) {
   md.push('');
-  md.push('### Scripted E2E tests added');
-  for (const test of data.e2eTests) md.push(`- \`${cell(test.file || '')}\` · ${cell(test.title || '')} · ${cell(test.status || '')}`);
+  md.push('### Scripted tests added');
+  md.push('');
+  md.push('| Test | Tags | File | Status |');
+  md.push('| --- | --- | --- | --- |');
+  for (const test of data.e2eTests) {
+    const tags = (test.title || '').match(/@[\w-]+/g) || [];
+    const title = (test.title || '').replace(/@[\w-]+\s*/g, '').trim();
+    md.push(`| ${cell(title)} | ${tags.map(code).join(' ') || '—'} | ${code(test.file || '')} | ${cell(test.status || '')} |`);
+  }
 }
 
 md.push('');
