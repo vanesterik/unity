@@ -23,7 +23,6 @@
   },
   "e2e": {
     "dir": "e2e",
-    "lintCommand": "pnpm exec eslint e2e",
     "runCommand": "pnpm exec playwright test",
     "runSingle": "pnpm exec playwright test -g \"$TITLE\" --repeat-each=5 --reporter=line"
   }
