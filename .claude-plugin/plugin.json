@@ -6,5 +6,6 @@
     "name": "Koen van Esterik"
   },
   "repository": "https://github.com/vanesterik/unity",
+  "license": "MIT",
   "keywords": ["workflow", "playwright", "github-projects", "e2e"]
 }
