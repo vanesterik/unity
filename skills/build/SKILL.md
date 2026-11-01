@@ -94,7 +94,7 @@ What was built, in a few lines, against design v<n>.
 ## Acceptance criteria
 | Criterion | Implemented in | Unit tests |
 | --- | --- | --- |
-| AC1: <text> | `src/checkout.ts` `submitGuestOrder()` | `test/checkout.test.ts` "accepts a guest order" |
+| AC1: <text> | `src/checkout.ts` `submitGuestOrder()` | `test/checkout.test.ts` `accepts a guest order` |
 
 ## Review commit by commit
 1. `<sha>` <subject>
@@ -109,6 +109,8 @@ The commands to start or use what was built.
 ## Unit tests
 The test command and the tail of its output from the final run.
 ```
+
+Put file names, test names and anything else containing `@` in backticks: GitHub turns a bare `@AC1` into a mention of whatever account has that name.
 
 A criterion that unit tests cannot reach (for example one about what the user sees in the browser) gets "verified by the test role" in the Unit tests column, not an invented test.
 
