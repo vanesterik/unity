@@ -82,7 +82,7 @@ scripts/
   pipeline.js            issue resolution, criteria parsing, role comments, PR lookup, board checks and moves, ports
   init-project.js        idempotent per-project file setup used by init
 templates/               pipeline.json, CLAUDE.md workflow section, environments.json
-tests/                   unit tests for the pure parts of pipeline.js
+tests/                   unit tests for pipeline.js and the report generator
 ```
 
 What lives where:
@@ -98,7 +98,7 @@ Skills locate plugin files through `${CLAUDE_SKILL_DIR}`, and hooks through `${C
 
 ## Updating
 
-Run the tests with `node --test tests/pipeline.test.js`. Name the file: bare `node --test` also picks up `hooks/test-guard.js`, which waits on stdin.
+Run the tests with `node --test tests/*.test.js`. Pass the files: bare `node --test` also picks up `hooks/test-guard.js`, which waits on stdin.
 
 Bump `version` in `.claude-plugin/plugin.json` with each change. Projects with `autoUpdate: true` pick up new versions automatically; otherwise run `/plugin marketplace update unity`.
 
