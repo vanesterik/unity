@@ -32,7 +32,7 @@ Then, in each project:
 /unity:init <owner> <project-number>
 ```
 
-Prerequisites: `gh` with project access (`gh auth refresh -s project`), Node, and for web projects Playwright, `eslint-plugin-playwright` and the `playwright-cli` skill.
+Prerequisites: `gh` with project access (`gh auth refresh -s project`), Node, and for web projects Playwright and the `playwright-cli` skill.
 
 ## Commands
 
@@ -67,9 +67,8 @@ skills/
   test-user-story/       exploratory testing + report generator (references/)
   write-e2e-test/        scripted Playwright tests
 hooks/
-  hooks.json             registers the two hooks below
+  hooks.json             registers the hook below
   test-guard.js          during a test run, blocks edits outside the test paths
-  lint-e2e.js            lints E2E files after every edit; lint errors block
 scripts/
   pipeline.js            issue resolution, criteria parsing, board moves, ports
   init-project.js        idempotent per-project file setup used by init

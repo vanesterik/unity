@@ -9,7 +9,7 @@ Create scripted end-to-end or integration tests with Playwright, following the p
 
 Based on Tim Lolkema's write-e2e-test skill, adapted for the design -> build -> test -> review pipeline. Project-specific paths now live in `CLAUDE.md` (section **E2E testing**) and `.claude/pipeline.json` (`e2e`), so this skill works across repositories.
 
-The unity plugin enforces two things with hooks: every edit to a file in `e2e.dir` is linted (`e2e.lintCommand`; lint errors block until fixed), and during a test run edits outside the test paths are blocked.
+During a test run, a unity plugin hook blocks edits outside the test paths.
 
 ## Prerequisites
 
@@ -78,6 +78,8 @@ Otherwise, present the plan: the tests you will write, what each covers and whic
 - Keep tests parallelizable: no shared mutable state, unique test data.
 
 ### 5. Run the test in isolation
+
+If the project lints its tests (for example with `eslint-plugin-playwright`), run its linter on the new files first and fix every error.
 
 Run the test on its own several times to verify stability, using `e2e.runSingle` from `.claude/pipeline.json` (by default `playwright test -g "<title>" --repeat-each=5 --reporter=line`).
 

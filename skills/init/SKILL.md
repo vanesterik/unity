@@ -58,7 +58,7 @@ Inspect the repository and propose values for the `test` and `e2e` blocks of `.c
 - **Package manager**: lockfile (`pnpm-lock.yaml`, `yarn.lock`, `package-lock.json`, `uv.lock`, `poetry.lock`).
 - **How the app starts**: `docker-compose*.yml` / `compose*.yml`, `package.json` scripts (`dev`, `start`, `preview`), `Makefile`. The start command must take its port from `$PORT` and must not collide between issues; use `$ISSUE` for container project names.
 - **Health check**: an existing `/health` or similar route; otherwise the base URL itself.
-- **E2E setup**: `playwright.config.*`, an existing `e2e/` or `tests/e2e/` directory, fixtures, an ESLint config with `eslint-plugin-playwright`.
+- **E2E setup**: `playwright.config.*`, an existing `e2e/` or `tests/e2e/` directory, fixtures.
 - **Integration tests**: their directory and framework (for projects without a UI, such as a CLI or MCP server, these carry the test role).
 - **i18n**: a messages or translations file, and the helper the code uses for it.
 - **UI components** and the **API layer** (GraphQL schema/resolvers or REST routes).
@@ -73,7 +73,6 @@ Report, without installing anything:
 
 - whether Playwright is installed and has a config (web projects)
 - whether the `playwright-cli` skill is available (`test-user-story` drives the browser through it)
-- whether `eslint-plugin-playwright` is configured, and whether `e2e.lintCommand` runs successfully
 - whether the start command brings the app up: only if the user agrees, run `test.start` and the health check once with a test `ISSUE=0`, then `test.stop`
 
 ### 6. Finish

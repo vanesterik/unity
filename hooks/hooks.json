@@ -1,5 +1,5 @@
 {
-  "description": "unity guardrails: the test role may only edit test paths while a test run is active, and E2E files are linted after every edit.",
+  "description": "unity guardrails: the test role may only edit test paths while a test run is active.",
   "hooks": {
     "PreToolUse": [
       {
@@ -8,18 +8,6 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/test-guard.js\""
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/lint-e2e.js\"",
-            "statusMessage": "Running E2E lint checks..."
           }
         ]
       }
