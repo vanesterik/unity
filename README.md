@@ -75,9 +75,10 @@ hooks/
   hooks.json             registers the hook below
   test-guard.js          during a test run, blocks edits outside the test paths
 scripts/
-  pipeline.js            issue resolution, criteria parsing, board moves, ports
+  pipeline.js            issue resolution, criteria parsing, role comments, PR lookup, board checks and moves, ports
   init-project.js        idempotent per-project file setup used by init
 templates/               pipeline.json, CLAUDE.md workflow section, environments.json
+tests/                   unit tests for the pure parts of pipeline.js
 ```
 
 What lives where:
@@ -92,6 +93,8 @@ Skills locate plugin files through `${CLAUDE_SKILL_DIR}`, and hooks through `${C
 `/unity:test` writes `artifacts/.test-active` when a run starts and removes it at the end. While that file exists, `test-guard.js` blocks Edit/Write outside `test.writablePaths`. Outside a test run the guard does nothing. If a run is interrupted and edits stay blocked, delete `artifacts/.test-active`.
 
 ## Updating
+
+Run the tests with `node --test tests/pipeline.test.js`. Name the file: bare `node --test` also picks up `hooks/test-guard.js`, which waits on stdin.
 
 Bump `version` in `.claude-plugin/plugin.json` with each change. Projects with `autoUpdate: true` pick up new versions automatically; otherwise run `/plugin marketplace update unity`.
 
