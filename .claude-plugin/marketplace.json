@@ -3,6 +3,7 @@
   "owner": {
     "name": "Koen van Esterik"
   },
+  "description": "Marketplace for unity: a role-based development flow (design -> build -> test -> review) for Claude Code on GitHub issues and Projects.",
   "plugins": [
     {
       "name": "unity",
