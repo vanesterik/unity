@@ -7,7 +7,10 @@
 //   pipeline.js init <owner> <project-number>   discover project/field/option IDs into .claude/pipeline.json
 //   pipeline.js resolve [arg]                   print the issue number (arg, #n, URL, or current branch)
 //   pipeline.js story [arg]                     issue + latest design + acceptance criteria as JSON
+//   pipeline.js comments <issue> <role>         latest <!-- role:<role> --> comment on the issue or its PR, as JSON
+//   pipeline.js pr <issue>                      the open PR for the issue (number, url, branch, head SHA), as JSON
 //   pipeline.js queue <Column>                  issues of this repo in a board column, as JSON
+//   pipeline.js check <issue> <Column>          exit 1 unless the issue is in this column; prints its column as JSON
 //   pipeline.js status <issue> <Column>         move the issue's project item to a column
 //   pipeline.js port <issue>                    deterministic local port for this issue's worktree
 const fs = require('fs');
@@ -58,7 +61,13 @@ const issueFromPr = (pr) => {
 
 // ---------- design + acceptance criteria parsing ----------
 
-const DESIGN_MARKER = '<!-- role:design';
+// Latest entry ({ body, createdAt, ... }) whose body carries <!-- role:<role> ... -->, or null.
+const latestRoleComment = (entries, role) => {
+  const marker = new RegExp(`<!--\\s*role:${role}(?=\\s|-->)`);
+  const matches = entries.filter((entry) => marker.test(entry.body || ''));
+  matches.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+  return matches.length ? matches[matches.length - 1] : null;
+};
 
 const parseCriteria = (markdown = '') => {
   const lines = markdown.split(/\r?\n/);
@@ -77,8 +86,7 @@ const story = (arg) => {
   const number = resolveIssue(arg);
   if (!number) die('Could not determine the issue. Pass a number, or run on a feature/<n>-<slug> branch.');
   const issue = ghJson(['issue', 'view', String(number), '--json', 'number,title,url,body,state,comments']);
-  const designs = (issue.comments || []).filter((comment) => (comment.body || '').includes(DESIGN_MARKER));
-  const design = designs.length ? designs[designs.length - 1] : null;
+  const design = latestRoleComment(issue.comments || [], 'design');
   let criteria = design ? parseCriteria(design.body) : [];
   let criteriaSource = design ? 'design-comment' : null;
   if (!criteria.length) {
@@ -86,12 +94,8 @@ const story = (arg) => {
     criteriaSource = criteria.length ? 'issue-body' : null;
   }
   const branch = currentBranch();
-  let pr = null;
-  try {
-    const prs = ghJson(['pr', 'list', '--search', `${number} in:body`, '--state', 'open', '--json', 'number,url,headRefName,body']);
-    pr = (prs || []).find((p) => new RegExp(`(closes|fixes|resolves)\\s+#${number}\\b`, 'i').test(p.body || '')) || null;
-    if (pr) delete pr.body;
-  } catch { /* no PR yet */ }
+  const found = findPr(number);
+  const pr = found ? { number: found.number, url: found.url, headRefName: found.headRefName } : null;
   return {
     number: issue.number,
     title: issue.title,
@@ -108,7 +112,56 @@ const story = (arg) => {
   };
 };
 
+// ---------- pull request + role comments ----------
+
+const findPr = (number) => {
+  try {
+    const prs = ghJson(['pr', 'list', '--search', `${number} in:body`, '--state', 'open', '--json', 'number,url,headRefName,headRefOid,body,createdAt']);
+    return (prs || []).find((p) => new RegExp(`(closes|fixes|resolves)\\s+#${number}\\b`, 'i').test(p.body || '')) || null;
+  } catch { return null; } // no PR yet
+};
+
+const pr = (issueArg) => {
+  const number = resolveIssue(issueArg);
+  if (!number) die('Usage: pipeline.js pr <issue>');
+  const found = findPr(number);
+  return found ? { number: found.number, url: found.url, branch: found.headRefName, headSha: found.headRefOid } : null;
+};
+
+// Role output can sit in an issue comment, the PR body, a PR comment or a PR review body.
+const comments = (issueArg, role) => {
+  const number = resolveIssue(issueArg);
+  if (!number || !role) die('Usage: pipeline.js comments <issue> <role>');
+  const issue = ghJson(['issue', 'view', String(number), '--json', 'comments']);
+  const entries = (issue.comments || []).map((c) => ({ source: 'issue-comment', body: c.body, createdAt: c.createdAt, url: c.url }));
+  const found = findPr(number);
+  if (found) {
+    entries.push({ source: 'pr-body', body: found.body, createdAt: found.createdAt, url: found.url });
+    const detail = ghJson(['pr', 'view', String(found.number), '--json', 'comments,reviews']);
+    for (const c of detail.comments || []) entries.push({ source: 'pr-comment', body: c.body, createdAt: c.createdAt, url: c.url });
+    for (const r of detail.reviews || []) entries.push({ source: 'pr-review', body: r.body, createdAt: r.submittedAt, url: found.url });
+  }
+  return latestRoleComment(entries, role);
+};
+
 // ---------- GitHub Projects ----------
+
+const COLUMNS = ['Backlog', 'Design', 'Build', 'Test', 'Review', 'Done'];
+
+// Compares the board's Status options with the expected columns. A column that matches
+// only after ignoring case and spacing is "misnamed", so the user can rename it.
+const columnReport = (expected, actual) => {
+  const normalize = (name) => name.toLowerCase().replace(/\s+/g, '');
+  const missing = [];
+  const misnamed = [];
+  for (const name of expected) {
+    if (actual.includes(name)) continue;
+    const close = actual.find((option) => normalize(option) === normalize(name));
+    if (close !== undefined) misnamed.push({ expected: name, found: close });
+    else missing.push(name);
+  }
+  return { missing, misnamed };
+};
 
 const init = (owner, projectNumber) => {
   if (!owner || !projectNumber) die('Usage: pipeline.js init <owner> <project-number>');
@@ -129,9 +182,9 @@ const init = (owner, projectNumber) => {
   };
   fs.mkdirSync(path.dirname(configPath), { recursive: true });
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
-  const expected = ['Backlog', 'Design', 'Build', 'Test', 'Review', 'Done'];
-  const missing = expected.filter((name) => !config.project.options[name]);
+  const { missing, misnamed } = columnReport(COLUMNS, Object.keys(config.project.options));
   console.log(`Wrote ${configPath}`);
+  for (const { expected, found } of misnamed) console.log(`Warning: board column "${found}" must be named exactly "${expected}"`);
   if (missing.length) console.log(`Warning: board is missing columns: ${missing.join(', ')}`);
 };
 
@@ -149,16 +202,33 @@ const setStatus = (issueArg, column) => {
   console.log(`#${number} -> ${column}`);
 };
 
+// Issue items of this repo on the board.
+const boardIssues = (config) => {
+  const repo = currentRepo();
+  const data = ghJson(['project', 'item-list', String(config.project.number), '--owner', config.project.owner, '--format', 'json', '--limit', '1000']);
+  return (data.items || [])
+    .filter((item) => item.content && item.content.type === 'Issue')
+    .filter((item) => !item.content.repository || item.content.repository === repo);
+};
+
 const queue = (column) => {
   const config = loadConfig();
   if (!column) die('Usage: pipeline.js queue <Column>');
-  const repo = currentRepo();
-  const data = ghJson(['project', 'item-list', String(config.project.number), '--owner', config.project.owner, '--format', 'json', '--limit', '1000']);
-  const items = (data.items || [])
-    .filter((item) => item.status === column && item.content && item.content.type === 'Issue')
-    .filter((item) => !item.content.repository || item.content.repository === repo)
+  const items = boardIssues(config)
+    .filter((item) => item.status === column)
     .map((item) => ({ number: item.content.number, title: item.content.title, url: item.content.url }));
   console.log(JSON.stringify(items, null, 2));
+};
+
+const check = (issueArg, column) => {
+  const config = loadConfig();
+  const number = resolveIssue(issueArg);
+  if (!number || !column) die('Usage: pipeline.js check <issue> <Column>');
+  if (!config.project.options[column]) die(`Unknown column "${column}". Known: ${Object.keys(config.project.options).join(', ')}`);
+  const item = boardIssues(config).find((i) => i.content.number === number);
+  const status = item ? (item.status || null) : null;
+  console.log(JSON.stringify({ number, status }));
+  if (status !== column) die(`#${number} is ${item ? `in ${status || 'no column'}` : 'not on the board'}, expected ${column}`);
 };
 
 const port = (issueArg) => {
@@ -177,13 +247,16 @@ if (require.main === module) {
     if (command === 'init') init(args[0], args[1]);
     else if (command === 'resolve') { const n = resolveIssue(args[0]); if (!n) die('No issue found'); console.log(n); }
     else if (command === 'story') console.log(JSON.stringify(story(args[0]), null, 2));
+    else if (command === 'comments') console.log(JSON.stringify(comments(args[0], args[1]), null, 2));
+    else if (command === 'pr') console.log(JSON.stringify(pr(args[0]), null, 2));
     else if (command === 'queue') queue(args.join(' '));
+    else if (command === 'check') check(args[0], args.slice(1).join(' '));
     else if (command === 'status') setStatus(args[0], args.slice(1).join(' '));
     else if (command === 'port') port(args[0]);
-    else die('Commands: init | resolve | story | queue | status | port');
+    else die('Commands: init | resolve | story | comments | pr | queue | check | status | port');
   } catch (error) {
     die(error.stderr ? String(error.stderr) : error.message);
   }
 }
 
-module.exports = { parseCriteria, resolveIssue };
+module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport };

@@ -49,7 +49,7 @@ It creates or updates:
 node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" init <owner> <project-number>
 ```
 
-This writes the project, Status field and column IDs into `.claude/pipeline.json`. If it warns about missing columns, tell the user exactly which ones to add to the board's **Status** field (Backlog, Design, Build, Test, Review, Done), then run this step again. Do not continue until all columns exist.
+This writes the project, Status field and column IDs into `.claude/pipeline.json`. If it warns about missing or misnamed columns, tell the user exactly which ones to add or rename in the board's **Status** field (Backlog, Design, Build, Test, Review, Done), then run this step again. Do not continue until all columns exist.
 
 ### 4. Fill in the project specifics
 
