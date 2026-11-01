@@ -1,8 +1,8 @@
 # unity
 
-A Claude Code plugin for a role-based development flow on GitHub: **architect -> build -> qa -> review**. Each role runs in a fresh context, and GitHub issues, PRs and a Project board are the only handoff between roles.
+A Claude Code plugin for a role-based development flow on GitHub: **design -> build -> test -> review**. Each role runs in a fresh context, and GitHub issues, PRs and a Project board are the only handoff between roles.
 
-This version ships the **QA role** and the shared plumbing. `architect`, `build` and `review` follow the same conventions and are planned next.
+This version ships the **test role** and the shared plumbing. `design`, `build` and `review` follow the same conventions and are planned next.
 
 ## Install
 
@@ -39,7 +39,7 @@ Prerequisites: `gh` with project access (`gh auth refresh -s project`), Node, an
 | Command | What it does |
 | --- | --- |
 | `/unity:init <owner> <project>` | Sets up a repo: config, `CLAUDE.md` section, `.gitignore`, plugin settings, board IDs, detected start/test commands |
-| `/unity:qa <issue> [auto]` | QA phase: explore against acceptance criteria, write scripted tests, post the result on the PR, move the issue on the board |
+| `/unity:test <issue> [auto]` | Test phase: explore against acceptance criteria, write scripted tests, post the result on the PR, move the issue on the board |
 | `/unity:test-user-story <issue or story>` | Exploratory browser testing with an evidence report; also usable on its own |
 | `/unity:write-e2e-test` | Write and stabilize Playwright tests; also usable on its own |
 | `/unity:get-user-story <issue>` | Issue + latest design + acceptance criteria, as used by the skills above |
@@ -48,9 +48,11 @@ Prerequisites: `gh` with project access (`gh auth refresh -s project`), Node, an
 
 The GitHub Project's **Status** field is the workflow state. The columns must be named exactly:
 
-`Backlog` · `Design` · `Ready to Build` · `Building` · `QA` · `Review` · `Done`
+`Backlog` · `Design` · `Build` · `Test` · `Review` · `Done`
 
-Only you move an issue from Design to Ready to Build. QA moves it to Review on a pass, or back to Building on a failure.
+Each role is named after the column it works in. Picking an issue with `/unity:design` sets the flow in motion: design moves it to Build once you approve the design in conversation, build to Test when the PR is open, test to Review on a pass (or back to Build on a failure), and merging moves it to Done.
+
+Designs and plans live in the issue as the `role:design` comment, not as files in the repository.
 
 ## Layout
 
@@ -60,13 +62,13 @@ Only you move an issue from Design to Ready to Build. QA moves it to Review on a
   marketplace.json       this repo as a one-plugin marketplace
 skills/
   init/                  project setup
-  qa/                    QA role
+  test/                  test role
   get-user-story/        issue -> story with acceptance criteria
   test-user-story/       exploratory testing + report generator (references/)
   write-e2e-test/        scripted Playwright tests
 hooks/
   hooks.json             registers the two hooks below
-  qa-guard.js            during a QA run, blocks edits outside the test paths
+  test-guard.js          during a test run, blocks edits outside the test paths
   lint-e2e.js            lints E2E files after every edit; lint errors block
 scripts/
   pipeline.js            issue resolution, criteria parsing, board moves, ports
@@ -77,13 +79,13 @@ templates/               pipeline.json, CLAUDE.md workflow section, environments
 What lives where:
 
 - **In this plugin (shared):** skills, hooks, scripts, report template.
-- **In each project:** `.claude/pipeline.json` (board IDs, start/stop and test commands), the workflow section of `CLAUDE.md`, `environments.json`, and `ai-evidence/` in `.gitignore`.
+- **In each project:** `.claude/pipeline.json` (board IDs, start/stop and test commands), the workflow section of `CLAUDE.md`, `environments.json`, and `artifacts/` in `.gitignore`.
 
 Skills locate plugin files through `${CLAUDE_SKILL_DIR}`, and hooks through `${CLAUDE_PLUGIN_ROOT}`. Project files are found through `CLAUDE_PROJECT_DIR` or the git root, so the same plugin works in every repo and worktree.
 
-## How the QA guard works
+## How the test guard works
 
-`/unity:qa` writes `ai-evidence/.qa-active` when a run starts and removes it at the end. While that file exists, `qa-guard.js` blocks Edit/Write outside `qa.writablePaths`. Outside a QA run the guard does nothing. If a run is interrupted and edits stay blocked, delete `ai-evidence/.qa-active`.
+`/unity:test` writes `artifacts/.test-active` when a run starts and removes it at the end. While that file exists, `test-guard.js` blocks Edit/Write outside `test.writablePaths`. Outside a test run the guard does nothing. If a run is interrupted and edits stay blocked, delete `artifacts/.test-active`.
 
 ## Updating
 

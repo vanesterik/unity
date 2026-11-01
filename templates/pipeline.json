@@ -7,20 +7,19 @@
     "options": {
       "Backlog": "<filled by init>",
       "Design": "<filled by init>",
-      "Ready to Build": "<filled by init>",
-      "Building": "<filled by init>",
-      "QA": "<filled by init>",
+      "Build": "<filled by init>",
+      "Test": "<filled by init>",
       "Review": "<filled by init>",
       "Done": "<filled by init>"
     }
   },
-  "qa": {
+  "test": {
     "basePort": 4000,
-    "start": "PORT=$PORT docker compose -p qa-$ISSUE up -d --wait",
-    "stop": "docker compose -p qa-$ISSUE down -v",
+    "start": "PORT=$PORT docker compose -p test-$ISSUE up -d --wait",
+    "stop": "docker compose -p test-$ISSUE down -v",
     "healthUrl": "http://localhost:$PORT/health",
     "baseUrl": "http://localhost:$PORT",
-    "writablePaths": ["e2e/", "tests/integration/", "ai-evidence/"]
+    "writablePaths": ["e2e/", "tests/integration/", "artifacts/"]
   },
   "e2e": {
     "dir": "e2e",

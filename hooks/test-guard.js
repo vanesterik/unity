@@ -1,18 +1,18 @@
 #!/usr/bin/env node
-// PreToolUse guard for the QA role. Active only while a QA run is in progress,
-// which /unity:qa signals by writing ai-evidence/.qa-active in the project.
-// While active, Edit/Write/MultiEdit outside qa.writablePaths (.claude/pipeline.json) is blocked (exit 2).
+// PreToolUse guard for the test role. Active only while a test run is in progress,
+// which /unity:test signals by writing artifacts/.test-active in the project.
+// While active, Edit/Write/MultiEdit outside test.writablePaths (.claude/pipeline.json) is blocked (exit 2).
 // This is a guardrail, not a sandbox: shell commands are not intercepted.
 const fs = require('fs');
 const path = require('path');
 
 const root = process.env.CLAUDE_PROJECT_DIR || process.cwd();
-const marker = path.join(root, 'ai-evidence', '.qa-active');
+const marker = path.join(root, 'artifacts', '.test-active');
 
 let input = '';
 process.stdin.on('data', (chunk) => { input += chunk; });
 process.stdin.on('end', () => {
-  if (!fs.existsSync(marker)) process.exit(0); // not in a QA run: allow everything
+  if (!fs.existsSync(marker)) process.exit(0); // not in a test run: allow everything
 
   let filePath;
   try {
@@ -21,10 +21,10 @@ process.stdin.on('end', () => {
   } catch { process.exit(0); }
   if (!filePath) process.exit(0);
 
-  let allowed = ['e2e/', 'tests/integration/', 'ai-evidence/'];
+  let allowed = ['e2e/', 'tests/integration/', 'artifacts/'];
   try {
     const config = JSON.parse(fs.readFileSync(path.join(root, '.claude', 'pipeline.json'), 'utf8'));
-    if (config.qa && Array.isArray(config.qa.writablePaths)) allowed = config.qa.writablePaths;
+    if (config.test && Array.isArray(config.test.writablePaths)) allowed = config.test.writablePaths;
   } catch { /* defaults */ }
 
   const relative = path.relative(root, path.resolve(root, filePath)).split(path.sep).join('/');
@@ -36,10 +36,10 @@ process.stdin.on('end', () => {
 
   const issue = fs.readFileSync(marker, 'utf8').trim();
   console.error(
-    `QA run${issue ? ` for #${issue}` : ''} is active: QA may not modify ${relative}.\n` +
-    `QA writes only to: ${allowed.join(', ')}.\n` +
-    'If the application is wrong, keep the failing test, record the failure in report-data.json, and send the issue back to Building.\n' +
-    '(No QA run in progress? A previous run did not clean up: delete ai-evidence/.qa-active.)'
+    `Test run${issue ? ` for #${issue}` : ''} is active: the test role may not modify ${relative}.\n` +
+    `The test role writes only to: ${allowed.join(', ')}.\n` +
+    'If the application is wrong, keep the failing test, record the failure in report-data.json, and send the issue back to Build.\n' +
+    '(No test run in progress? A previous run did not clean up: delete artifacts/.test-active.)'
   );
   process.exit(2);
 });

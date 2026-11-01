@@ -1,10 +1,10 @@
 {
   "name": "unity",
   "version": "0.1.0",
-  "description": "Role-based development flow for Claude Code (architect -> build -> qa -> review) on GitHub issues and Projects. Ships the QA role: exploratory testing with evidence, scripted Playwright tests, criteria coverage and board transitions.",
+  "description": "Role-based development flow for Claude Code (design -> build -> test -> review) on GitHub issues and Projects. Ships the test role: exploratory testing with evidence, scripted Playwright tests, criteria coverage and board transitions.",
   "author": {
     "name": "Koen van Esterik"
   },
   "repository": "https://github.com/vanesterik/unity",
-  "keywords": ["workflow", "qa", "playwright", "github-projects", "e2e"]
+  "keywords": ["workflow", "playwright", "github-projects", "e2e"]
 }

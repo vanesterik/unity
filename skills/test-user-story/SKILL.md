@@ -1,6 +1,6 @@
 ---
 name: test-user-story
-description: Exploratory, agentic testing of a user story or GitHub issue in a real browser using the 'playwright-cli' skill. Derives test cases from the acceptance criteria, executes them, and produces an evidence report with criteria coverage. Trigger when the user asks to test a user story or issue, or to verify local development changes. Also used by /unity:qa.
+description: Exploratory, agentic testing of a user story or GitHub issue in a real browser using the 'playwright-cli' skill. Derives test cases from the acceptance criteria, executes them, and produces an evidence report with criteria coverage. Trigger when the user asks to test a user story or issue, or to verify local development changes. Also used by /unity:test.
 allowed-tools: Bash
 ---
 
@@ -8,12 +8,12 @@ allowed-tools: Bash
 
 Validate a user story by deriving test cases from its acceptance criteria and executing each one with the `playwright-cli` skill. Produce evidence of what was actually done, not just a verdict.
 
-Based on Tim Lolkema's test-user-story skill, adapted for the architect -> build -> qa -> review pipeline.
+Based on Tim Lolkema's test-user-story skill, adapted for the design -> build -> test -> review pipeline.
 
 ## Variables
 
 INPUT: the full text of $ARGUMENTS
-PIPELINE_MODE: true when this skill is called by `/unity:qa` (the caller passes `pipeline` plus the issue number, environment URL and evidence type). In pipeline mode, ask no questions and use the values passed in.
+PIPELINE_MODE: true when this skill is called by `/unity:test` (the caller passes `pipeline` plus the issue number, environment URL and evidence type). In pipeline mode, ask no questions and use the values passed in.
 
 - If INPUT is an issue number, issue URL, or "this branch", use the `unity:get-user-story` skill to retrieve the story and its acceptance criteria.
 - If INPUT is free text, treat it as the story. Extract or ask for numbered acceptance criteria (AC1, AC2, ...) before continuing.
@@ -55,7 +55,7 @@ Otherwise, ask in one multiple-choice round:
 Create the evidence directory, named after the issue: `<issue-number>-<slug>`, lowercase, hyphens only (e.g. `42-guest-checkout`). Without an issue, use the slug alone.
 
 ```bash
-mkdir -p ai-evidence/<run-name>
+mkdir -p artifacts/<run-name>
 ```
 
 Use this directory for all evidence, the run data, and the report. Capture only the selected evidence type unless that type is technically impossible.
@@ -75,7 +75,7 @@ For every screenshot, including fallback screenshots:
 
 - Identify all elements needed to demonstrate the checkpoint's action and its expected or actual result, including relevant inputs, messages, totals and surrounding context. Frame the capture around those elements, not merely the top of the page or the current viewport.
 - Wait for the relevant UI to finish rendering, then scroll the relevant elements into view. Use a viewport or element screenshot only when it includes all relevant information without clipping or hiding it.
-- If relevant content extends beyond the viewport, capture a full-page screenshot using `playwright-cli run-code "async page => { await page.screenshot({ path: 'ai-evidence/<run-name>/<screenshot-name>.png', fullPage: true }); }"`. Full-page capture does not reveal content hidden inside independently scrollable panels, so scroll those as needed. If one image cannot show everything legibly, take complementary screenshots for the same checkpoint and label each with the step name and the view shown.
+- If relevant content extends beyond the viewport, capture a full-page screenshot using `playwright-cli run-code "async page => { await page.screenshot({ path: 'artifacts/<run-name>/<screenshot-name>.png', fullPage: true }); }"`. Full-page capture does not reveal content hidden inside independently scrollable panels, so scroll those as needed. If one image cannot show everything legibly, take complementary screenshots for the same checkpoint and label each with the step name and the view shown.
 - Inspect every saved image before adding it to the report. Confirm that all relevant elements are visible, readable, and not clipped or obscured by overlays or sticky headers. If evidence is incomplete, adjust the framing and retake it. Do not change the tested state or dismiss a relevant failure message to improve the image.
 
 If `screenshots` was selected:
@@ -94,7 +94,7 @@ For failures, also capture the JavaScript console errors at the moment of failur
 
 ### Step 4 - Generate the report
 
-Write `ai-evidence/<run-name>/report-data.json` in this shape:
+Write `artifacts/<run-name>/report-data.json` in this shape:
 
 ```json
 {
@@ -143,13 +143,13 @@ Write `ai-evidence/<run-name>/report-data.json` in this shape:
 Then run the generator exactly like this:
 
 ```bash
-node "${CLAUDE_SKILL_DIR}/references/generate-report.js" ai-evidence/<run-name>/report-data.json
+node "${CLAUDE_SKILL_DIR}/references/generate-report.js" artifacts/<run-name>/report-data.json
 ```
 
 It validates the data, refuses unknown criterion IDs and missing evidence files, and writes:
 
 - `index.html`: the visual evidence report, with an acceptance-criteria coverage table
-- `summary.md`: the same result as GitHub markdown, starting with `<!-- role:qa -->`, ready to post on the PR
+- `summary.md`: the same result as GitHub markdown, starting with `<!-- role:test -->`, ready to post on the PR
 
 Before reporting completion, verify:
 
@@ -160,7 +160,7 @@ Before reporting completion, verify:
 Open `index.html` in the default browser only when not in PIPELINE_MODE:
 
 ```bash
-node -e "const{execSync}=require('child_process');const c=process.platform;const r='ai-evidence/<run-name>/index.html';execSync(c==='win32'?'start \"\" \"'+r+'\"':c==='darwin'?'open '+r:'xdg-open '+r,{cwd:process.cwd()})"
+node -e "const{execSync}=require('child_process');const c=process.platform;const r='artifacts/<run-name>/index.html';execSync(c==='win32'?'start \"\" \"'+r+'\"':c==='darwin'?'open '+r:'xdg-open '+r,{cwd:process.cwd()})"
 ```
 
 ### Step 5 - Report
