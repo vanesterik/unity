@@ -2,7 +2,7 @@
 
 A Claude Code plugin for a role-based development flow on GitHub: **design -> build -> test -> review**. Each role runs in a fresh context, and GitHub issues, PRs and a Project board are the only handoff between roles.
 
-This version ships the **test role** and the shared plumbing. `design`, `build` and `review` follow the same conventions and are planned next.
+This version ships the **design** and **test** roles and the shared plumbing. `build` and `review` follow the same conventions and are planned next.
 
 ## Install
 
@@ -44,6 +44,7 @@ Prerequisites:
 | Command | What it does |
 | --- | --- |
 | `/unity:init <owner> <project>` | Sets up a repo: config, `CLAUDE.md` section, `.gitignore`, plugin settings, board IDs, detected start/test commands |
+| `/unity:design <issue>` | Design phase: pick up an issue, work out the design with you, post design + acceptance criteria + plan as one issue comment, move it to Build on your approval |
 | `/unity:test <issue> [auto]` | Test phase: explore against acceptance criteria, write scripted tests, post the result on the PR, move the issue on the board |
 | `/unity:test-user-story <issue or story>` | Exploratory browser testing with an evidence report; also usable on its own |
 | `/unity:write-e2e-test` | Write and stabilize Playwright tests; also usable on its own |
@@ -67,6 +68,7 @@ Designs and plans live in the issue as the `role:design` comment, not as files i
   marketplace.json       this repo as a one-plugin marketplace
 skills/
   init/                  project setup
+  design/                design role
   test/                  test role
   get-user-story/        issue -> story with acceptance criteria
   test-user-story/       exploratory testing + report generator (references/)
