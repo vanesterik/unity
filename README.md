@@ -2,7 +2,7 @@
 
 A Claude Code plugin for a role-based development flow on GitHub: **design -> build -> test -> review**. Each role runs in a fresh context, and GitHub issues, PRs and a Project board are the only handoff between roles.
 
-This version ships the **design** and **test** roles and the shared plumbing. `build` and `review` follow the same conventions and are planned next.
+This version ships the **design**, **build** and **test** roles and the shared plumbing. `review` follows the same conventions and is planned next.
 
 ## Install
 
@@ -45,6 +45,7 @@ Prerequisites:
 | --- | --- |
 | `/unity:init <owner> <project>` | Sets up a repo: config, `CLAUDE.md` section, `.gitignore`, plugin settings, board IDs, detected start/test commands |
 | `/unity:design <issue>` | Design phase: pick up an issue, work out the design with you, post design + acceptance criteria + plan as one issue comment, move it to Build on your approval |
+| `/unity:build <issue>` | Build phase: implement the approved plan task by task with test-first unit tests, open a PR that maps each criterion to code and tests, move it to Test; also handles rework |
 | `/unity:test <issue> [auto]` | Test phase: explore against acceptance criteria, write scripted tests, post the result on the PR, move the issue on the board |
 | `/unity:test-user-story <issue or story>` | Exploratory browser testing with an evidence report; also usable on its own |
 | `/unity:write-e2e-test` | Write and stabilize Playwright tests; also usable on its own |
@@ -69,6 +70,7 @@ Designs and plans live in the issue as the `role:design` comment, not as files i
 skills/
   init/                  project setup
   design/                design role
+  build/                 build role
   test/                  test role
   get-user-story/        issue -> story with acceptance criteria
   test-user-story/       exploratory testing + report generator (references/)
