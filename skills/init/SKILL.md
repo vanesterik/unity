@@ -63,6 +63,8 @@ Inspect the repository and propose values for the `test` and `e2e` blocks of `.c
 - **i18n**: a messages or translations file, and the helper the code uses for it.
 - **UI components** and the **API layer** (GraphQL schema/resolvers or REST routes).
 
+For a project with nothing to start (a CLI tool or a library), set `test.start`, `test.stop`, `test.healthUrl` and `test.baseUrl` to empty strings: the test role then runs everything in the PR checkout. For a project without a browser UI, drop the `e2e` block and fill in `integration.dir` and `integration.runCommand`; the command runs every integration test and must not be part of the unit test command.
+
 Also set `test.writablePaths` to the E2E directory, the integration test directory and `artifacts/`.
 
 Present the proposed values in one short list and ask the user to confirm or correct them, in a single question round. Mark anything you could not find as missing instead of guessing. Then write the confirmed values into `.claude/pipeline.json` and the **E2E testing** section of `CLAUDE.md`. Edit only inside the `unity:workflow` markers.
@@ -73,6 +75,7 @@ Report, without installing anything:
 
 - whether Playwright is installed and has a config (web projects)
 - whether the `playwright-cli` skill is available (`test-user-story` drives the browser through it)
+- whether `integration.runCommand` runs (projects with integration tests)
 - whether the start command brings the app up: only if the user agrees, run `test.start` and the health check once with a test `ISSUE=0`, then `test.stop`
 
 ### 6. Finish

@@ -53,7 +53,9 @@ ISSUE=<n>
 PORT=$(node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" port $ISSUE)
 ```
 
-Run `test.start` with `ISSUE` and `PORT` exported, then poll `test.healthUrl` until it responds (at most about 2 minutes, with short sleeps between polls). The environment URL is `test.baseUrl` with `$PORT` filled in.
+If `test.start` is empty, the project has nothing to start (a CLI tool, a library): skip the rest of this step and `test.stop` in step 7, and run everything directly in the PR checkout. The environment is "local checkout".
+
+Otherwise run `test.start` with `ISSUE` and `PORT` exported, then poll `test.healthUrl` until it responds (at most about 2 minutes, with short sleeps between polls). The environment URL is `test.baseUrl` with `$PORT` filled in.
 
 If the environment does not come up, stop and report it. A system that cannot start is a FAIL for the build, not an untested story: move the issue back to **Build** with the startup output in a PR comment.
 
@@ -77,9 +79,9 @@ For a project without a UI (CLI tool, MCP server, API), explore the same way, bu
 
 Use the `unity:write-e2e-test` skill in pipeline mode on the cases from step 3. It selects the cases to codify, writes the tests with `@issue-<n>` and criterion tags, and validates them with repeated isolated runs.
 
-For a project without a browser UI, write integration tests in the project's test framework under the integration directory instead, with the same rules: tagged by criterion, stable over repeated runs, and failing tests kept when the application is wrong.
+For a project without a browser UI, write integration tests in the project's test framework under `integration.dir` instead, with the same rules: tagged by criterion, stable over repeated runs, and failing tests kept when the application is wrong.
 
-Then run the complete E2E/integration suite once (`e2e.runCommand`) to check that the new tests don't break existing ones.
+Then run the complete suite once (`e2e.runCommand` for E2E tests, `integration.runCommand` for integration tests) to check that the new tests don't break existing ones. If the command is missing, stop and ask the developer for it, and suggest adding it to `.claude/pipeline.json`: tests that nothing runs protect nothing.
 
 Add the codified tests to `report-data.json` and regenerate, so they appear in the summary:
 
@@ -127,7 +129,7 @@ Based on the generator's `overallStatus`:
 
 Always, even when an earlier step failed:
 
-1. Run `test.stop` with the same `ISSUE`.
+1. Run `test.stop` with the same `ISSUE`, if the project has one.
 2. End the test run, which switches the guard off again:
 
    ```bash
