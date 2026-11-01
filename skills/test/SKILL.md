@@ -115,6 +115,12 @@ Post the summary on the PR, exactly as generated:
 gh pr comment <pr> --body-file artifacts/<n>-<slug>/summary.md
 ```
 
+`gh pr comment` prints the comment's URL. Leave a one-line pointer on the issue, so the issue reads as a timeline of the flow. It has no `role:` marker, so no role mistakes it for the report:
+
+```bash
+gh issue comment <n> --body "<✅ for PASS, ❌ for FAILURE, ⚠️ for INCOMPLETE> Test <overallStatus> on \`<commit>\`: <comment URL>"
+```
+
 ### 6. Move the issue
 
 Based on the generator's `overallStatus`:

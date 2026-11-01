@@ -125,6 +125,12 @@ When every task is done:
    node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" status <n> Test
    ```
 
+4. Leave a one-line pointer on the issue, without a `role:` marker, so the issue reads as a timeline of the flow:
+
+   ```bash
+   gh issue comment <n> --body "🔨 Built: <pr URL> (<k> commits, unit tests <passed>/<total>)"
+   ```
+
 ### 6. Rework
 
 The PR exists, so the test role or the review sent the issue back. Find out why:
@@ -153,7 +159,10 @@ Add a row for any finding you disagree with, saying why, and leave it unfixed. U
 
 ```bash
 node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" status <n> Test
+gh issue comment <n> --body "🔨 Reworked <test|review> findings: <rework comment URL>"
 ```
+
+The pointer has no `role:` marker.
 
 ## Finish
 
