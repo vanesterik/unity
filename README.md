@@ -73,7 +73,7 @@ skills/
   design/                design role
   build/                 build role
   test/                  test role
-  review/                review role
+  review/                review role + review comment generator (references/)
   get-user-story/        issue -> story with acceptance criteria
   test-user-story/       exploratory testing + report generator (references/)
   write-e2e-test/        scripted Playwright tests

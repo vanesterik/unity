@@ -20,7 +20,7 @@ ARGS: $ARGUMENTS
 2. **Every blocking finding is concrete and reproducible:** a `file:line`, what is wrong, and how to see it go wrong (an input, a sequence of steps, a failing case). "Could be cleaner" is never blocking.
 3. **The design is the requirement.** Check the code against the latest `role:design` comment and its acceptance criteria. Where the design is silent, judge by what a reasonable user of this software would expect; a design's silence is not permission.
 4. **Don't read the builder's reasoning beyond the PR body.** No ledger, no notes in `artifacts/`. If the code needs its author to explain it, that is a finding.
-5. **Formatting:** put file names, test names and anything containing `@` in backticks, so GitHub doesn't turn `@AC1` into a mention.
+5. **Formatting:** in finding bodies and strengths, put file names, test names and commands in backticks. The report script wraps any bare `@word` itself, so GitHub doesn't turn `@AC1` into a mention.
 
 ## Workflow
 
@@ -82,48 +82,48 @@ Before deciding, list every behaviour you considered and set aside as outside th
 
 ### 4. Post the verdict
 
-Write `artifacts/<n>-<slug>/review.md` in this shape. The marker must be the first line:
+Write your review as `artifacts/<n>-<slug>/review-data.json`:
 
-```markdown
-<!-- role:review -->
-## <✅ for APPROVE, ❌ for CHANGES REQUESTED> Review <APPROVE | CHANGES REQUESTED> · #<n> · <issue title>
-
-**Criteria met:** <met>/<total>  
-**Findings:** <b> blocking, <s> suggestions  
-**Tests run:** unit <passed>/<total>, regression <passed>/<total>  
-**Design:** v<n>  
-**Commit:** `<head sha>` on `<branch>`
-
-### Acceptance criteria
-
-| Criterion | Where | Status |
-| --- | --- | --- |
-| AC1 | `greet.js:12`, `greet.js:20-22` | ✅ |
-
-### Blocking
-
-1. **<short title>** · `file:line`
-   What is wrong, how to reproduce it, and what a fix has to achieve.
-
-### Suggestions
-
-1. **<short title>** · `file:line`
-   What and why.
-
-### Strengths
-
-What is done well, specifically.
-
-### Declined to judge
-
-- <behaviour>: <why it is outside the design>
+```json
+{
+  "issue": { "number": 9, "title": "Greet in Dutch" },
+  "branch": "feature/9-greet-in-dutch",
+  "commit": "<head sha>",
+  "designVersion": 1,
+  "criteria": [
+    { "id": "AC1", "where": ["greet.js:12", "greet.js:20-22"], "met": true }
+  ],
+  "blocking": [
+    { "title": "<short title>", "where": "greet.js:18", "body": "What is wrong, how to reproduce it, and what a fix has to achieve." }
+  ],
+  "suggestions": [
+    { "title": "<short title>", "where": "greet.js:3", "body": "What and why." }
+  ],
+  "strengths": "What is done well, specifically.",
+  "declined": [
+    { "behaviour": "<behaviour>", "reason": "<why it is outside the design>" }
+  ],
+  "tests": { "unit": { "passed": 11, "total": 11 }, "regression": { "passed": 9, "total": 9 } }
+}
 ```
 
-The header block matches the test summary: one bold label per line, each line but the last ending in two spaces so GitHub keeps the line breaks, and only counts, no commands or tool versions. The criteria table names each criterion by its ID only; its text is already in the design and the test report. **Where** holds only `file:line` references, no explanation: a long cell squeezes the other columns until GitHub breaks their headers mid-word. Status is ✅ or ❌. Write "None." under a section that has no entries. Then post it as a review comment, and leave a one-line pointer on the issue (no `role:` marker):
+- `criteria` lists every criterion of the design, AC1 first, in order. `where` holds only `file:line` or `file:line-line` references, no explanation: the code that meets the criterion, or the code that fails it.
+- `tests` holds your own runs from step 2, not the numbers from the PR body or the test report.
+- Leave a list empty (`[]`) when it has no entries.
+
+Then generate the comment:
+
+```bash
+node "${CLAUDE_SKILL_DIR}/references/generate-review.js" artifacts/<n>-<slug>/review-data.json
+```
+
+The script computes the verdict (CHANGES REQUESTED when there is any blocking finding, APPROVE otherwise) and every count, and writes `artifacts/<n>-<slug>/review.md`. It refuses a criterion that isn't met, or a failed test run, without a blocking finding to explain it. If it refuses the data, fix the data, not `review.md`. Don't edit `review.md` afterwards: the format is the script's.
+
+Post it as a review comment, and leave a one-line pointer on the issue (no `role:` marker):
 
 ```bash
 gh pr review <pr> --comment --body-file artifacts/<n>-<slug>/review.md
-gh issue comment <n> --body "<✅|❌> Review <APPROVE|CHANGES REQUESTED>: <review URL>"
+gh issue comment <n> --body "<✅ for APPROVE, ❌ for CHANGES REQUESTED> Review <verdict from the script>: <review URL>"
 ```
 
 Use `--comment`, not `--approve` or `--request-changes`: GitHub refuses those on a PR opened by the same account, and the verdict lives in the marker block anyway.
