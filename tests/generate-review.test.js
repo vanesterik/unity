@@ -99,3 +99,8 @@ test('empty sections say None and @words are wrapped in backticks', () => {
   assert.match(review, /### Declined to judge\n\nNone\./);
   assert.match(review, /Tags like `@AC1` are on every test\./);
 });
+
+test('a full commit SHA is shortened to 7 characters, as in the test summary', () => {
+  const review = reviewFor({ ...baseData, commit: '42b713a5f761395ecb6185adeb69b1858ffca1aa' });
+  assert.match(review, /^\*\*Commit:\*\* `42b713a` on `feature\/9-greet-in-dutch`$/m);
+});

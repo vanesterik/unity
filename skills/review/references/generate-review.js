@@ -109,7 +109,7 @@ md.push(`**Criteria met:** ${criteria.length - unmet.length}/${criteria.length} 
 md.push(`**Findings:** ${blocking.length} blocking, ${suggestions.length} suggestions  `);
 md.push(`**Tests run:** ${runs.map((run) => `${run.kind} ${run.passed}/${run.total}`).join(', ')}  `);
 md.push(`**Design:** v${data.designVersion}  `);
-md.push(`**Commit:** ${code(data.commit)} on ${code(data.branch)}`);
+md.push(`**Commit:** ${code(data.commit.trim().slice(0, 7))} on ${code(data.branch)}`);
 md.push('');
 md.push('### Acceptance criteria');
 md.push('');
