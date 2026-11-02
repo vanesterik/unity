@@ -92,9 +92,9 @@ Write `artifacts/<n>-<slug>/review.md` in this shape. The marker must be the fir
 
 ### Acceptance criteria
 
-| Criterion | Met | Where |
+| Criterion | Where | Status |
 | --- | --- | --- |
-| AC1: <text> | ✅ | `greet.js:12` |
+| AC1 | `greet.js:12` builds the greeting | ✅ |
 
 ### Blocking
 
@@ -115,7 +115,7 @@ What is done well, specifically.
 - <behaviour>: <why it is outside the design>
 ```
 
-Write "None." under a section that has no entries. Then post it as a review comment, and leave a one-line pointer on the issue (no `role:` marker):
+The criteria table names each criterion by its ID only; its text is already in the design and the test report. Status is ✅ or ❌. Write "None." under a section that has no entries. Then post it as a review comment, and leave a one-line pointer on the issue (no `role:` marker):
 
 ```bash
 gh pr review <pr> --comment --body-file artifacts/<n>-<slug>/review.md
