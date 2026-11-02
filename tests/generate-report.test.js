@@ -56,7 +56,7 @@ test('case numbers carry no # so GitHub does not link them to issues', () => {
       { number: 2, name: 'Rejects', criteria: ['AC1'], goal: 'g', status: 'FAIL', steps: ['run it'], expected: 'usage line', actual: 'nothing' },
     ],
   });
-  assert.match(summary, /^\| AC1 \| .* \| 1, 2 \| FAIL \|$/m);
+  assert.match(summary, /^\| AC1 \| .* \| 1,&nbsp;2 \| FAIL \|$/m);
   assert.match(summary, /\*\*Case 2: Rejects\*\*/);
   assert.match(summary, /^- Case 1: Greets/m);
   assert.deepEqual(summary.match(/#\d+/g), ['#4']); // only the issue itself
