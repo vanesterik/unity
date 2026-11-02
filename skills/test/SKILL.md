@@ -83,13 +83,19 @@ For a project without a browser UI, write integration tests in the project's tes
 
 Then run the complete suite once (`e2e.runCommand` for E2E tests, `integration.runCommand` for integration tests) to check that the new tests don't break existing ones. If the command is missing, stop and ask the developer for it, and suggest adding it to `.claude/pipeline.json`: tests that nothing runs protect nothing.
 
-Add the codified tests to `report-data.json` and regenerate, so they appear in the summary:
+Add the codified tests to `report-data.json` and regenerate, so they appear in the summary's **Regression tests** table:
 
 ```json
+"regressionStability": "5 isolated and 3 parallel runs",
 "e2eTests": [
-  { "file": "e2e/checkout/guest-checkout.spec.ts", "title": "Should show an inline error for an invalid email", "status": "failing: application bug, see case 2" }
+  { "file": "e2e/checkout/guest-checkout.spec.ts", "title": "@issue-42 @AC2 Should show an inline error for an invalid email", "cases": [2], "status": "failing: application bug, see case 2" }
 ]
 ```
+
+- `title` is the test's full title including its tags; the table shows the criterion tags and drops the rest.
+- `cases` lists the case numbers from step 3 that the test codifies (at least one; the generator refuses unknown numbers).
+- `status` starts with `passing` for a passing test; anything else shows as ❌. Keep the reason in it: it stays in `report-data.json` and the local report.
+- `regressionStability` says how the tests were validated, once for all of them.
 
 ```bash
 node "${CLAUDE_SKILL_DIR}/../test-user-story/references/generate-report.js" artifacts/<n>-<slug>/report-data.json
