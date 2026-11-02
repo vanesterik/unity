@@ -84,7 +84,7 @@ scripts/
   pipeline.js            issue resolution, criteria parsing, role comments, PR lookup, test coverage of the PR head, board checks and moves, ports
   init-project.js        idempotent per-project file setup used by init
 templates/               pipeline.json, CLAUDE.md workflow section, environments.json
-tests/                   unit tests for pipeline.js and the report generator
+tests/                   unit tests for pipeline.js and the two report generators
 ```
 
 What lives where:
