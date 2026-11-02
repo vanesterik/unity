@@ -86,9 +86,13 @@ Write `artifacts/<n>-<slug>/review.md` in this shape. The marker must be the fir
 
 ```markdown
 <!-- role:review -->
-## <✅ APPROVE | ❌ CHANGES REQUESTED> · #<n> · <issue title>
+## <✅ for APPROVE, ❌ for CHANGES REQUESTED> Review <APPROVE | CHANGES REQUESTED> · #<n> · <issue title>
 
-**Reviewed:** `<head sha>` on `<branch>`, design v<n>
+**Criteria met:** <met>/<total>  
+**Findings:** <b> blocking, <s> suggestions  
+**Tests run:** unit <passed>/<total>, regression <passed>/<total>  
+**Design:** v<n>  
+**Commit:** `<head sha>` on `<branch>`
 
 ### Acceptance criteria
 
@@ -115,11 +119,11 @@ What is done well, specifically.
 - <behaviour>: <why it is outside the design>
 ```
 
-The criteria table names each criterion by its ID only; its text is already in the design and the test report. **Where** holds only `file:line` references, no explanation: a long cell squeezes the other columns until GitHub breaks their headers mid-word. Status is ✅ or ❌. Write "None." under a section that has no entries. Then post it as a review comment, and leave a one-line pointer on the issue (no `role:` marker):
+The header block matches the test summary: one bold label per line, each line but the last ending in two spaces so GitHub keeps the line breaks, and only counts, no commands or tool versions. The criteria table names each criterion by its ID only; its text is already in the design and the test report. **Where** holds only `file:line` references, no explanation: a long cell squeezes the other columns until GitHub breaks their headers mid-word. Status is ✅ or ❌. Write "None." under a section that has no entries. Then post it as a review comment, and leave a one-line pointer on the issue (no `role:` marker):
 
 ```bash
 gh pr review <pr> --comment --body-file artifacts/<n>-<slug>/review.md
-gh issue comment <n> --body "<✅|❌> Review <APPROVE|CHANGES REQUESTED>: <PR URL>"
+gh issue comment <n> --body "<✅|❌> Review <APPROVE|CHANGES REQUESTED>: <review URL>"
 ```
 
 Use `--comment`, not `--approve` or `--request-changes`: GitHub refuses those on a PR opened by the same account, and the verdict lives in the marker block anyway.
