@@ -26,6 +26,7 @@ const baseData = {
   branch: 'feature/9-greet-in-dutch',
   commit: 'abc1234',
   designVersion: 1,
+  designCriteria: 2,
   criteria: [
     { id: 'AC1', where: ['greet.js:12', 'greet.js:20-22'], met: true },
     { id: 'AC2', where: ['greet.js:30'], met: true },
@@ -103,4 +104,17 @@ test('empty sections say None and @words are wrapped in backticks', () => {
 test('a full commit SHA is shortened to 7 characters, as in the test summary', () => {
   const review = reviewFor({ ...baseData, commit: '42b713a5f761395ecb6185adeb69b1858ffca1aa' });
   assert.match(review, /^\*\*Commit:\*\* `42b713a` on `feature\/9-greet-in-dutch`$/m);
+});
+
+test('a review that leaves out the design\'s last criterion is refused', () => {
+  const { result } = generate({ ...baseData, designCriteria: 3 });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /design has 3 criteria/);
+});
+
+test('a review without the design\'s criterion count is refused', () => {
+  const { designCriteria, ...data } = baseData;
+  const { result } = generate(data);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /designCriteria/);
 });

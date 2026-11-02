@@ -90,6 +90,7 @@ Write your review as `artifacts/<n>-<slug>/review-data.json`:
   "branch": "feature/9-greet-in-dutch",
   "commit": "<head sha>",
   "designVersion": 1,
+  "designCriteria": 8,
   "criteria": [
     { "id": "AC1", "where": ["greet.js:12", "greet.js:20-22"], "met": true }
   ],
@@ -107,6 +108,7 @@ Write your review as `artifacts/<n>-<slug>/review-data.json`:
 }
 ```
 
+- `designVersion` and `designCriteria` (the number of criteria) come from `story`, not from your own count; the script refuses a review that lists a different number.
 - `criteria` lists every criterion of the design, AC1 first, in order. `where` holds only `file:line` or `file:line-line` references, no explanation: the code that meets the criterion, or the code that fails it.
 - `tests` holds your own runs from step 2, not the numbers from the PR body or the test report.
 - Leave a list empty (`[]`) when it has no entries.

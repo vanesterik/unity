@@ -2,6 +2,7 @@
 // Turns the review role's review-data.json into review.md, the PR review comment.
 // - the verdict and every count are computed here, never trusted from the input
 // - a criterion not met or a failed test run needs a blocking finding, so the verdict can't contradict the tables
+// - every criterion of the design is reviewed: the count comes from the design, not from the review
 // - review.md avoids GitHub autolinks and mentions: @words are wrapped in backticks
 const fs = require('fs');
 const path = require('path');
@@ -40,8 +41,9 @@ if (!Number.isInteger(issue.number) || !nonEmpty(issue.title)) fail('"issue" nee
 if (!nonEmpty(data.commit) || !nonEmpty(data.branch)) fail('"commit" and "branch" are required');
 if (!Number.isInteger(data.designVersion)) fail('"designVersion" must be the design version number, e.g. 1');
 
+if (!Number.isInteger(data.designCriteria) || data.designCriteria < 1) fail('"designCriteria" must be the number of criteria in the design, from story');
 const criteria = Array.isArray(data.criteria) ? data.criteria : [];
-if (!criteria.length) fail('"criteria" must list every acceptance criterion of the design');
+if (criteria.length !== data.designCriteria) fail(`the design has ${data.designCriteria} criteria and the review lists ${criteria.length}; review every one`);
 criteria.forEach((criterion, index) => {
   const expected = `AC${index + 1}`;
   if (!criterion || criterion.id !== expected) fail(`criteria must be AC1, AC2, ... in order; entry ${index + 1} is "${criterion && criterion.id}", expected ${expected}`);
