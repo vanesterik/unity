@@ -48,6 +48,20 @@ test('the summary contains no bare @mentions', () => {
   assert.match(summary, /`@koen`/);
 });
 
+test('case numbers carry no # so GitHub does not link them to issues', () => {
+  const summary = summaryFor({
+    ...baseData,
+    cases: [
+      { number: 1, name: 'Greets', criteria: ['AC1'], goal: 'g', status: 'PASS', steps: ['run it'], flaky: 'timed out once' },
+      { number: 2, name: 'Rejects', criteria: ['AC1'], goal: 'g', status: 'FAIL', steps: ['run it'], expected: 'usage line', actual: 'nothing' },
+    ],
+  });
+  assert.match(summary, /^\| AC1 \| .* \| 1, 2 \| FAIL \|$/m);
+  assert.match(summary, /\*\*Case 2: Rejects\*\*/);
+  assert.match(summary, /^- Case 1: Greets/m);
+  assert.deepEqual(summary.match(/#\d+/g), ['#4']); // only the issue itself
+});
+
 test('an email address is left as it is', () => {
   const summary = summaryFor({ ...baseData, criteria: [{ id: 'AC1', text: 'Mail goes to info@example.com' }] });
   assert.match(summary, /Mail goes to info@example\.com/);
