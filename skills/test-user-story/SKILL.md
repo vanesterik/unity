@@ -102,7 +102,7 @@ Write `artifacts/<run-name>/report-data.json` in this shape:
   "branch": "feature/42-guest-checkout",
   "commit": "abc1234",
   "storyName": "Guest checkout",
-  "environment": "local worktree",
+  "environment": "local",
   "environmentUrl": "http://localhost:4042",
   "criteria": [
     { "id": "AC1", "text": "A guest can pay without creating an account" },

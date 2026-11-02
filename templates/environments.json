@@ -1,4 +1,4 @@
 {
-  "local": { "name": "Local worktree", "url": "http://localhost:4000", "note": "/unity:test replaces the port per issue" },
+  "local": { "name": "Local", "url": "http://localhost:4000", "note": "/unity:test replaces the port per issue" },
   "test": { "name": "Test", "url": "https://test.example.com" }
 }
