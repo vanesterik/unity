@@ -96,7 +96,7 @@ What could go wrong, and anything the builder may have to decide.
 
 ## Implementation plan
 <details>
-<summary><k> tasks: <task name> · <task name> · …</summary>
+<summary><k> tasks</summary>
 
 <the approved plan, with its headings demoted below this one (### and deeper)>
 
@@ -108,7 +108,6 @@ Rules for this file:
 - Only the criteria go under `## Acceptance criteria`, one `- AC<n>: text` line each, numbered from 1 without gaps. The parser reads that section until the next heading.
 - No other `##` heading is called "Acceptance criteria", and the plan uses only `###` and deeper.
 - The plan sits in a collapsed `<details>` block, so the issue shows the design first and the plan is one click away. Keep the blank lines after `<summary>` and before `</details>`: without them GitHub renders the plan's markdown as plain text.
-- The summary names the tasks in plan order, so the developer sees what will be built without opening the plan (`1 task: Add the <code>--version</code> flag`). Use `<code>`, not backticks: GitHub shows backticks in a `<summary>` literally.
 - A GitHub comment holds about 65,000 characters. If the file is longer, stop and tell the developer; do not split or trim it on your own.
 
 ### 6. Post and verify
