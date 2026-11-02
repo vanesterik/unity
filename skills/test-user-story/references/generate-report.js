@@ -292,7 +292,7 @@ md.push(`## ${icon} Test ${overallStatus}${issueLabel ? ` · ${issueLabel}` : ''
 md.push('');
 md.push(`**Cases:** ${passedCases}/${cases.length} passed${failedCases ? ` · ${failedCases} failed` : ''}${skippedCases ? ` · ${skippedCases} skipped` : ''}  `);
 md.push(`**Criteria tested:** ${coveredCriteria}/${coverage.length}  `);
-md.push(`**Environment:** ${cell(data.environment || '—')} (${cell(data.environmentUrl || '—')})  `);
+md.push(`**Environment:** ${cell(data.environment || '—')}${data.environmentUrl ? ` (${cell(data.environmentUrl)})` : ''}  `);
 md.push(`**Commit:** ${code(data.commit || '—')} on ${code(data.branch || '—')}`);
 md.push('');
 md.push('### Acceptance criteria');

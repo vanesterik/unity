@@ -108,7 +108,7 @@ md.push('<!-- role:review -->');
 md.push(`## ${blocking.length ? '❌' : '✅'} Review ${verdict} · #${issue.number} · ${cell(issue.title)}`);
 md.push('');
 md.push(`**Criteria met:** ${criteria.length - unmet.length}/${criteria.length}  `);
-md.push(`**Findings:** ${blocking.length} blocking, ${suggestions.length} suggestions  `);
+md.push(`**Findings:** ${blocking.length} blocking, ${suggestions.length} ${suggestions.length === 1 ? 'suggestion' : 'suggestions'}  `);
 md.push(`**Tests run:** ${runs.map((run) => `${run.kind} ${run.passed}/${run.total}`).join(', ')}  `);
 md.push(`**Design:** v${data.designVersion}  `);
 md.push(`**Commit:** ${code(data.commit.trim().slice(0, 7))} on ${code(data.branch)}`);

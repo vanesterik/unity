@@ -109,3 +109,13 @@ test('an email address is left as it is', () => {
   const summary = summaryFor({ ...baseData, criteria: [{ id: 'AC1', text: 'Mail goes to info@example.com' }] });
   assert.match(summary, /Mail goes to info@example\.com/);
 });
+
+test('an environment without a URL is shown without empty parentheses', () => {
+  const summary = summaryFor({ ...baseData, environment: 'local checkout', environmentUrl: '' });
+  assert.match(summary, /^\*\*Environment:\*\* local checkout  $/m);
+});
+
+test('an environment with a URL shows it in parentheses', () => {
+  const summary = summaryFor({ ...baseData, environment: 'local', environmentUrl: 'http://localhost:4009' });
+  assert.match(summary, /^\*\*Environment:\*\* local \(http:\/\/localhost:4009\)  $/m);
+});

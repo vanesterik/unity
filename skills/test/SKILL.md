@@ -53,7 +53,7 @@ ISSUE=<n>
 PORT=$(node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" port $ISSUE)
 ```
 
-If `test.start` is empty, the project has nothing to start (a CLI tool, a library): skip the rest of this step and `test.stop` in step 7, and run everything directly in the PR checkout. The environment is "local checkout".
+If `test.start` is empty, the project has nothing to start (a CLI tool, a library): skip the rest of this step and `test.stop` in step 7, and run everything directly in the PR checkout. The environment is "local checkout" and the environment URL is empty: put how the system is driven (`node greet.js`) in the case steps, not in the environment.
 
 Otherwise run `test.start` with `ISSUE` and `PORT` exported, then poll `test.healthUrl` until it responds (at most about 2 minutes, with short sleeps between polls). The environment URL is `test.baseUrl` with `$PORT` filled in.
 
@@ -66,7 +66,7 @@ Never test against a shared or production environment from this skill.
 Use the `unity:test-user-story` skill in pipeline mode, passing:
 
 ```
-pipeline issue=<n> environment="local" url=<environment URL> evidence=screenshots
+pipeline issue=<n> environment=<"local", or "local checkout" when nothing is started> url=<environment URL, or empty> evidence=screenshots
 ```
 
 Without `auto`, first show the derived cases and ask once whether to run all of them (and whether to use videos instead of screenshots). Then continue in pipeline mode with that answer.
