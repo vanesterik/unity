@@ -1,7 +1,7 @@
 {
   "name": "unity",
-  "version": "0.1.0",
-  "description": "Role-based development flow for Claude Code (design -> build -> test -> review) on GitHub issues and Projects. Ships the test role: exploratory testing with evidence, scripted Playwright tests, criteria coverage and board transitions.",
+  "version": "0.2.0",
+  "description": "Role-based development flow for Claude Code (design -> build -> test -> review) on GitHub issues and Projects. Four roles in fresh contexts with GitHub as the only handoff: design with the developer, test-first build, black-box testing with evidence, and independent review.",
   "author": {
     "name": "Koen van Esterik"
   },
