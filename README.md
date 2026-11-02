@@ -79,7 +79,7 @@ skills/
   write-e2e-test/        scripted Playwright tests
 hooks/
   hooks.json             registers the hook below
-  test-guard.js          during a test run, blocks edits outside the test paths
+  edit-guard.js          during a test run, blocks edits outside the test paths
 scripts/
   pipeline.js            issue resolution, criteria parsing, role comments, PR lookup, test coverage of the PR head, board checks and moves, ports
   init-project.js        idempotent per-project file setup used by init
@@ -96,11 +96,11 @@ Skills locate plugin files through `${CLAUDE_SKILL_DIR}`, and hooks through `${C
 
 ## How the test guard works
 
-`/unity:test` writes `artifacts/.test-active` when a run starts and removes it at the end. While that file exists, `test-guard.js` blocks Edit/Write outside `test.writablePaths`. Outside a test run the guard does nothing. If a run is interrupted and edits stay blocked, delete `artifacts/.test-active`.
+`/unity:test` writes `artifacts/.test-active` when a run starts and removes it at the end. While that file exists, `edit-guard.js` blocks Edit/Write outside `test.writablePaths`. Outside a test run the guard does nothing. If a run is interrupted and edits stay blocked, delete `artifacts/.test-active`.
 
 ## Updating
 
-Run the tests with `node --test tests/*.test.js`. Pass the files: bare `node --test` also picks up `hooks/test-guard.js`, which waits on stdin.
+Run the tests with `npm test`.
 
 Bump `version` in `.claude-plugin/plugin.json` with each change. Projects with `autoUpdate: true` pick up new versions automatically; otherwise run `/plugin marketplace update unity`.
 
