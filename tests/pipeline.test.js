@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus } = require('../scripts/pipeline.js');
+const { latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion } = require('../scripts/pipeline.js');
 
 test('latestRoleComment returns the newest comment carrying the role marker', () => {
   const entries = [
@@ -92,4 +92,12 @@ test('boardStatus reads the column on the configured board only', () => {
 test('boardStatus tells an issue without a column from one not on the board', () => {
   assert.deepEqual(boardStatus([{ project: { id: 'PVT_ours' }, fieldValueByName: null }], 'PVT_ours'), { onBoard: true, status: null });
   assert.deepEqual(boardStatus([], 'PVT_ours'), { onBoard: false, status: null });
+});
+
+test('designVersion reads the version number from the design marker', () => {
+  assert.equal(designVersion('<!-- role:design v3 -->\n## Context'), 3);
+});
+
+test('designVersion counts a marker without a version as version 1', () => {
+  assert.equal(designVersion('<!-- role:design -->\n## Context'), 1);
 });
