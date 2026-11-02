@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/test-guard.js\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/edit-guard.js\""
           }
         ]
       }
