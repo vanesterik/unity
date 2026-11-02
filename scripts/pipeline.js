@@ -71,6 +71,9 @@ const latestRoleComment = (entries, role) => {
   return matches.length ? matches[matches.length - 1] : null;
 };
 
+// Version number from a <!-- role:design v<n> --> marker; a marker without one is version 1.
+const designVersion = (body) => Number((body.match(/role:design\s+v(\d+)/) || [])[1] || 1);
+
 const parseCriteria = (markdown = '') => {
   const lines = markdown.split(/\r?\n/);
   const start = lines.findIndex((line) => /^#{1,6}\s*acceptance criteria\b/i.test(line.trim()));
@@ -105,7 +108,7 @@ const story = (arg) => {
     state: issue.state,
     body: issue.body,
     design: design ? design.body : null,
-    designVersion: design ? ((design.body.match(/role:design\s+(v\d+)/) || [])[1] || 'v1') : null,
+    designVersion: design ? designVersion(design.body) : null,
     criteria,
     criteriaSource,
     branch,
@@ -325,4 +328,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus };
+module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion };

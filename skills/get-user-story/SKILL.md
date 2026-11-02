@@ -40,7 +40,7 @@ USER STORY #<number>: <title>
 URL: <url>
 Branch: <branch> @ <commit>    PR: <pr.url or "none">
 
-Acceptance criteria (<criteriaSource>, design <designVersion>):
+Acceptance criteria (<criteriaSource>, design v<designVersion>):
 - AC1: ...
 - AC2: ...
 
