@@ -46,6 +46,8 @@ const flat = (value = '') => String(value).replace(/\|/g, '\\|').replace(/\s*\n\
 // Prose: also wrap @words in backticks, so GitHub doesn't turn test tags like @AC1 into user mentions.
 const cell = (value = '') => flat(value).replace(/(^|[^\w`])@([A-Za-z0-9][\w-]*)/g, '$1`@$2`');
 const code = (value = '') => `\`${flat(value)}\``;
+// Statuses as icons in summary.md: passed, failed, or not tested (UNTESTED criterion, SKIPPED case).
+const statusIcon = (status) => ({ PASS: '✅', FAIL: '❌' })[status] || '⚠️';
 
 const templateById = (id) => {
   const match = template.match(new RegExp(`<template id="${id}">([\\s\\S]*?)<\\/template>`));
@@ -298,7 +300,7 @@ md.push('');
 md.push('| ID | Criterion | Cases | Status |');
 md.push('| --- | --- | --- | --- |');
 for (const criterion of coverage) {
-  md.push(`| ${cell(criterion.id)} | ${cell(criterion.text)} | ${criterion.cases.length ? criterion.cases.join(',&nbsp;') : '—'} | ${criterion.status} |`);
+  md.push(`| ${cell(criterion.id)} | ${cell(criterion.text)} | ${criterion.cases.length ? criterion.cases.join(',&nbsp;') : '—'} | ${statusIcon(criterion.status)} |`);
 }
 md.push('');
 md.push('### Cases');
@@ -306,7 +308,7 @@ md.push('');
 md.push('| # | Case | Criteria | Status |');
 md.push('| --- | --- | --- | --- |');
 for (const testCase of cases) {
-  md.push(`| ${testCase.number} | ${cell(testCase.name || '')}${testCase.flaky ? ' ⚠️ flaky' : ''} | ${testCase.criteria.join(', ')} | ${testCase.status} |`);
+  md.push(`| ${testCase.number} | ${cell(testCase.name || '')}${testCase.flaky ? ' ⚠️ flaky' : ''} | ${testCase.criteria.join(', ')} | ${statusIcon(testCase.status)} |`);
 }
 
 const failing = cases.filter((testCase) => testCase.status === 'FAIL');

@@ -81,10 +81,28 @@ test('case numbers carry no # so GitHub does not link them to issues', () => {
       { number: 2, name: 'Rejects', criteria: ['AC1'], goal: 'g', status: 'FAIL', steps: ['run it'], expected: 'usage line', actual: 'nothing' },
     ],
   });
-  assert.match(summary, /^\| AC1 \| .* \| 1,&nbsp;2 \| FAIL \|$/m);
+  assert.match(summary, /^\| AC1 \| .* \| 1,&nbsp;2 \| ❌ \|$/m);
   assert.match(summary, /\*\*Case 2: Rejects\*\*/);
   assert.match(summary, /^- Case 1: Greets/m);
   assert.deepEqual(summary.match(/#\d+/g), ['#4']); // only the issue itself
+});
+
+test('statuses in the criteria and cases tables are icons', () => {
+  const summary = summaryFor({
+    ...baseData,
+    criteria: [{ id: 'AC1', text: 'Greets' }, { id: 'AC2', text: 'Rejects' }, { id: 'AC3', text: 'Sends an email' }],
+    cases: [
+      { number: 1, name: 'Greets', criteria: ['AC1'], goal: 'g', status: 'PASS', steps: ['run it'] },
+      { number: 2, name: 'Rejects', criteria: ['AC2'], goal: 'g', status: 'FAIL', steps: ['run it'], expected: 'usage line', actual: 'nothing' },
+      { number: 3, name: 'Mail', criteria: ['AC3'], goal: 'g', status: 'SKIPPED', steps: ['n/a'] },
+    ],
+  });
+  assert.match(summary, /^\| AC1 \| Greets \| 1 \| ✅ \|$/m);
+  assert.match(summary, /^\| AC2 \| Rejects \| 2 \| ❌ \|$/m);
+  assert.match(summary, /^\| AC3 \| Sends an email \| 3 \| ⚠️ \|$/m);
+  assert.match(summary, /^\| 1 \| Greets \| AC1 \| ✅ \|$/m);
+  assert.match(summary, /^\| 2 \| Rejects \| AC2 \| ❌ \|$/m);
+  assert.match(summary, /^\| 3 \| Mail \| AC3 \| ⚠️ \|$/m);
 });
 
 test('an email address is left as it is', () => {
