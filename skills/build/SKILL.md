@@ -59,7 +59,7 @@ Save the design comment as the plan file, so the Superpowers scripts can work fr
 
 ```bash
 mkdir -p artifacts/<n>-<slug>
-node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" story <n> | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).design))' > artifacts/<n>-<slug>/plan.md
+node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" design <n> > artifacts/<n>-<slug>/plan.md
 ```
 
 The file holds the whole comment: the design sections are the spec, the **Implementation plan** section is the plan.
