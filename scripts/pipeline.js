@@ -115,10 +115,15 @@ const story = (arg) => {
 
 // ---------- pull request + role comments ----------
 
-// No PR yet is an empty list; a gh failure (auth, network) throws, so it is never mistaken for "no PR".
+// The PR whose body closes the issue, or null.
+const prForIssue = (prs, number) => prs.find((p) => new RegExp(`(closes|fixes|resolves)\\s+#${number}\\b`, 'i').test(p.body || '')) || null;
+
+// Lists the open PRs instead of searching them: GitHub's search index can lag behind a PR that was
+// just opened. No PR yet is an empty list; a gh failure (auth, network) throws, so it is never
+// mistaken for "no PR".
 const findPr = (number) => {
-  const prs = ghJson(['pr', 'list', '--search', `${number} in:body`, '--state', 'open', '--json', 'number,url,headRefName,headRefOid,body,createdAt']);
-  return (prs || []).find((p) => new RegExp(`(closes|fixes|resolves)\\s+#${number}\\b`, 'i').test(p.body || '')) || null;
+  const prs = ghJson(['pr', 'list', '--state', 'open', '--limit', '200', '--json', 'number,url,headRefName,headRefOid,body,createdAt']);
+  return prForIssue(prs || [], number);
 };
 
 const pr = (issueArg) => {
@@ -129,12 +134,13 @@ const pr = (issueArg) => {
 };
 
 // Role output can sit in an issue comment, the PR body, a PR comment or a PR review body.
-const comments = (issueArg, role) => {
+// Pass the issue's PR when the caller already looked it up, to save the lookup.
+const comments = (issueArg, role, knownPr) => {
   const number = resolveIssue(issueArg);
   if (!number || !role) die('Usage: pipeline.js comments <issue> <role>');
   const issue = ghJson(['issue', 'view', String(number), '--json', 'comments']);
   const entries = (issue.comments || []).map((c) => ({ source: 'issue-comment', body: c.body, createdAt: c.createdAt, url: c.url }));
-  const found = findPr(number);
+  const found = knownPr === undefined ? findPr(number) : knownPr;
   if (found) {
     entries.push({ source: 'pr-body', body: found.body, createdAt: found.createdAt, url: found.url });
     const detail = ghJson(['pr', 'view', String(found.number), '--json', 'comments,reviews']);
@@ -165,7 +171,7 @@ const tested = (issueArg) => {
   if (!number) die('Usage: pipeline.js tested <issue>');
   const found = findPr(number);
   if (!found) die(`#${number} has no open PR`);
-  const report = comments(number, 'test');
+  const report = comments(number, 'test', found);
   const { status, commit } = parseTestSummary(report ? report.body : '');
   const result = { status, testedCommit: commit, headSha: found.headRefOid, reportUrl: report ? report.url : null, changedSince: [], outsideTestPaths: [] };
   if (!commit) return { ...result, covers: false };
@@ -267,15 +273,25 @@ const queue = (column) => {
   console.log(JSON.stringify(items, null, 2));
 };
 
+// Whether the issue is on the configured board, and its column there, from the issue's project items.
+const boardStatus = (items, projectId) => {
+  const item = items.find((i) => i.project && i.project.id === projectId);
+  return { onBoard: Boolean(item), status: (item && item.fieldValueByName && item.fieldValueByName.name) || null };
+};
+
+const ISSUE_ITEMS_QUERY = 'query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { issue(number: $number) { '
+  + 'projectItems(first: 50) { nodes { project { id } fieldValueByName(name: "Status") { ... on ProjectV2ItemFieldSingleSelectValue { name } } } } } } }';
+
+// Asks for this one issue's project items instead of listing the whole board.
 const check = (issueArg, column) => {
   const config = loadConfig();
   const number = resolveIssue(issueArg);
   if (!number || !column) die('Usage: pipeline.js check <issue> <Column>');
   if (!config.project.options[column]) die(`Unknown column "${column}". Known: ${Object.keys(config.project.options).join(', ')}`);
-  const item = boardIssues(config).find((i) => i.content.number === number);
-  const status = item ? (item.status || null) : null;
+  const data = ghJson(['api', 'graphql', '-F', 'owner={owner}', '-F', 'name={repo}', '-F', `number=${number}`, '-f', `query=${ISSUE_ITEMS_QUERY}`]);
+  const { onBoard, status } = boardStatus(data.data.repository.issue.projectItems.nodes, config.project.id);
   console.log(JSON.stringify({ number, status }));
-  if (status !== column) die(`#${number} is ${item ? `in ${status || 'no column'}` : 'not on the board'}, expected ${column}`);
+  if (status !== column) die(`#${number} is ${onBoard ? `in ${status || 'no column'}` : 'not on the board'}, expected ${column}`);
 };
 
 const port = (issueArg) => {
@@ -307,4 +323,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning };
+module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus };
