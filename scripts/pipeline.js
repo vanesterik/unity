@@ -32,9 +32,12 @@ const ghJson = (args) => JSON.parse(gh(args) || 'null');
 const git = (args) => { try { return execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return ''; } };
 const currentBranch = () => git(['branch', '--show-current']) || git(['rev-parse', '--abbrev-ref', 'HEAD']);
 
+// The project's .claude/pipeline.json, or {} when it doesn't exist yet.
+const readConfig = () => (fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {});
+
 const loadConfig = () => {
   if (!fs.existsSync(configPath)) die(`Missing ${configPath}. Run /unity:init <owner> <project-number> in this project.`);
-  return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  return readConfig();
 };
 
 const currentRepo = () => gh(['repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner']);
@@ -180,7 +183,7 @@ const tested = (issueArg) => {
   const result = { status, testedCommit: commit, headSha: found.headRefOid, reportUrl: report ? report.url : null, changedSince: [], outsideTestPaths: [] };
   if (!commit) return { ...result, covers: false };
   const compare = ghJson(['api', `repos/{owner}/{repo}/compare/${commit}...${found.headRefOid}`]);
-  const config = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {};
+  const config = readConfig();
   const testPaths = ((config.test && config.test.writablePaths) || []).filter((p) => !/^artifacts\/?$/.test(p));
   result.changedSince = (compare.files || []).map((file) => file.filename);
   result.outsideTestPaths = outsidePaths(result.changedSince, testPaths);
@@ -222,7 +225,7 @@ const init = (owner, projectNumber) => {
   const fields = ghJson(['project', 'field-list', String(projectNumber), '--owner', owner, '--format', 'json']);
   const status = (fields.fields || []).find((field) => field.name === 'Status');
   if (!status || !status.options) die('Project has no single-select "Status" field');
-  const existing = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {};
+  const existing = readConfig();
   const config = {
     ...existing,
     project: {
@@ -301,7 +304,7 @@ const check = (issueArg, column) => {
 const port = (issueArg) => {
   const number = resolveIssue(issueArg);
   if (!number) die('Usage: pipeline.js port <issue>');
-  const config = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {};
+  const config = readConfig();
   const base = (config.test && config.test.basePort) || 4000;
   console.log(base + (number % 1000));
 };

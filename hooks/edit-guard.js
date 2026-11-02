@@ -21,18 +21,19 @@ process.stdin.on('end', () => {
   } catch { process.exit(0); }
   if (!filePath) process.exit(0);
 
-  let allowed = ['e2e/', 'tests/integration/', 'artifacts/'];
-  try {
-    const config = JSON.parse(fs.readFileSync(path.join(root, '.claude', 'pipeline.json'), 'utf8'));
-    if (config.test && Array.isArray(config.test.writablePaths)) allowed = config.test.writablePaths;
-  } catch { /* defaults */ }
+  // The project's test paths, or the template's when the project has none.
+  const writablePaths = (file) => {
+    try {
+      const config = JSON.parse(fs.readFileSync(file, 'utf8'));
+      return config.test && Array.isArray(config.test.writablePaths) ? config.test.writablePaths : null;
+    } catch { return null; }
+  };
+  const allowed = writablePaths(path.join(root, '.claude', 'pipeline.json'))
+    || writablePaths(path.join(__dirname, '..', 'templates', 'pipeline.json'));
 
+  const { outsidePaths } = require('../scripts/pipeline.js');
   const relative = path.relative(root, path.resolve(root, filePath)).split(path.sep).join('/');
-  const inside = allowed.some((prefix) => {
-    const clean = prefix.replace(/\/$/, '');
-    return relative === clean || relative.startsWith(`${clean}/`);
-  });
-  if (inside) process.exit(0);
+  if (!outsidePaths([relative], allowed).length) process.exit(0);
 
   const issue = fs.readFileSync(marker, 'utf8').trim();
   console.error(
