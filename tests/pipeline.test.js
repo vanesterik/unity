@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { latestRoleComment, columnReport, parseTestSummary, outsidePaths } = require('../scripts/pipeline.js');
+const { latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning } = require('../scripts/pipeline.js');
 
 test('latestRoleComment returns the newest comment carrying the role marker', () => {
   const entries = [
@@ -57,4 +57,14 @@ test('parseTestSummary returns nulls for a body that is not a test summary', () 
 test('outsidePaths lists the files that are not under any of the prefixes', () => {
   const files = ['tests/integration/greet.js', 'tests/integration', 'greet.js', 'e2e-old/a.js'];
   assert.deepEqual(outsidePaths(files, ['tests/integration/', 'e2e/']), ['greet.js', 'e2e-old/a.js']);
+});
+
+test('closedWorkflowWarning warns when the board does not move closed issues', () => {
+  const workflows = [{ name: 'Item closed', enabled: false }, { name: 'Pull request merged', enabled: false }];
+  assert.match(closedWorkflowWarning(workflows), /Item closed/);
+});
+
+test('closedWorkflowWarning is quiet when the Item closed workflow is enabled', () => {
+  const workflows = [{ name: 'Item closed', enabled: true }, { name: 'Pull request merged', enabled: false }];
+  assert.equal(closedWorkflowWarning(workflows), null);
 });

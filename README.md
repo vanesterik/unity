@@ -58,7 +58,7 @@ The GitHub Project's **Status** field is the workflow state. The columns must be
 
 `Backlog` · `Design` · `Build` · `Test` · `Review` · `Done`
 
-Each role is named after the column it works in. Picking an issue with `/unity:design` sets the flow in motion: design moves it to Build once you approve the design in conversation, build to Test when the PR is open, test to Review on a pass (or back to Build on a failure), review back to Build on blocking findings or leaves it for you to merge, and merging moves it to Done.
+Each role is named after the column it works in. Picking an issue with `/unity:design` sets the flow in motion: design moves it to Build once you approve the design in conversation, build to Test when the PR is open, test to Review on a pass (or back to Build on a failure), review back to Build on blocking findings or leaves it for you to merge, and merging moves it to Done through the board's "Item closed" workflow. New boards ship with that workflow off and the API can't enable it; `/unity:init` warns until you switch it on (board ... menu > Workflows > Item closed, Status: Done).
 
 Designs and plans live in the issue as the `role:design` comment, not as files in the repository.
 
