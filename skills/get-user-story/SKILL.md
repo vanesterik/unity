@@ -22,7 +22,7 @@ ISSUE: $ARGUMENTS (an issue number, `#42`, an issue or PR URL, or empty for "the
 
    This returns JSON with `number`, `title`, `url`, `body`, `design` (the latest `<!-- role:design ... -->` comment), `criteria`, `criteriaSource`, `branch`, `commit` and `pr`.
 
-2. If the command cannot determine the issue, run `node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" queue Test` and ask the user which issue they mean. Do not guess.
+2. If the command cannot determine the issue, ask the user which issue they mean. Do not guess. (The role skills pick an issue from their own board column before they call this skill.)
 
    If it reports a missing `.claude/pipeline.json`, the project is not set up yet: point the user to `/unity:init`.
 
