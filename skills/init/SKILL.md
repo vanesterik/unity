@@ -87,4 +87,4 @@ git add .claude/pipeline.json .claude/settings.json CLAUDE.md environments.json 
 git commit -m "chore: set up unity workflow"
 ```
 
-Commit only if the user asks. End with the next step: write an issue, add the design and numbered acceptance criteria in the format from the `CLAUDE.md` workflow section (with `/unity:design` once the plugin includes it, otherwise by hand), and move it to **Build**.
+Commit only if the user asks. End with the next step: write an issue, add it to the board's **Backlog**, and run `/unity:design <n>` to start the flow.
