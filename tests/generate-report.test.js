@@ -32,7 +32,7 @@ const baseData = {
   cases: [{ number: 1, name: 'Greets @koen', criteria: ['AC1'], goal: 'g', status: 'PASS', steps: ['run it'] }],
 };
 
-test('regression tests are a table of test, case, criterion and a status icon', () => {
+test('regression tests are a table of test, case, criteria and a status icon', () => {
   const summary = summaryFor({
     ...baseData,
     cases: [
@@ -46,7 +46,7 @@ test('regression tests are a table of test, case, criterion and a status icon', 
     ],
   });
   assert.match(summary, /^### Regression tests$/m);
-  assert.match(summary, /^\| Test \| Case \| Criterion \| Status \|$/m);
+  assert.match(summary, /^\| Test \| Case \| Criteria \| Status \|$/m);
   assert.match(summary, /^\| Should greet a single name \| 1 \| AC1 \| ✅ \|$/m);
   assert.match(summary, /^\| Should reject an empty name \| 1,&nbsp;2 \| AC1 \| ❌ \|$/m);
   assert.match(summary, /^In `tests\/integration\/greet\.js`, `tests\/integration\/reject\.js`\. Stable over 5 isolated and 3 parallel runs\.$/m);

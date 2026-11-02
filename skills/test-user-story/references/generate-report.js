@@ -343,7 +343,7 @@ if (regressionTests.length) {
   md.push('');
   md.push('### Regression tests');
   md.push('');
-  md.push('| Test | Case | Criterion | Status |');
+  md.push('| Test | Case | Criteria | Status |');
   md.push('| --- | --- | --- | --- |');
   for (const test of regressionTests) {
     const title = (test.title || '').replace(/@[\w-]+\s*/g, '').trim();
