@@ -53,7 +53,15 @@ The repository is its own marketplace.
 
    It writes `.claude/pipeline.json` with the board's IDs and the project's start and test commands, adds a workflow section to `CLAUDE.md` and `artifacts/` to `.gitignore`, and enables the plugin. It asks you to confirm what it detected, and suggests the commit to make.
 
-2. **Turn on the board's "Item closed" workflow.** This moves an issue to **Done** when the pull request that closes it is merged to `main`; it is the only step no role does. New boards ship with it off, and GitHub's API can't switch it on: on the board, open **⋯ > Workflows > Item closed**, set Status to **Done**, and choose **Save and turn on workflow**. `/unity:init` warns until it is on.
+2. **Let the board move merged issues to Done.** This is the only move no role makes, and GitHub's API can't configure it, so you set it once by hand. It works in two links: the pull request that `/unity:build` opens has `Closes #<issue>` in its body, so merging it into `main` closes the issue; the board's **Item closed** workflow then sets a closed issue's Status to **Done**. To turn the workflow on:
+
+   1. Open the project board on GitHub and choose **⋯** (top right) > **Workflows**.
+   2. Select **Item closed** in the list of default workflows.
+   3. Choose **Edit**. Under **When**, keep the filter on issues (`is:issue`, or `is:issue,pr`).
+   4. Under **Set**, choose the **Status** field and the value **Done**.
+   5. Choose **Save and turn on workflow**. The list now shows it as on.
+
+   `Closes` only works for pull requests into the repository's default branch, so `main` must be the default. `/unity:init` warns when it finds the workflow off.
 
 3. **Write the issue.** A user story as a GitHub issue, added to the board in **Backlog**.
 
@@ -81,6 +89,8 @@ The repository is its own marketplace.
 
    It tests the running system against the acceptance criteria as a black box, codifies the cases as integration or E2E tests on the branch, and posts a report on the pull request. On a pass it moves the issue to **Review**; on a failure, back to **Build**, where `/unity:build <issue>` reworks the findings. A criterion it couldn't test leaves the issue in **Test** for you to decide. Without `auto`, it asks once which cases to run.
 
+   The tester may only write tests, never application code or unit tests, so a failure goes back to the builder instead of being fixed in place. A hook enforces this: `/unity:test` writes `artifacts/.test-active` when a run starts and removes it at the end, and while that file exists, edits outside `test.writablePaths` in `.claude/pipeline.json` are blocked. Outside a test run the hook does nothing. If a run is interrupted, the file stays behind and `/unity:build` stops until you delete it.
+
 7. **Review, in a fresh session:**
 
    ```
@@ -94,6 +104,8 @@ The repository is its own marketplace.
 Every role ends by naming the next command, and each one checks the board first: a role started on an issue in the wrong column stops. Along the way the issue collects a one-line pointer to each role's result, so it reads as a timeline of the story.
 
 ## Commands
+
+`/unity:init` sets up a project once, the four role commands run the workflow, and the last three are the skills the roles build on, which you can also run on their own.
 
 | Command | What it does |
 | --- | --- |
@@ -121,14 +133,17 @@ The board's **Status** field is the workflow state, and each role is named after
 
 Designs and plans live in the issue, as the latest `role:design` comment, not as files in the repository. Build, test and review post on the pull request. Each role output starts with a hidden marker (`<!-- role:test -->`), so the next role finds the latest one.
 
-## The test guard
-
-The test role may only write tests, never application code or unit tests. `/unity:test` writes `artifacts/.test-active` when a run starts and removes it at the end; while that file exists, the plugin's hook blocks edits outside `test.writablePaths` in `.claude/pipeline.json`. Outside a test run the hook does nothing. If a run is interrupted, the file stays behind and `/unity:build` stops until you delete it.
-
 ## License
 
-[MIT](LICENSE).
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Credits
 
-`test-user-story`, `write-e2e-test`, the test report template and its generator are adapted from Tim Lolkema's skills ([tlolkema/demo-webshop](https://github.com/tlolkema/demo-webshop), described in [Using agent skills to write Playwright tests](https://tlolkema.substack.com/p/using-agent-skills-to-write-playwright) and [Why you should start using agentic testing](https://tlolkema.substack.com/p/why-you-should-start-using-agentic)).
+The test role stands on the work of [Tim Lolkema](https://github.com/tlolkema), who built and wrote about agentic testing with agent skills. Unity builds on his code and texts, with his consent:
+
+- `test-user-story`, from [tlolkema/demo-webshop](https://github.com/tlolkema/demo-webshop): deriving test cases from a user story, executing them with `playwright-cli`, and the rules for framing screenshot and video evidence. Unity adds criterion IDs on every case, retrying a failure before recording it, a pipeline mode without questions, and command-line checks.
+- The test report, from the same repository: the HTML template and the generator that fills it from the run's data. Unity adds the acceptance-criteria coverage table, a verdict computed by the generator instead of supplied by the agent, and the markdown summary posted on the pull request. The review generator follows the same pattern.
+- `write-e2e-test`, from [tlolkema/skills-explained](https://github.com/tlolkema/skills-explained): turning an executed case into a scripted Playwright test and repeating it until it is stable. Unity moves the project-specific paths into `CLAUDE.md` and `.claude/pipeline.json`, so it works across repositories, adds integration tests, and reports a test that stays flaky instead of hiding it.
+- `get-user-story`, from demo-webshop, rewritten to read the issue, its design comment and its acceptance criteria from GitHub.
+
+His articles explain the thinking behind it: [Using agent skills to write Playwright tests](https://tlolkema.substack.com/p/using-agent-skills-to-write-playwright) and [Why you should start using agentic testing](https://tlolkema.substack.com/p/why-you-should-start-using-agentic).
