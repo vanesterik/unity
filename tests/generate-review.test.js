@@ -42,7 +42,7 @@ test('an approval has the same header shape as the test summary', () => {
   const review = reviewFor(baseData);
   assert.match(review, /^<!-- role:review -->\n## ✅ Review APPROVE · #9 · Greet in Dutch\n\n/);
   assert.match(review, /^\*\*Criteria met:\*\* 2\/2  $/m);
-  assert.match(review, /^\*\*Findings:\*\* 0 blocking, 1 suggestions  $/m);
+  assert.match(review, /^\*\*Findings:\*\* 0 blocking, 1 suggestion  $/m);
   assert.match(review, /^\*\*Tests run:\*\* unit 11\/11, regression 9\/9  $/m);
   assert.match(review, /^\*\*Design:\*\* v1  $/m);
   assert.match(review, /^\*\*Commit:\*\* `abc1234` on `feature\/9-greet-in-dutch`$/m);
