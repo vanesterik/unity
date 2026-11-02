@@ -115,11 +115,10 @@ const story = (arg) => {
 
 // ---------- pull request + role comments ----------
 
+// No PR yet is an empty list; a gh failure (auth, network) throws, so it is never mistaken for "no PR".
 const findPr = (number) => {
-  try {
-    const prs = ghJson(['pr', 'list', '--search', `${number} in:body`, '--state', 'open', '--json', 'number,url,headRefName,headRefOid,body,createdAt']);
-    return (prs || []).find((p) => new RegExp(`(closes|fixes|resolves)\\s+#${number}\\b`, 'i').test(p.body || '')) || null;
-  } catch { return null; } // no PR yet
+  const prs = ghJson(['pr', 'list', '--search', `${number} in:body`, '--state', 'open', '--json', 'number,url,headRefName,headRefOid,body,createdAt']);
+  return (prs || []).find((p) => new RegExp(`(closes|fixes|resolves)\\s+#${number}\\b`, 'i').test(p.body || '')) || null;
 };
 
 const pr = (issueArg) => {
