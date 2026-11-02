@@ -198,6 +198,15 @@ const columnReport = (expected, actual) => {
   return { missing, misnamed };
 };
 
+// Done is reached on merge only through the board's built-in "Item closed" workflow,
+// which new projects ship disabled and the API cannot enable.
+const closedWorkflowWarning = (workflows) => {
+  const closed = workflows.find((workflow) => workflow.name === 'Item closed');
+  if (closed && closed.enabled) return null;
+  return 'Warning: the board\'s "Item closed" workflow is off, so merged issues stay in Review. '
+    + 'Enable it on the board: ... menu > Workflows > Item closed > set Status to Done > Save and turn on workflow.';
+};
+
 const init = (owner, projectNumber) => {
   if (!owner || !projectNumber) die('Usage: pipeline.js init <owner> <project-number>');
   const project = ghJson(['project', 'view', String(projectNumber), '--owner', owner, '--format', 'json']);
@@ -221,6 +230,10 @@ const init = (owner, projectNumber) => {
   console.log(`Wrote ${configPath}`);
   for (const { expected, found } of misnamed) console.log(`Warning: board column "${found}" must be named exactly "${expected}"`);
   if (missing.length) console.log(`Warning: board is missing columns: ${missing.join(', ')}`);
+  const query = 'query($id: ID!) { node(id: $id) { ... on ProjectV2 { workflows(first: 50) { nodes { name enabled } } } } }';
+  const workflows = ghJson(['api', 'graphql', '-f', `query=${query}`, '-f', `id=${project.id}`]).data.node.workflows.nodes;
+  const warning = closedWorkflowWarning(workflows);
+  if (warning) console.log(warning);
 };
 
 const issueUrl = (number) => gh(['issue', 'view', String(number), '--json', 'url', '-q', '.url']);
@@ -295,4 +308,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths };
+module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning };

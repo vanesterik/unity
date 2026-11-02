@@ -14,7 +14,7 @@ GitHub Project columns are the workflow state. IDs live in `.claude/pipeline.jso
 | Build | Design approved; implementation and unit tests (TDD), also rework | `/unity:design` once the developer approves the design in conversation; `/unity:test` and `/unity:review` on rejection |
 | Test | PR open, integration/E2E testing | `/unity:build` when the PR is open |
 | Review | Tests passed, final code review | `/unity:test` on PASS |
-| Done | Merged | GitHub automation on merge |
+| Done | Merged | the board's "Item closed" workflow, when the merge closes the issue |
 
 The developer's approval of the design is the one human gate: `/unity:design` moves an issue to Build only after it, and `/unity:build` works only on issues in Build.
 
