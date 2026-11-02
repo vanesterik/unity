@@ -7,6 +7,7 @@
 //   pipeline.js init <owner> <project-number>   discover project/field/option IDs into .claude/pipeline.json
 //   pipeline.js resolve [arg]                   print the issue number (arg, #n, URL, or current branch)
 //   pipeline.js story [arg]                     issue + latest design + acceptance criteria as JSON
+//   pipeline.js design [arg]                    the latest design comment, as markdown
 //   pipeline.js comments <issue> <role>         latest <!-- role:<role> --> comment on the issue or its PR, as JSON
 //   pipeline.js pr <issue>                      the open PR for the issue (number, url, branch, head SHA), as JSON
 //   pipeline.js tested <issue>                  latest test result and whether it still covers the PR head, as JSON
@@ -310,6 +311,7 @@ if (require.main === module) {
     if (command === 'init') init(args[0], args[1]);
     else if (command === 'resolve') { const n = resolveIssue(args[0]); if (!n) die('No issue found'); console.log(n); }
     else if (command === 'story') console.log(JSON.stringify(story(args[0]), null, 2));
+    else if (command === 'design') { const { number, design } = story(args[0]); if (!design) die(`#${number} has no design comment`); process.stdout.write(`${design}\n`); }
     else if (command === 'comments') console.log(JSON.stringify(comments(args[0], args[1]), null, 2));
     else if (command === 'pr') console.log(JSON.stringify(pr(args[0]), null, 2));
     else if (command === 'tested') console.log(JSON.stringify(tested(args[0]), null, 2));
@@ -317,7 +319,7 @@ if (require.main === module) {
     else if (command === 'check') check(args[0], args.slice(1).join(' '));
     else if (command === 'status') setStatus(args[0], args.slice(1).join(' '));
     else if (command === 'port') port(args[0]);
-    else die('Commands: init | resolve | story | comments | pr | tested | queue | check | status | port');
+    else die('Commands: init | resolve | story | design | comments | pr | tested | queue | check | status | port');
   } catch (error) {
     die(error.stderr ? String(error.stderr) : error.message);
   }
