@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning } = require('../scripts/pipeline.js');
+const { latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus } = require('../scripts/pipeline.js');
 
 test('latestRoleComment returns the newest comment carrying the role marker', () => {
   const entries = [
@@ -67,4 +67,29 @@ test('closedWorkflowWarning warns when the board does not move closed issues', (
 test('closedWorkflowWarning is quiet when the Item closed workflow is enabled', () => {
   const workflows = [{ name: 'Item closed', enabled: true }, { name: 'Pull request merged', enabled: false }];
   assert.equal(closedWorkflowWarning(workflows), null);
+});
+
+test('prForIssue picks the PR whose body closes the issue', () => {
+  const prs = [
+    { number: 11, body: 'Closes #90' },
+    { number: 10, body: '<!-- role:build -->\nCloses #9\n\n## Summary' },
+  ];
+  assert.equal(prForIssue(prs, 9).number, 10);
+});
+
+test('prForIssue ignores a PR that only mentions the issue', () => {
+  assert.equal(prForIssue([{ number: 10, body: 'Follow-up to #9' }], 9), null);
+});
+
+test('boardStatus reads the column on the configured board only', () => {
+  const items = [
+    { project: { id: 'PVT_other' }, fieldValueByName: { name: 'Done' } },
+    { project: { id: 'PVT_ours' }, fieldValueByName: { name: 'Review' } },
+  ];
+  assert.deepEqual(boardStatus(items, 'PVT_ours'), { onBoard: true, status: 'Review' });
+});
+
+test('boardStatus tells an issue without a column from one not on the board', () => {
+  assert.deepEqual(boardStatus([{ project: { id: 'PVT_ours' }, fieldValueByName: null }], 'PVT_ours'), { onBoard: true, status: null });
+  assert.deepEqual(boardStatus([], 'PVT_ours'), { onBoard: false, status: null });
 });
