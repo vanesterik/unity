@@ -47,7 +47,7 @@ In PIPELINE_MODE, skip the questions: execute all cases, use the environment URL
 Otherwise, ask in one multiple-choice round:
 
 - Which test cases to execute (default: all)
-- Which environment, from `<repo>/environments.json`
+- Which environment, from `<repo>/environments.json`; if the project has none, ask for the URL
 - Which evidence type: `screenshots` or `videos` (default: `screenshots`)
 
 ### Step 3 - Execute test cases

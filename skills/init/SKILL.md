@@ -38,7 +38,6 @@ It creates or updates:
 | File | What happens |
 | --- | --- |
 | `.claude/pipeline.json` | created from the template if missing |
-| `environments.json` | created from the template if missing |
 | `CLAUDE.md` | workflow section appended (between `unity:workflow` markers) if not there yet |
 | `.gitignore` | `artifacts/` added |
 | `.claude/settings.json` | marketplace registered and plugin enabled for this repo, merged with existing settings |
@@ -65,6 +64,8 @@ Inspect the repository and propose values for the `test` and `e2e` blocks of `.c
 
 For a project with nothing to start (a CLI tool or a library), set `test.start`, `test.stop`, `test.healthUrl` and `test.baseUrl` to empty strings: the test role then runs everything in the PR checkout. For a project without a browser UI, drop the `e2e` block and fill in `integration.dir` and `integration.runCommand`; the command runs every integration test and must not be part of the unit test command.
 
+For a project with a browser UI, also create `environments.json` from the plugin's template if it is missing (`cp "${CLAUDE_SKILL_DIR}/../../templates/environments.json" environments.json`) and propose its URLs. `test-user-story` offers these environments when it runs on its own; `/unity:test` doesn't need them.
+
 Also set `test.writablePaths` to the E2E directory, the integration test directory and `artifacts/`.
 
 Present the proposed values in one short list and ask the user to confirm or correct them, in a single question round. Mark anything you could not find as missing instead of guessing. Then write the confirmed values into `.claude/pipeline.json` and the **E2E testing** section of `CLAUDE.md`. Edit only inside the `unity:workflow` markers.
@@ -83,7 +84,7 @@ Report, without installing anything:
 Summarize in a few lines: the files created or changed, the board connection, anything still missing, and the commit to make:
 
 ```bash
-git add .claude/pipeline.json .claude/settings.json CLAUDE.md environments.json .gitignore
+git add .claude/pipeline.json .claude/settings.json CLAUDE.md .gitignore   # plus environments.json if it was created
 git commit -m "chore: set up unity workflow"
 ```
 

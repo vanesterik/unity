@@ -41,12 +41,7 @@ if (read('.claude/pipeline.json') === null) {
   write('.claude/pipeline.json', fs.readFileSync(path.join(templates, 'pipeline.json'), 'utf8'), 'created from template');
 }
 
-// 2. environments.json
-if (read('environments.json') === null) {
-  write('environments.json', fs.readFileSync(path.join(templates, 'environments.json'), 'utf8'), 'created from template');
-}
-
-// 3. CLAUDE.md workflow section
+// 2. CLAUDE.md workflow section
 const section = fs.readFileSync(path.join(templates, 'CLAUDE.workflow.md'), 'utf8');
 const claudeMd = read('CLAUDE.md');
 if (claudeMd === null) {
@@ -55,14 +50,14 @@ if (claudeMd === null) {
   write('CLAUDE.md', `${claudeMd.replace(/\s*$/, '')}\n\n${section}`, 'workflow section appended');
 }
 
-// 4. .gitignore
+// 3. .gitignore
 const gitignore = read('.gitignore');
 if (gitignore === null || !gitignore.split(/\r?\n/).some((line) => line.trim().replace(/^\//, '') === 'artifacts/')) {
   const base = gitignore === null ? '' : `${gitignore.replace(/\s*$/, '')}\n`;
   write('.gitignore', `${base}\n# unity test evidence (local only)\nartifacts/\n`, gitignore === null ? 'created' : 'artifacts/ added');
 }
 
-// 5. .claude/settings.json: register the marketplace and enable the plugin for this repo
+// 4. .claude/settings.json: register the marketplace and enable the plugin for this repo
 const settingsRaw = read('.claude/settings.json');
 let settings = {};
 try { settings = settingsRaw ? JSON.parse(settingsRaw) : {}; } catch {

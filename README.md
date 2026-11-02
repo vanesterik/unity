@@ -90,7 +90,7 @@ tests/                   unit tests for pipeline.js and the two report generator
 What lives where:
 
 - **In this plugin (shared):** skills, hooks, scripts, report template.
-- **In each project:** `.claude/pipeline.json` (board IDs, start/stop and test commands), the workflow section of `CLAUDE.md`, `environments.json`, and `artifacts/` in `.gitignore`.
+- **In each project:** `.claude/pipeline.json` (board IDs, start/stop and test commands), the workflow section of `CLAUDE.md`, `artifacts/` in `.gitignore`, and for web projects `environments.json`.
 
 Skills locate plugin files through `${CLAUDE_SKILL_DIR}`, and hooks through `${CLAUDE_PLUGIN_ROOT}`. Project files are found through `CLAUDE_PROJECT_DIR` or the git root, so the same plugin works in every repo and worktree.
 
