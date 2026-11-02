@@ -94,7 +94,7 @@ Write `artifacts/<n>-<slug>/review.md` in this shape. The marker must be the fir
 
 | Criterion | Where | Status |
 | --- | --- | --- |
-| AC1 | `greet.js:12` builds the greeting | ✅ |
+| AC1 | `greet.js:12`, `greet.js:20-22` | ✅ |
 
 ### Blocking
 
@@ -115,7 +115,7 @@ What is done well, specifically.
 - <behaviour>: <why it is outside the design>
 ```
 
-The criteria table names each criterion by its ID only; its text is already in the design and the test report. Status is ✅ or ❌. Write "None." under a section that has no entries. Then post it as a review comment, and leave a one-line pointer on the issue (no `role:` marker):
+The criteria table names each criterion by its ID only; its text is already in the design and the test report. **Where** holds only `file:line` references, no explanation: a long cell squeezes the other columns until GitHub breaks their headers mid-word. Status is ✅ or ❌. Write "None." under a section that has no entries. Then post it as a review comment, and leave a one-line pointer on the issue (no `role:` marker):
 
 ```bash
 gh pr review <pr> --comment --body-file artifacts/<n>-<slug>/review.md
