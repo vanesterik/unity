@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { latestRoleComment, columnReport } = require('../scripts/pipeline.js');
+const { latestRoleComment, columnReport, parseTestSummary, outsidePaths } = require('../scripts/pipeline.js');
 
 test('latestRoleComment returns the newest comment carrying the role marker', () => {
   const entries = [
@@ -38,4 +38,23 @@ test('columnReport reports a column with no close match as missing', () => {
   const report = columnReport(['Backlog', 'Review'], ['Backlog', 'In Progress']);
   assert.deepEqual(report.missing, ['Review']);
   assert.deepEqual(report.misnamed, []);
+});
+
+test('parseTestSummary reads the status and the tested commit from a test summary', () => {
+  const body = '<!-- role:test -->\n## ✅ Test PASS · #4 · Greeting CLI\n\n**Cases:** 9/9 passed  \n**Commit:** `dc1ad16` on `feature/4-greeting-cli`\n';
+  assert.deepEqual(parseTestSummary(body), { status: 'PASS', commit: 'dc1ad16' });
+});
+
+test('parseTestSummary reads a failed run', () => {
+  const body = '<!-- role:test -->\n## ❌ Test FAILURE · #4 · Greeting CLI\n**Commit:** `abc1234` on `feature/4-x`';
+  assert.deepEqual(parseTestSummary(body), { status: 'FAILURE', commit: 'abc1234' });
+});
+
+test('parseTestSummary returns nulls for a body that is not a test summary', () => {
+  assert.deepEqual(parseTestSummary('Looks good'), { status: null, commit: null });
+});
+
+test('outsidePaths lists the files that are not under any of the prefixes', () => {
+  const files = ['tests/integration/greet.js', 'tests/integration', 'greet.js', 'e2e-old/a.js'];
+  assert.deepEqual(outsidePaths(files, ['tests/integration/', 'e2e/']), ['greet.js', 'e2e-old/a.js']);
 });

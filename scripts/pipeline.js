@@ -9,6 +9,7 @@
 //   pipeline.js story [arg]                     issue + latest design + acceptance criteria as JSON
 //   pipeline.js comments <issue> <role>         latest <!-- role:<role> --> comment on the issue or its PR, as JSON
 //   pipeline.js pr <issue>                      the open PR for the issue (number, url, branch, head SHA), as JSON
+//   pipeline.js tested <issue>                  latest test result and whether it still covers the PR head, as JSON
 //   pipeline.js queue <Column>                  issues of this repo in a board column, as JSON
 //   pipeline.js check <issue> <Column>          exit 1 unless the issue is in this column; prints its column as JSON
 //   pipeline.js status <issue> <Column>         move the issue's project item to a column
@@ -144,6 +145,40 @@ const comments = (issueArg, role) => {
   return latestRoleComment(entries, role);
 };
 
+// ---------- test result vs. PR head ----------
+
+// Status and tested commit from a summary.md written by the report generator.
+const parseTestSummary = (body = '') => ({
+  status: (body.match(/^##\s+\S+\s+Test\s+(PASS|FAILURE|INCOMPLETE)\b/m) || [])[1] || null,
+  commit: (body.match(/\*\*Commit:\*\*\s+`([0-9a-f]{7,40})`/) || [])[1] || null,
+});
+
+// Files that are not under any of the path prefixes.
+const outsidePaths = (files, prefixes) => files.filter((file) => !prefixes.some((prefix) => {
+  const clean = prefix.replace(/\/$/, '');
+  return file === clean || file.startsWith(`${clean}/`);
+}));
+
+// Whether the latest test result still covers the PR: commits after the tested one may only
+// touch the test role's own paths (the tests it committed after testing).
+const tested = (issueArg) => {
+  const number = resolveIssue(issueArg);
+  if (!number) die('Usage: pipeline.js tested <issue>');
+  const found = findPr(number);
+  if (!found) die(`#${number} has no open PR`);
+  const report = comments(number, 'test');
+  const { status, commit } = parseTestSummary(report ? report.body : '');
+  const result = { status, testedCommit: commit, headSha: found.headRefOid, reportUrl: report ? report.url : null, changedSince: [], outsideTestPaths: [] };
+  if (!commit) return { ...result, covers: false };
+  const compare = ghJson(['api', `repos/{owner}/{repo}/compare/${commit}...${found.headRefOid}`]);
+  const config = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {};
+  const testPaths = ((config.test && config.test.writablePaths) || []).filter((p) => !/^artifacts\/?$/.test(p));
+  result.changedSince = (compare.files || []).map((file) => file.filename);
+  result.outsideTestPaths = outsidePaths(result.changedSince, testPaths);
+  const contained = compare.status === 'ahead' || compare.status === 'identical';
+  return { ...result, covers: status === 'PASS' && contained && !result.outsideTestPaths.length };
+};
+
 // ---------- GitHub Projects ----------
 
 const COLUMNS = ['Backlog', 'Design', 'Build', 'Test', 'Review', 'Done'];
@@ -249,14 +284,15 @@ if (require.main === module) {
     else if (command === 'story') console.log(JSON.stringify(story(args[0]), null, 2));
     else if (command === 'comments') console.log(JSON.stringify(comments(args[0], args[1]), null, 2));
     else if (command === 'pr') console.log(JSON.stringify(pr(args[0]), null, 2));
+    else if (command === 'tested') console.log(JSON.stringify(tested(args[0]), null, 2));
     else if (command === 'queue') queue(args.join(' '));
     else if (command === 'check') check(args[0], args.slice(1).join(' '));
     else if (command === 'status') setStatus(args[0], args.slice(1).join(' '));
     else if (command === 'port') port(args[0]);
-    else die('Commands: init | resolve | story | comments | pr | queue | check | status | port');
+    else die('Commands: init | resolve | story | comments | pr | tested | queue | check | status | port');
   } catch (error) {
     die(error.stderr ? String(error.stderr) : error.message);
   }
 }
 
-module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport };
+module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths };

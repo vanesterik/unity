@@ -2,7 +2,7 @@
 
 A Claude Code plugin for a role-based development flow on GitHub: **design -> build -> test -> review**. Each role runs in a fresh context, and GitHub issues, PRs and a Project board are the only handoff between roles.
 
-This version ships the **design**, **build** and **test** roles and the shared plumbing. `review` follows the same conventions and is planned next.
+It ships all four roles (**design**, **build**, **test** and **review**) and the shared plumbing.
 
 ## Install
 
@@ -47,6 +47,7 @@ Prerequisites:
 | `/unity:design <issue>` | Design phase: pick up an issue, work out the design with you, post design + acceptance criteria + plan as one issue comment, move it to Build on your approval |
 | `/unity:build <issue>` | Build phase: implement the approved plan task by task with test-first unit tests, open a PR that maps each criterion to code and tests, move it to Test; also handles rework |
 | `/unity:test <issue> [auto]` | Test phase: explore against acceptance criteria, write scripted tests, post the result on the PR, move the issue on the board |
+| `/unity:review <issue or PR>` | Review phase: independent code review of the whole PR against the design and criteria; posts a verdict with blocking findings and suggestions, sends the issue back to Build or leaves it ready to merge |
 | `/unity:test-user-story <issue or story>` | Exploratory browser testing with an evidence report; also usable on its own |
 | `/unity:write-e2e-test` | Write and stabilize Playwright tests; also usable on its own |
 | `/unity:get-user-story <issue>` | Issue + latest design + acceptance criteria, as used by the skills above |
@@ -57,7 +58,7 @@ The GitHub Project's **Status** field is the workflow state. The columns must be
 
 `Backlog` · `Design` · `Build` · `Test` · `Review` · `Done`
 
-Each role is named after the column it works in. Picking an issue with `/unity:design` sets the flow in motion: design moves it to Build once you approve the design in conversation, build to Test when the PR is open, test to Review on a pass (or back to Build on a failure), and merging moves it to Done.
+Each role is named after the column it works in. Picking an issue with `/unity:design` sets the flow in motion: design moves it to Build once you approve the design in conversation, build to Test when the PR is open, test to Review on a pass (or back to Build on a failure), review back to Build on blocking findings or leaves it for you to merge, and merging moves it to Done.
 
 Designs and plans live in the issue as the `role:design` comment, not as files in the repository.
 
@@ -72,6 +73,7 @@ skills/
   design/                design role
   build/                 build role
   test/                  test role
+  review/                review role
   get-user-story/        issue -> story with acceptance criteria
   test-user-story/       exploratory testing + report generator (references/)
   write-e2e-test/        scripted Playwright tests
@@ -79,7 +81,7 @@ hooks/
   hooks.json             registers the hook below
   test-guard.js          during a test run, blocks edits outside the test paths
 scripts/
-  pipeline.js            issue resolution, criteria parsing, role comments, PR lookup, board checks and moves, ports
+  pipeline.js            issue resolution, criteria parsing, role comments, PR lookup, test coverage of the PR head, board checks and moves, ports
   init-project.js        idempotent per-project file setup used by init
 templates/               pipeline.json, CLAUDE.md workflow section, environments.json
 tests/                   unit tests for pipeline.js and the report generator
