@@ -66,7 +66,7 @@ Never test against a shared or production environment from this skill.
 Use the `unity:test-user-story` skill in pipeline mode, passing:
 
 ```
-pipeline issue=<n> environment="local worktree" url=<environment URL> evidence=screenshots
+pipeline issue=<n> environment="local" url=<environment URL> evidence=screenshots
 ```
 
 Without `auto`, first show the derived cases and ask once whether to run all of them (and whether to use videos instead of screenshots). Then continue in pipeline mode with that answer.

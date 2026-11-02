@@ -14,7 +14,7 @@
 //   pipeline.js queue <Column>                  issues of this repo in a board column, as JSON
 //   pipeline.js check <issue> <Column>          exit 1 unless the issue is in this column; prints its column as JSON
 //   pipeline.js status <issue> <Column>         move the issue's project item to a column
-//   pipeline.js port <issue>                    deterministic local port for this issue's worktree
+//   pipeline.js port <issue>                    deterministic local port for this issue's test environment
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
