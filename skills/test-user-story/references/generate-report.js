@@ -286,7 +286,7 @@ md.push('');
 md.push('| ID | Criterion | Cases | Status |');
 md.push('| --- | --- | --- | --- |');
 for (const criterion of coverage) {
-  md.push(`| ${cell(criterion.id)} | ${cell(criterion.text)} | ${criterion.cases.length ? criterion.cases.join(', ') : '—'} | ${criterion.status} |`);
+  md.push(`| ${cell(criterion.id)} | ${cell(criterion.text)} | ${criterion.cases.length ? criterion.cases.join(',&nbsp;') : '—'} | ${criterion.status} |`);
 }
 md.push('');
 md.push('### Cases');
