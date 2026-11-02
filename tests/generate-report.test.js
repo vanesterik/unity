@@ -7,12 +7,16 @@ const { spawnSync } = require('child_process');
 
 const generator = path.join(__dirname, '..', 'skills', 'test-user-story', 'references', 'generate-report.js');
 
-// Runs the generator on a report-data.json in a fresh directory and returns summary.md.
-const summaryFor = (data) => {
+// Runs the generator on a report-data.json in a fresh directory.
+const generate = (data) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'unity-report-'));
   const dataPath = path.join(dir, 'report-data.json');
   fs.writeFileSync(dataPath, JSON.stringify(data));
-  const result = spawnSync('node', [generator, dataPath], { encoding: 'utf8' });
+  return { dir, result: spawnSync('node', [generator, dataPath], { encoding: 'utf8' }) };
+};
+
+const summaryFor = (data) => {
+  const { dir, result } = generate(data);
   assert.equal(result.status, 0, result.stderr);
   return fs.readFileSync(path.join(dir, 'summary.md'), 'utf8');
 };
@@ -28,19 +32,40 @@ const baseData = {
   cases: [{ number: 1, name: 'Greets @koen', criteria: ['AC1'], goal: 'g', status: 'PASS', steps: ['run it'] }],
 };
 
-test('scripted tests are rendered as a table with tags split from the title', () => {
+test('regression tests are a table of test, case, criterion and a status icon', () => {
   const summary = summaryFor({
     ...baseData,
-    e2eTests: [{ file: 'tests/integration/greet.js', title: '@issue-4 @AC1 Should greet a single name', status: 'passing' }],
+    cases: [
+      { number: 1, name: 'Greets', criteria: ['AC1'], goal: 'g', status: 'PASS', steps: ['run it'] },
+      { number: 2, name: 'Rejects', criteria: ['AC1'], goal: 'g', status: 'FAIL', steps: ['run it'], expected: 'usage line', actual: 'nothing' },
+    ],
+    regressionStability: '5 isolated and 3 parallel runs',
+    e2eTests: [
+      { file: 'tests/integration/greet.js', title: '@issue-4 @AC1 Should greet a single name', cases: [1], status: 'passing (5/5 runs)' },
+      { file: 'tests/integration/reject.js', title: '@issue-4 @AC1 Should reject an empty name', cases: [1, 2], status: 'failing: application bug, see case 2' },
+    ],
   });
-  assert.match(summary, /^\| Test \| Tags \| File \| Status \|$/m);
-  assert.match(summary, /^\| Should greet a single name \| `@issue-4` `@AC1` \| `tests\/integration\/greet\.js` \| passing \|$/m);
+  assert.match(summary, /^### Regression tests$/m);
+  assert.match(summary, /^\| Test \| Case \| Criterion \| Status \|$/m);
+  assert.match(summary, /^\| Should greet a single name \| 1 \| AC1 \| ✅ \|$/m);
+  assert.match(summary, /^\| Should reject an empty name \| 1,&nbsp;2 \| AC1 \| ❌ \|$/m);
+  assert.match(summary, /^In `tests\/integration\/greet\.js`, `tests\/integration\/reject\.js`\. Stable over 5 isolated and 3 parallel runs\.$/m);
+  assert.doesNotMatch(summary, /issue-4/);
+});
+
+test('a regression test pointing at an unknown case is refused', () => {
+  const { result } = generate({
+    ...baseData,
+    e2eTests: [{ file: 'tests/integration/greet.js', title: '@AC1 Should greet', cases: [7], status: 'passing' }],
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /case 7/);
 });
 
 test('the summary contains no bare @mentions', () => {
   const summary = summaryFor({
     ...baseData,
-    e2eTests: [{ file: 'tests/integration/greet.js', title: '@AC1 Should greet', status: 'passing' }],
+    e2eTests: [{ file: 'tests/integration/greet.js', title: '@AC1 Should greet', cases: [1], status: 'passing' }],
   });
   const outsideCode = summary.replace(/`[^`\n]*`/g, '');
   assert.doesNotMatch(outsideCode, /(^|[^\w])@[A-Za-z0-9]/m);

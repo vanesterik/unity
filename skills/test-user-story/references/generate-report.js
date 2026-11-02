@@ -93,6 +93,18 @@ const cases = (Array.isArray(data.cases) ? data.cases : []).map((testCase, index
   return { ...testCase, number: testCase.number || index + 1, status, criteria: caseCriteria };
 });
 
+// Regression tests (the codified cases): each names the cases it came from.
+const caseNumbers = new Set(cases.map((testCase) => testCase.number));
+const regressionTests = (Array.isArray(data.e2eTests) ? data.e2eTests : []).map((test) => {
+  const label = `regression test "${test.title || test.file || '?'}"`;
+  const testCases = Array.isArray(test.cases) ? test.cases : [];
+  if (!testCases.length) fail(`${label} must list the case numbers it codifies in "cases"`);
+  for (const number of testCases) {
+    if (!caseNumbers.has(number)) fail(`${label} references unknown case ${number}`);
+  }
+  return { ...test, cases: testCases };
+});
+
 const evidenceEntries = (testCase) => {
   const entries = Array.isArray(testCase.evidence) ? testCase.evidence : [testCase.evidence];
   return entries.filter(Boolean).map((entry) => {
@@ -327,17 +339,21 @@ if (flaky.length) {
   for (const testCase of flaky) md.push(`- Case ${testCase.number}: ${cell(testCase.name || '')}: ${cell(testCase.flaky)}`);
 }
 
-if (Array.isArray(data.e2eTests) && data.e2eTests.length) {
+if (regressionTests.length) {
   md.push('');
-  md.push('### Scripted tests added');
+  md.push('### Regression tests');
   md.push('');
-  md.push('| Test | Tags | File | Status |');
+  md.push('| Test | Case | Criterion | Status |');
   md.push('| --- | --- | --- | --- |');
-  for (const test of data.e2eTests) {
-    const tags = (test.title || '').match(/@[\w-]+/g) || [];
+  for (const test of regressionTests) {
     const title = (test.title || '').replace(/@[\w-]+\s*/g, '').trim();
-    md.push(`| ${cell(title)} | ${tags.map(code).join(' ') || '—'} | ${code(test.file || '')} | ${cell(test.status || '')} |`);
+    const testCriteria = ((test.title || '').match(/@AC\d+\b/g) || []).map((tag) => tag.slice(1));
+    const icon = /^pass/i.test(String(test.status || '')) ? '✅' : '❌';
+    md.push(`| ${cell(title)} | ${test.cases.join(',&nbsp;')} | ${testCriteria.join(', ') || '—'} | ${icon} |`);
   }
+  const files = [...new Set(regressionTests.map((test) => test.file).filter(Boolean))];
+  const where = [files.length ? `In ${files.map(code).join(', ')}.` : '', data.regressionStability ? `Stable over ${cell(data.regressionStability)}.` : ''].filter(Boolean).join(' ');
+  if (where) md.push('', where);
 }
 
 md.push('');
