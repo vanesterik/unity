@@ -6,6 +6,7 @@
 // - an untested criterion or skipped case makes the run INCOMPLETE instead of PASS/FAILURE
 // - writes summary.md next to index.html so /unity:test can post it on the PR unchanged
 // - braces in user content are escaped so text like "{{x}}" can't trip the placeholder check
+// - summary.md avoids GitHub autolinks: no #<case> numbers, and @tags are wrapped in backticks
 const fs = require('fs');
 const path = require('path');
 
@@ -285,7 +286,7 @@ md.push('');
 md.push('| ID | Criterion | Cases | Status |');
 md.push('| --- | --- | --- | --- |');
 for (const criterion of coverage) {
-  md.push(`| ${cell(criterion.id)} | ${cell(criterion.text)} | ${criterion.cases.length ? criterion.cases.map((n) => `#${n}`).join(', ') : '—'} | ${criterion.status} |`);
+  md.push(`| ${cell(criterion.id)} | ${cell(criterion.text)} | ${criterion.cases.length ? criterion.cases.join(', ') : '—'} | ${criterion.status} |`);
 }
 md.push('');
 md.push('### Cases');
@@ -302,7 +303,7 @@ if (failing.length) {
   md.push('### Failures');
   for (const testCase of failing) {
     md.push('');
-    md.push(`**#${testCase.number} ${cell(testCase.name || '')}** (${testCase.criteria.join(', ')})`);
+    md.push(`**Case ${testCase.number}: ${cell(testCase.name || '')}** (${testCase.criteria.join(', ')})`);
     md.push(`- **Failed step:** ${cell(testCase.failedStep || '—')}`);
     md.push(`- **Expected:** ${cell(testCase.expected)}`);
     md.push(`- **Actual:** ${cell(testCase.actual)}`);
@@ -323,7 +324,7 @@ const flaky = cases.filter((testCase) => testCase.flaky);
 if (flaky.length) {
   md.push('');
   md.push('### Flakiness findings');
-  for (const testCase of flaky) md.push(`- #${testCase.number} ${cell(testCase.name || '')}: ${cell(testCase.flaky)}`);
+  for (const testCase of flaky) md.push(`- Case ${testCase.number}: ${cell(testCase.name || '')}: ${cell(testCase.flaky)}`);
 }
 
 if (Array.isArray(data.e2eTests) && data.e2eTests.length) {
