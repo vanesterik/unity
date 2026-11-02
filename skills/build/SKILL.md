@@ -35,6 +35,8 @@ node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" check <n> Build
 
 If the issue is not in **Build**, stop. In **Design** the design is not approved yet; in **Test** or **Review** it is another role's turn.
 
+If `artifacts/.test-active` exists, a test run is in progress in this project, or one ended without cleaning up. While it exists, the test guard blocks your edits outside the test paths. Stop and tell the developer; if no test run is going on, they remove it with `rm artifacts/.test-active`. Don't remove it yourself: a running test session depends on it.
+
 ```bash
 node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" story <n>
 node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" pr <n>
