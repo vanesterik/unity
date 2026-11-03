@@ -71,7 +71,7 @@ The repository is its own marketplace.
    /unity:design <issue>
    ```
 
-   This is the one role you work with. It moves the issue to **Design**, reads the codebase, and works out the design with you, with numbered acceptance criteria (`AC1`, `AC2`, ...) that can be checked from outside the code. Then it writes an implementation plan, one commit per task. You approve the design and then the plan: that approval is the one human gate in the flow. It posts both as one comment on the issue and moves the issue to **Build**.
+   This is the one role you work with. It moves the issue to **Design**, reads the codebase, and works out the design with you, with numbered acceptance criteria (`AC1`, `AC2`, ...) that can be checked from outside the code. Then it writes an implementation plan, one commit per task. You approve the design and then the plan: that approval is the one human gate in the flow. A script assembles both into one comment, checking the sections and the numbering of the criteria; it is posted on the issue, read back to check it arrived unchanged, and the issue moves to **Build**.
 
 5. **Ship it**, from the same session:
 
@@ -154,7 +154,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 The test role stands on the work of [Tim Lolkema](https://github.com/tlolkema), who built and wrote about agentic testing with agent skills. Unity builds on his code and texts with his consent. Thanks, Tim, for sharing them so generously. ❤️
 
 - `test-user-story`, from [tlolkema/demo-webshop](https://github.com/tlolkema/demo-webshop): deriving test cases from a user story, executing them with `playwright-cli`, and the rules for framing screenshot and video evidence. Unity adds criterion IDs on every case, retrying a failure before recording it, a pipeline mode without questions, and command-line checks.
-- The test report, from the same repository: the HTML template and the generator that fills it from the run's data. Unity adds the acceptance-criteria coverage table, a verdict computed by the generator instead of supplied by the agent, and the markdown summary posted on the pull request. The review and build generators follow the same pattern.
+- The test report, from the same repository: the HTML template and the generator that fills it from the run's data. Unity adds the acceptance-criteria coverage table, a verdict computed by the generator instead of supplied by the agent, and the markdown summary posted on the pull request. The review, build and design generators follow the same pattern.
 - `write-e2e-test`, from [tlolkema/skills-explained](https://github.com/tlolkema/skills-explained): turning an executed case into a scripted Playwright test and repeating it until it is stable. Unity moves the project-specific paths into `CLAUDE.md` and `.claude/pipeline.json`, so it works across repositories, adds integration tests, and reports a test that stays flaky instead of hiding it.
 - `get-user-story`, from demo-webshop, rewritten to read the issue, its design comment and its acceptance criteria from GitHub.
 
