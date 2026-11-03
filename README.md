@@ -71,7 +71,7 @@ The repository is its own marketplace.
    /unity:design <issue>
    ```
 
-   This is the one role you work with. It moves the issue to **Design**, reads the codebase, and works out the design with you, with numbered acceptance criteria (`AC1`, `AC2`, ...) that can be checked from outside the code. Then it writes an implementation plan, one commit per task. You approve the design and then the plan: that approval is the one human gate in the flow. A script assembles both into one comment, checking the sections and the numbering of the criteria; it is posted on the issue, read back to check it arrived unchanged, and the issue moves to **Build**.
+   This is the one role you work with. It moves the issue to **Design**, reads the codebase, and works out the design with you, with numbered acceptance criteria (`AC1`, `AC2`, ...) that can be checked from outside the code. Then it writes an implementation plan, one commit per task. You approve the design and then the plan: that approval is the one human gate in the flow. A script assembles both into one comment and checks its sections and criteria. The comment is posted on the issue and read back to make sure it arrived unchanged, and the issue moves to **Build**.
 
 5. **Ship it**, from the same session:
 
