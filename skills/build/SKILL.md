@@ -7,7 +7,7 @@ allowed-tools: Agent, Bash
 
 # Build
 
-Run the build role on one issue. The role itself is the `unity:builder` agent, which runs in a fresh context: nothing of this conversation reaches it, and GitHub is its only input.
+Run the build role on one issue. The role itself is the `unity:builder` agent, which runs in a fresh context: nothing of this conversation reaches it, and GitHub is its only input. To run build, test and review one after the other, use `/unity:ship` instead.
 
 ISSUE: $ARGUMENTS (a number, `#42`, an issue or PR URL, or empty)
 
@@ -25,6 +25,6 @@ ISSUE: $ARGUMENTS (a number, `#42`, an issue or PR URL, or empty)
 
    | Column | Next step |
    | --- | --- |
-   | **Test** | `/unity:test <n>` |
+   | **Test** | `/unity:test <n>`, or `/unity:ship <n>` to test and review it in one go |
    | **Build** | The builder stopped; its report says why. |
    | Any other | The agent stopped before its work; its report says why. |

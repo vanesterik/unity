@@ -88,4 +88,4 @@ git add .claude/pipeline.json .claude/settings.json CLAUDE.md .gitignore   # plu
 git commit -m "chore: set up unity workflow"
 ```
 
-Commit only if the user asks. End with the next step: write an issue, add it to the board's **Backlog**, and start the flow in a fresh session with `claude "/unity:design <n>"`.
+Commit only if the user asks. End with the next step: write an issue, add it to the board's **Backlog**, and run `/unity:design <n>` to start the flow.
