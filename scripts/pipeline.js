@@ -315,8 +315,8 @@ const formatPointer = (role, entry) => {
   if (role === 'build') {
     const rework = body.match(/^##\s+Rework for (test|review) findings$/m);
     if (rework) return `🔨 Reworked ${rework[1]} findings: ${entry.url}`;
-    const commits = Number((body.match(/^\*\*Commits:\*\*\s+(\d+)/m) || [])[1]);
-    const unit = body.match(/^\*\*Unit tests:\*\*\s+(\d+)\/(\d+)/m);
+    const commits = Number((body.match(/<!--\s*role:build\b[^>]*\bcommits=(\d+)/) || [])[1]);
+    const unit = body.match(/<!--\s*role:build\b[^>]*\bunit-tests=(\d+)\/(\d+)/);
     if (!commits || !unit) throw new Error('The build output has no commit or unit test counts; write the PR body with generate-build.js');
     return `🔨 Built: ${entry.url} (${commits} ${commits === 1 ? 'commit' : 'commits'}, unit tests ${unit[1]}/${unit[2]})`;
   }

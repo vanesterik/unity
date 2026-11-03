@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Turns the build role's build-data.json into pr-body.md, the pull request body, and its
 // rework-data.json into rework.md, the PR comment on reworked findings.
-// - the issue, the design version and its criteria come from story.json (pipeline.js story), not from the data
+// - the issue and the design's criteria come from story.json (pipeline.js story), not from the data
 // - every criterion of the design is in the table, and no other one
 // - the commit list and its count come from git (main..HEAD), never from the data
 // - a red unit test suite is refused: the builder doesn't hand one over
@@ -98,7 +98,7 @@ const writeBody = () => {
   const storyPath = path.join(dir, 'story.json');
   if (!fs.existsSync(storyPath)) fail(`no story.json next to it; save it with pipeline.js story <n> > ${path.relative(process.cwd(), storyPath)}`);
   const story = JSON.parse(fs.readFileSync(storyPath, 'utf8'));
-  if (!Number.isInteger(story.number) || !Number.isInteger(story.designVersion)) fail('story.json has no issue number or design version; save it again with pipeline.js story <n>');
+  if (!Number.isInteger(story.number)) fail('story.json has no issue number; save it again with pipeline.js story <n>');
 
   const designIds = list(story.criteria).map((criterion) => criterion.id);
   const criteria = list(data.criteria);
@@ -126,16 +126,11 @@ const writeBody = () => {
   if (!commits.length) fail('there are no commits on this branch (main..HEAD) yet');
 
   const md = [];
-  md.push('<!-- role:build -->');
-  md.push(`Closes #${story.number}`);
-  md.push('');
-  md.push(`**Design:** v${story.designVersion}  `);
-  md.push(`**Commits:** ${commits.length}  `);
-  md.push(`**Unit tests:** ${unit.passed}/${unit.total} passed`);
-  md.push('');
-  md.push('## Summary');
-  md.push('');
+  // The counts sit in the hidden marker, where pipeline.js pointer reads them.
+  md.push(`<!-- role:build commits=${commits.length} unit-tests=${unit.passed}/${unit.total} -->`);
   md.push(mentions(data.summary.trim()));
+  md.push('');
+  md.push(`Closes #${story.number}`);
   md.push('');
   md.push('## Acceptance criteria');
   md.push('');
