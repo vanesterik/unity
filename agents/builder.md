@@ -83,7 +83,7 @@ The PR body is written by a script from your data. Write `artifacts/<n>-<slug>/b
 
 ```json
 {
-  "summary": "What was built, in a few lines. It opens the PR body, above the closing keyword.",
+  "summary": "What was built, in a few lines.",
   "criteria": [
     { "id": "AC1", "implemented": ["src/checkout.ts submitGuestOrder()"], "unitTests": ["test/checkout.test.ts accepts a guest order"] },
     { "id": "AC2", "implemented": ["src/checkout.tsx GuestForm"], "unitTests": [] }
@@ -92,13 +92,13 @@ The PR body is written by a script from your data. Write `artifacts/<n>-<slug>/b
     { "ruling": "<what you decided>", "reason": "<why>", "cost": "<what it costs if wrong>" }
   ],
   "run": ["npm run dev", "open http://localhost:3000/checkout"],
-  "unitTests": { "command": "npm test", "passed": 30, "total": 30, "output": "<the tail of its output>" }
+  "unitTests": { "passed": 30, "total": 30 }
 }
 ```
 
 - `criteria` lists every criterion of the design, AC1 first, in order, each with the files and functions that implement it. A criterion that unit tests cannot reach (for example one about what the user sees in the browser) gets an empty `unitTests`, which shows as "verified by the test role"; don't invent a test.
 - `deviations` holds every ruling from the ledger. Leave it empty (`[]`) when there were none.
-- `unitTests` holds your last run of the project's full unit test suite.
+- `unitTests` holds the counts of your last run of the project's full unit test suite.
 
 Then generate the body:
 
@@ -106,7 +106,7 @@ Then generate the body:
 node "${CLAUDE_PLUGIN_ROOT}/skills/build/references/generate-build.js" artifacts/<n>-<slug>/build-data.json
 ```
 
-The script reads the issue and the criteria from `story.json`, takes the commit list from git (`main..HEAD`), and writes `artifacts/<n>-<slug>/pr-body.md`. It refuses data that leaves out a criterion of the design or names one it doesn't have, and a red unit test suite. If it refuses the data, fix the data or the code, not `pr-body.md`. Don't edit `pr-body.md` afterwards: the format is the script's.
+The script reads the issue, the design version and the criteria from `story.json`, takes the commit list from git (`main..HEAD`), and writes `artifacts/<n>-<slug>/pr-body.md`. It refuses data that leaves out a criterion of the design or names one it doesn't have, and a red unit test suite. If it refuses the data, fix the data or the code, not `pr-body.md`. Don't edit `pr-body.md` afterwards: the format is the script's.
 
 Open the PR after the first task commit:
 
@@ -121,7 +121,7 @@ After every later task, update the data, generate the body again and update the 
 
 When every task is done:
 
-1. Run the project's full unit test suite once more and put the command, the counts and the tail of its output in `build-data.json`. Any failure, including one you didn't cause, is reported by name; do not hand over a red suite.
+1. Run the project's full unit test suite once more and put its counts in `build-data.json`. Any failure, including one you didn't cause, is reported by name; do not hand over a red suite.
 2. Generate the body again with the final rulings, and update the PR with it.
 3. Mark the PR ready and move the issue:
 

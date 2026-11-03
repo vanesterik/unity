@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Turns the build role's build-data.json into pr-body.md, the pull request body, and its
 // rework-data.json into rework.md, the PR comment on reworked findings.
-// - the issue and the design's criteria come from story.json (pipeline.js story), not from the data
+// - the issue, the design version and its criteria come from story.json (pipeline.js story), not from the data
 // - every criterion of the design is in the table, and no other one
 // - the commit list and its count come from git (main..HEAD), never from the data
 // - a red unit test suite is refused: the builder doesn't hand one over
@@ -98,7 +98,7 @@ const writeBody = () => {
   const storyPath = path.join(dir, 'story.json');
   if (!fs.existsSync(storyPath)) fail(`no story.json next to it; save it with pipeline.js story <n> > ${path.relative(process.cwd(), storyPath)}`);
   const story = JSON.parse(fs.readFileSync(storyPath, 'utf8'));
-  if (!Number.isInteger(story.number)) fail('story.json has no issue number; save it again with pipeline.js story <n>');
+  if (!Number.isInteger(story.number) || !Number.isInteger(story.designVersion)) fail('story.json has no issue number or design version; save it again with pipeline.js story <n>');
 
   const designIds = list(story.criteria).map((criterion) => criterion.id);
   const criteria = list(data.criteria);
@@ -118,7 +118,6 @@ const writeBody = () => {
   });
 
   const unit = data.unitTests || {};
-  if (!nonEmpty(unit.command) || !nonEmpty(unit.output)) fail('"unitTests" needs the "command" and the tail of its "output"');
   if (!Number.isInteger(unit.passed) || !Number.isInteger(unit.total) || unit.total < 1 || unit.passed > unit.total) fail('"unitTests" needs whole numbers "passed" and "total", with passed <= total');
   if (unit.passed < unit.total) fail(`${unit.passed}/${unit.total} unit tests passed; a red suite is not handed over, so fix it or stop and report the failures`);
 
@@ -126,8 +125,13 @@ const writeBody = () => {
   if (!commits.length) fail('there are no commits on this branch (main..HEAD) yet');
 
   const md = [];
-  // The counts sit in the hidden marker, where pipeline.js pointer reads them.
-  md.push(`<!-- role:build commits=${commits.length} unit-tests=${unit.passed}/${unit.total} -->`);
+  md.push('<!-- role:build -->');
+  md.push(`**Design:** v${story.designVersion}  `);
+  md.push(`**Commits:** ${commits.length}  `);
+  md.push(`**Unit tests:** ${unit.passed}/${unit.total} passed`);
+  md.push('');
+  md.push('## Summary');
+  md.push('');
   md.push(mentions(data.summary.trim()));
   md.push('');
   md.push(`Closes #${story.number}`);
@@ -152,12 +156,6 @@ const writeBody = () => {
   md.push('## How to run it');
   md.push('');
   md.push(...fence('bash', run.join('\n')));
-  md.push('');
-  md.push('## Unit tests');
-  md.push('');
-  md.push(code(unit.command));
-  md.push('');
-  md.push(...fence('', unit.output));
 
   const bodyPath = path.join(dir, 'pr-body.md');
   fs.writeFileSync(bodyPath, md.join('\n') + '\n');

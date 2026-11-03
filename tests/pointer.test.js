@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { formatPointer } = require('../scripts/pipeline.js');
 
-const prBody = '<!-- role:build commits=3 unit-tests=30/30 -->\nAdds a flag.\n\nCloses #9\n\n## Acceptance criteria';
+const prBody = '<!-- role:build -->\n**Design:** v1  \n**Commits:** 3  \n**Unit tests:** 30/30 passed\n\n## Summary\n\nAdds a flag.\n\nCloses #9';
 
 test('the build pointer links the PR with its commit and unit test counts from the body', () => {
   const entry = { source: 'pr-body', body: prBody, url: 'https://github.com/o/r/pull/10' };
@@ -10,7 +10,7 @@ test('the build pointer links the PR with its commit and unit test counts from t
 });
 
 test('the build pointer says commit for a single one', () => {
-  const entry = { source: 'pr-body', body: prBody.replace('commits=3', 'commits=1'), url: 'p10' };
+  const entry = { source: 'pr-body', body: prBody.replace('**Commits:** 3', '**Commits:** 1'), url: 'p10' };
   assert.equal(formatPointer('build', entry), '🔨 Built: p10 (1 commit, unit tests 30/30)');
 });
 
