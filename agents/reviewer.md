@@ -122,11 +122,11 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/review/references/generate-review.js" artifac
 
 The script computes the verdict (CHANGES REQUESTED when there is any blocking finding, APPROVE otherwise) and every count, and writes `artifacts/<n>-<slug>/review.md`. It refuses a criterion that isn't met, or a failed test run, without a blocking finding to explain it. If it refuses the data, fix the data, not `review.md`. Don't edit `review.md` afterwards: the format is the script's.
 
-Post it as a review comment, and leave a one-line pointer on the issue (no `role:` marker):
+Post it as a review comment, and leave a one-line pointer on the issue. The script writes the pointer from the review you just posted, without a `role:` marker:
 
 ```bash
 gh pr review <pr> --comment --body-file artifacts/<n>-<slug>/review.md
-gh issue comment <n> --body "<✅ for APPROVE, ❌ for CHANGES REQUESTED> Review <verdict from the script>: <review URL>"
+node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" pointer <n> review --post
 ```
 
 Use `--comment`, not `--approve` or `--request-changes`: GitHub refuses those on a PR opened by the same account, and the verdict lives in the marker block anyway.
