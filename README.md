@@ -81,7 +81,7 @@ The repository is its own marketplace.
 
    This runs the other three roles one after the other, each as its own agent with a fresh context, so none of them sees your design conversation or another role's reasoning. After each agent, it reads the board and goes on only if the issue moved to the next column. You watch nothing in between; you read the results on GitHub.
 
-   - **The builder** (`unity:builder`) creates `feature/<issue>-<slug>`, implements the plan task by task with unit tests written first, and pushes each task as its own commit to a draft pull request. When every task is done, it marks the pull request ready and moves the issue to **Test**.
+   - **The builder** (`unity:builder`) creates `feature/<issue>-<slug>`, implements the plan task by task with unit tests written first, and pushes each task as its own commit to a draft pull request. A script writes the pull request body from the builder's data: the commit list from git, and a table that maps every criterion of the design to its code and unit tests. When every task is done, it marks the pull request ready and moves the issue to **Test**.
    - **The tester** (`unity:tester`) tests the running system against the acceptance criteria as a black box, codifies the cases as integration or E2E tests on the branch, and posts a report on the pull request. On a pass it moves the issue to **Review**; on a failure, back to **Build**. A criterion it couldn't test leaves the issue in **Test**.
 
      The tester may only write tests, never application code or unit tests, so a failure goes back to the builder instead of being fixed in place. A hook enforces this: the tester writes `artifacts/.test-active` when a run starts and removes it at the end, and while that file exists, edits outside `test.writablePaths` in `.claude/pipeline.json` are blocked. Outside a test run the hook does nothing. If a run is interrupted, the file stays behind and the builder stops until you delete it.
@@ -97,7 +97,7 @@ The repository is its own marketplace.
 
 7. **Merge.** Review the pull request commit by commit and merge it with a rebase, so each task stays its own commit on `main`. The `Closes #<issue>` line closes the issue, and the "Item closed" workflow moves it to **Done**. If GitHub doesn't close the issue, close it by hand with a comment on how each criterion was met.
 
-The agents can't ask you anything mid-run: where a role needs a decision, it stops and hands back. Each role also checks the board first, so a role started on an issue in the wrong column stops. Along the way the issue collects a one-line pointer to each role's result, so it reads as a timeline of the story. To see where every issue stands and what to run next, without opening GitHub, run `/unity:status`.
+The agents can't ask you anything mid-run: where a role needs a decision, it stops and hands back. Each role also checks the board first, so a role started on an issue in the wrong column stops. Along the way the issue collects a one-line pointer to each role's result, written by a script from what the role posted, so it reads as a timeline of the story. To see where every issue stands and what to run next, without opening GitHub, run `/unity:status`.
 
 ## Board
 
@@ -154,7 +154,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 The test role stands on the work of [Tim Lolkema](https://github.com/tlolkema), who built and wrote about agentic testing with agent skills. Unity builds on his code and texts with his consent. Thanks, Tim, for sharing them so generously. ❤️
 
 - `test-user-story`, from [tlolkema/demo-webshop](https://github.com/tlolkema/demo-webshop): deriving test cases from a user story, executing them with `playwright-cli`, and the rules for framing screenshot and video evidence. Unity adds criterion IDs on every case, retrying a failure before recording it, a pipeline mode without questions, and command-line checks.
-- The test report, from the same repository: the HTML template and the generator that fills it from the run's data. Unity adds the acceptance-criteria coverage table, a verdict computed by the generator instead of supplied by the agent, and the markdown summary posted on the pull request. The review generator follows the same pattern.
+- The test report, from the same repository: the HTML template and the generator that fills it from the run's data. Unity adds the acceptance-criteria coverage table, a verdict computed by the generator instead of supplied by the agent, and the markdown summary posted on the pull request. The review and build generators follow the same pattern.
 - `write-e2e-test`, from [tlolkema/skills-explained](https://github.com/tlolkema/skills-explained): turning an executed case into a scripted Playwright test and repeating it until it is stable. Unity moves the project-specific paths into `CLAUDE.md` and `.claude/pipeline.json`, so it works across repositories, adds integration tests, and reports a test that stays flaky instead of hiding it.
 - `get-user-story`, from demo-webshop, rewritten to read the issue, its design comment and its acceptance criteria from GitHub.
 

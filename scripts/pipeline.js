@@ -17,7 +17,8 @@
 //   pipeline.js port <issue>                    deterministic local port for this issue's test environment
 //   pipeline.js board [--markdown]              every board issue per column, with PR, latest result, next step and warnings, as JSON
 //                                               (--markdown: the overview /unity:status prints)
-//   pipeline.js pointer <issue> <role>          the one-line pointer to the role's latest output, for the issue timeline
+//   pipeline.js pointer <issue> <role> [--post] the one-line pointer to the role's latest output, for the issue timeline
+//                                               (--post: post it on the issue)
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -502,7 +503,10 @@ if (require.main === module) {
     else if (command === 'check') check(args[0], args.slice(1).join(' '));
     else if (command === 'status') setStatus(args[0], args.slice(1).join(' '));
     else if (command === 'port') port(args[0]);
-    else if (command === 'pointer') console.log(pointer(args[0], args[1]));
+    else if (command === 'pointer') {
+      const line = pointer(args[0], args[1]);
+      console.log(args.includes('--post') ? gh(['issue', 'comment', String(resolveIssue(args[0])), '--body', line]) : line);
+    }
     else if (command === 'board') console.log(args.includes('--markdown') ? formatBoard(board()) : JSON.stringify(board(), null, 2));
     else die('Commands: init | resolve | story | design | comments | pr | tested | queue | check | status | port | board | pointer');
   } catch (error) {

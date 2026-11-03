@@ -56,14 +56,15 @@ git checkout main && git pull --ff-only
 git checkout -b feature/<n>-<slug>
 ```
 
-Save the design comment as the plan file, so the Superpowers scripts can work from it:
+Save the design comment as the plan file, so the Superpowers scripts can work from it, and the story, so the PR body generator can check your criteria against the design:
 
 ```bash
 mkdir -p artifacts/<n>-<slug>
 node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" design <n> > artifacts/<n>-<slug>/plan.md
+node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" story <n> > artifacts/<n>-<slug>/story.json
 ```
 
-The file holds the whole comment: the design sections are the spec, the **Implementation plan** section is the plan.
+The plan file holds the whole comment: the design sections are the spec, the **Implementation plan** section is the plan.
 
 ### 3. Implement the plan
 
@@ -78,51 +79,50 @@ Everything else applies as written, including continuous execution, rulings in t
 
 ### 4. The pull request
 
-Open it after the first task commit:
+The PR body is written by a script from your data. Write `artifacts/<n>-<slug>/build-data.json`:
+
+```json
+{
+  "summary": "What was built, in a few lines.",
+  "criteria": [
+    { "id": "AC1", "implemented": ["src/checkout.ts submitGuestOrder()"], "unitTests": ["test/checkout.test.ts accepts a guest order"] },
+    { "id": "AC2", "implemented": ["src/checkout.tsx GuestForm"], "unitTests": [] }
+  ],
+  "deviations": [
+    { "ruling": "<what you decided>", "reason": "<why>", "cost": "<what it costs if wrong>" }
+  ],
+  "run": ["npm run dev", "open http://localhost:3000/checkout"],
+  "unitTests": { "command": "npm test", "passed": 30, "total": 30, "output": "<the tail of its output>" }
+}
+```
+
+- `criteria` lists every criterion of the design, AC1 first, in order, each with the files and functions that implement it. A criterion that unit tests cannot reach (for example one about what the user sees in the browser) gets an empty `unitTests`, which shows as "verified by the test role"; don't invent a test.
+- `deviations` holds every ruling from the ledger. Leave it empty (`[]`) when there were none.
+- `unitTests` holds your last run of the project's full unit test suite.
+
+Then generate the body:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/skills/build/references/generate-build.js" artifacts/<n>-<slug>/build-data.json
+```
+
+The script reads the issue, the design version and the criteria from `story.json`, takes the commit list from git (`main..HEAD`), and writes `artifacts/<n>-<slug>/pr-body.md`. It refuses data that leaves out a criterion of the design or names one it doesn't have, and a red unit test suite. If it refuses the data, fix the data or the code, not `pr-body.md`. Don't edit `pr-body.md` afterwards: the format is the script's.
+
+Open the PR after the first task commit:
 
 ```bash
 git push -u origin feature/<n>-<slug>
 gh pr create --draft --title "<issue title>" --body-file artifacts/<n>-<slug>/pr-body.md
 ```
 
-Write `artifacts/<n>-<slug>/pr-body.md` in this shape, and update it (`gh pr edit <pr> --body-file ...`) as tasks land. The marker must be the first line:
-
-```markdown
-<!-- role:build -->
-Closes #<n>
-
-## Summary
-What was built, in a few lines, against design v<n>.
-
-## Acceptance criteria
-| Criterion | Implemented in | Unit tests |
-| --- | --- | --- |
-| AC1 | `src/checkout.ts` `submitGuestOrder()` | `test/checkout.test.ts` `accepts a guest order` |
-
-## Review commit by commit
-1. `<sha>` <subject>
-2. `<sha>` <subject>
-
-## Deviations from the design
-Every ruling from the ledger, with its reason and what it costs if wrong. "None" if there were none.
-
-## How to run it
-The commands to start or use what was built.
-
-## Unit tests
-The test command and the tail of its output from the final run.
-```
-
-Name each criterion by its ID only; its text is in the design. Put file names, test names and anything else containing `@` in backticks: GitHub turns a bare `@AC1` into a mention of whatever account has that name.
-
-A criterion that unit tests cannot reach (for example one about what the user sees in the browser) gets "verified by the test role" in the Unit tests column, not an invented test.
+After every later task, update the data, generate the body again and update the PR with it (`gh pr edit <pr> --body-file artifacts/<n>-<slug>/pr-body.md`), so the commit list stays complete.
 
 ### 5. Hand over
 
 When every task is done:
 
-1. Run the project's full unit test suite once more and put the command and the tail of its output in the PR body. Any failure, including one you didn't cause, is reported by name; do not hand over a red suite.
-2. Update the PR body with the final commit list and rulings.
+1. Run the project's full unit test suite once more and put the command, the counts and the tail of its output in `build-data.json`. Any failure, including one you didn't cause, is reported by name; do not hand over a red suite.
+2. Generate the body again with the final rulings, and update the PR with it.
 3. Mark the PR ready and move the issue:
 
    ```bash
@@ -130,10 +130,10 @@ When every task is done:
    node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" status <n> Test
    ```
 
-4. Leave a one-line pointer on the issue, without a `role:` marker, so the issue reads as a timeline of the flow:
+4. Leave a one-line pointer on the issue, so the issue reads as a timeline of the flow. The script writes it from the PR body, without a `role:` marker:
 
    ```bash
-   gh issue comment <n> --body "🔨 Built: <pr URL> (<k> commits, unit tests <passed>/<total>)"
+   node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" pointer <n> build --post
    ```
 
 ### 6. Rework
@@ -145,29 +145,35 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" comments <n> test
 node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" comments <n> review
 ```
 
-Use the newest of the two as your list of findings (compare `createdAt`). Check out the PR branch (`gh pr checkout <pr>`), pull, and run the test role's failing tests to see each failure yourself.
+Use the newest of the two as your list of findings (compare `createdAt`). Check out the PR branch (`gh pr checkout <pr>`), pull, and run the test role's failing tests to see each failure yourself. Save the story again (`pipeline.js story <n> > artifacts/<n>-<slug>/story.json`, as in step 2), so the PR body is generated against the current design.
 
 For each finding: reproduce it with a failing unit test where a unit test can reach it, fix the code, and commit (one commit per finding, or per group of findings with one cause). The test role's failing E2E or integration tests must pass without being edited (rule 3). Push after every commit.
 
-Then post what you fixed as a PR comment, starting with the marker:
+Then write what you fixed as `artifacts/<n>-<slug>/rework-data.json`, one entry per finding:
 
-```markdown
-<!-- role:build -->
-## Rework for <test|review> findings
-
-| Finding | Fix | Commit | Proof |
-| --- | --- | --- | --- |
-| Case 2: invalid email submits the form | Validate email before submit | `abc1234` | unit test "rejects an invalid email"; `e2e/checkout/guest-checkout.spec.ts` passes |
+```json
+{
+  "rework": "test",
+  "findings": [
+    { "finding": "Case 2: invalid email submits the form", "fix": "Validate email before submit", "commit": "abc1234", "proof": "unit test \"rejects an invalid email\"; e2e/checkout/guest-checkout.spec.ts passes" },
+    { "finding": "Case 5: the button is not blue", "disagree": "The design asks for the theme's primary colour, which is green" }
+  ]
+}
 ```
 
-Add a row for any finding you disagree with, saying why, and leave it unfixed. Update the commit list in the PR body, run the full unit suite, and move the issue:
+`rework` is `test` or `review`, after the findings you worked from. A finding you disagree with gets `disagree` with the reason, and stays unfixed. Generate the comment and post it:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/skills/build/references/generate-build.js" artifacts/<n>-<slug>/rework-data.json
+gh pr comment <pr> --body-file artifacts/<n>-<slug>/rework.md
+```
+
+The script refuses a fix whose commit isn't on the branch. Run the full unit suite, generate the PR body again from `build-data.json` with the new counts and update the PR with it, so its commit list includes the fixes. Then move the issue and leave the pointer, which the script writes from the rework comment:
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" status <n> Test
-gh issue comment <n> --body "🔨 Reworked <test|review> findings: <rework comment URL>"
+node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" pointer <n> build --post
 ```
-
-The pointer has no `role:` marker.
 
 ## Finish
 
