@@ -120,16 +120,27 @@ Every role ends by naming the next command, and each one checks the board first:
 
 ## Board
 
-The board's **Status** field is the workflow state, and each role is named after the column it works in:
+The board's **Status** field is the workflow state, and each role is named after the column it works in. Each arrow says who moves the issue:
 
-| Column | Meaning | Moved there by |
-| --- | --- | --- |
-| Backlog | Not picked up yet | you |
-| Design | Design and plan in progress, with you | `/unity:design` when it picks the issue up |
-| Build | Design approved; implementation, or rework | `/unity:design` on your approval; `/unity:test` and `/unity:review` on rejection |
-| Test | Pull request ready, black-box testing | `/unity:build` when every task is done |
-| Review | Tests passed, final code review | `/unity:test` on a pass |
-| Done | Merged | the board's "Item closed" workflow, when the merge closes the issue |
+```mermaid
+flowchart LR
+    Backlog["<b>Backlog</b><br/>not picked up yet"]
+    Design["<b>Design</b><br/>design and plan,<br/>with you"]
+    Build["<b>Build</b><br/>implementation<br/>or rework"]
+    Test["<b>Test</b><br/>black-box testing"]
+    Review["<b>Review</b><br/>final code review"]
+    Done["<b>Done</b><br/>merged"]
+
+    Backlog -->|"/unity:design picks it up"| Design
+    Design -->|"/unity:design on your approval"| Build
+    Build -->|"/unity:build when every task is done"| Test
+    Test -->|"/unity:test on a pass"| Review
+    Test -->|"/unity:test on a failure"| Build
+    Review -->|"/unity:review on blocking findings"| Build
+    Review -->|"you merge; Item closed workflow"| Done
+```
+
+You add new issues to **Backlog**. A criterion that `/unity:test` couldn't test leaves the issue in **Test** for you to decide.
 
 Designs and plans live in the issue, as the latest `role:design` comment, not as files in the repository. Build, test and review post on the pull request. Each role output starts with a hidden marker (`<!-- role:test -->`), so the next role finds the latest one.
 
