@@ -58,3 +58,5 @@ node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" summary <n> --since <start 
 Print its output exactly as it is, without adding to it, rewording it or putting it in a code block.
 
 Unless the run ended in **Review** with an approval, add the report of the role that stopped the run below the summary, as it is, so the developer doesn't have to look it up. Its report says why it stopped and what the developer has to decide.
+
+That is the whole output: the summary, and the stopping role's report when there is one. Don't add anything before, between or after them. That rules out a note of your own, an explanation of the failure, or a look at the branch, the commits or the code to find out what went wrong. Finding the cause is the developer's call, in their own session, and a role that reworks it starts from GitHub.
