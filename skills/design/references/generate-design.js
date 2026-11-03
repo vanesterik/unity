@@ -34,6 +34,7 @@ const read = (name, hint) => {
 const designText = fs.readFileSync(path.resolve(designPath), 'utf8').replace(/\r\n/g, '\n');
 const planText = read('plan.md', 'write the approved plan there');
 const story = JSON.parse(read('story.json', 'save it with pipeline.js story <n> > artifacts/<n>-<slug>/story.json'));
+if (/<!--\s*role:design\b/.test(planText)) fail('plan.md holds a design comment, not the plan; write the approved plan there again');
 
 // Lines with whether each one sits inside a fenced code block (the fence lines themselves count as inside).
 const withFences = (text) => {

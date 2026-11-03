@@ -60,15 +60,15 @@ Save the design comment as the plan file, so the Superpowers scripts can work fr
 
 ```bash
 mkdir -p artifacts/<n>-<slug>
-node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" design <n> > artifacts/<n>-<slug>/plan.md
+node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" design <n> > artifacts/<n>-<slug>/build-plan.md
 node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" story <n> > artifacts/<n>-<slug>/story.json
 ```
 
-The plan file holds the whole comment: the design sections are the spec, the **Implementation plan** section is the plan.
+The plan file holds the whole comment. It is not named `plan.md`, which is the designer's draft of the plan when the design was made on this machine: the design sections are the spec, the **Implementation plan** section is the plan.
 
 ### 3. Implement the plan
 
-Use the `superpowers:executing-plans` skill on `artifacts/<n>-<slug>/plan.md`, with these changes:
+Use the `superpowers:executing-plans` skill on `artifacts/<n>-<slug>/build-plan.md`, with these changes:
 
 - **Workspace:** you are on the feature branch from step 2, in the developer's working directory. Do not create a worktree.
 - **Ledger:** keep it where the skill's scripts put it; it is git-ignored scratch.
