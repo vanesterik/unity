@@ -1,6 +1,6 @@
 ---
 name: write-e2e-test
-description: Systematically write scripted Playwright E2E or integration tests, from planning through implementation and stability validation, following the project's conventions. Use when the user asks to "write an e2e test", "add e2e tests for [feature]", or to codify scenarios found by test-user-story. Used by /unity:test to turn explored scenarios into regression tests.
+description: Systematically write scripted Playwright E2E or integration tests, from planning through implementation and stability validation, following the project's conventions. Use when the user asks to "write an e2e test", "add e2e tests for [feature]", or to codify scenarios found by test-user-story. Used by the unity:tester agent to turn explored scenarios into regression tests.
 ---
 
 # Write E2E Test
@@ -26,7 +26,7 @@ If that section is missing, ask the user for these locations and suggest adding 
 
 ### 1. Define test requirements
 
-**Inside /unity:test**, the requirements already exist: the cases executed by `test-user-story` and the acceptance criteria. Select the ones worth codifying:
+**Inside the `unity:tester` agent**, the requirements already exist: the cases executed by `test-user-story` and the acceptance criteria. Select the ones worth codifying:
 
 - every case that verifies an acceptance criterion
 - every FAIL caused by the application (the test becomes the builder's target)
@@ -60,7 +60,7 @@ You read the implementation to learn how to drive and observe the UI. Never use 
 
 ### 3. Approval
 
-Inside /unity:test in pipeline mode, skip this step; the selection rules in step 1 apply.
+Inside the `unity:tester` agent, in pipeline mode, skip this step; the selection rules in step 1 apply.
 
 Otherwise, present the plan: the tests you will write, what each covers and which criterion it verifies. Wait for approval.
 

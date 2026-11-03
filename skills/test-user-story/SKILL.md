@@ -1,6 +1,6 @@
 ---
 name: test-user-story
-description: Exploratory, agentic testing of a user story or GitHub issue in a real browser using the 'playwright-cli' skill. Derives test cases from the acceptance criteria, executes them, and produces an evidence report with criteria coverage. Trigger when the user asks to test a user story or issue, or to verify local development changes. Also used by /unity:test.
+description: Exploratory, agentic testing of a user story or GitHub issue in a real browser using the 'playwright-cli' skill. Derives test cases from the acceptance criteria, executes them, and produces an evidence report with criteria coverage. Trigger when the user asks to test a user story or issue, or to verify local development changes. Also used by the unity:tester agent.
 allowed-tools: Bash
 ---
 
@@ -13,7 +13,7 @@ Based on Tim Lolkema's test-user-story skill, adapted for the design -> build ->
 ## Variables
 
 INPUT: the full text of $ARGUMENTS
-PIPELINE_MODE: true when this skill is called by `/unity:test` (the caller passes `pipeline` plus the issue number, environment URL and evidence type). In pipeline mode, ask no questions and use the values passed in.
+PIPELINE_MODE: true when this skill is called by the `unity:tester` agent (the caller passes `pipeline` plus the issue number, environment URL and evidence type). In pipeline mode, ask no questions and use the values passed in.
 
 - If INPUT is an issue number, issue URL, or "this branch", use the `unity:get-user-story` skill to retrieve the story and its acceptance criteria.
 - If INPUT is free text, treat it as the story. Extract or ask for numbered acceptance criteria (AC1, AC2, ...) before continuing.
