@@ -15,7 +15,13 @@ If ISSUE is empty, stop and ask which issue to ship. Don't pick one from the boa
 
 ## Run
 
-Repeat until a step says stop:
+Note the time the run starts, for the summary at the end:
+
+```bash
+date -u +%Y-%m-%dT%H:%M:%SZ
+```
+
+Then repeat until a step says stop:
 
 1. Read the issue's column:
 
@@ -43,14 +49,12 @@ Don't do any of a role's work yourself, and don't run a role again when it stopp
 
 ## Finish
 
-Report one line per role that ran: the role, its result (for example "4 commits, unit tests 30/30", "PASS, 8/8 criteria", "APPROVE, 1 suggestion") and the link it posted. Then give the column and the next step:
+Print the run's summary. The script reads what each role posted since the start time, with the column and the next step:
 
-| Ended in | Next step |
-| --- | --- |
-| **Review**, approved | Ready to merge: read the pull request commit by commit and merge it with a rebase. |
-| **Build**, after a failed test or changes requested | `/unity:ship <n>` again: the builder reworks the findings, and test and review run again. |
-| **Test**, INCOMPLETE | The tester's report says which criteria are untested. Test them another way, accept the gap, or send the issue back to `/unity:design <n>`. Then `/unity:ship <n>` runs the rest. |
-| **Test**, after review | The pull request changed after testing: `/unity:ship <n>` tests and reviews it again. |
-| **Build**, the builder stopped | Its report says why. |
+```bash
+node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" summary <n> --since <start time> --markdown
+```
 
-Below the table, add the report of the role that stopped the run, as it is, so the developer doesn't have to look it up.
+Print its output exactly as it is, without adding to it, rewording it or putting it in a code block.
+
+Unless the run ended in **Review** with an approval, add the report of the role that stopped the run below the summary, as it is, so the developer doesn't have to look it up. Its report says why it stopped and what the developer has to decide.
