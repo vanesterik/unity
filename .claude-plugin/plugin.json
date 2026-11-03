@@ -1,6 +1,6 @@
 {
   "name": "unity",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Role-based development flow for Claude Code (design -> build -> test -> review) on GitHub issues and Projects. Design with the developer, then build, test and review as separate agents in fresh contexts, run in one go by /unity:ship, with GitHub as the only handoff: test-first build, black-box testing with evidence, and independent review.",
   "author": {
     "name": "Koen van Esterik"
