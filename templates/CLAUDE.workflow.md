@@ -1,22 +1,22 @@
 <!-- unity:workflow:start -->
 ## Team workflow (unity)
 
-This project is built by one developer and Claude in four roles, each in a **fresh context**: `/unity:design` -> `/unity:build` -> `/unity:test` -> `/unity:review`. Each role is named after the board column it works in. GitHub is the only handoff between roles.
+This project is built by one developer and Claude in four roles: design -> build -> test -> review. Design is a conversation with the developer (`/unity:design`). Build, test and review each run as their own agent with a **fresh context** (`unity:builder`, `unity:tester`, `unity:reviewer`), started one after the other by `/unity:ship`, or one at a time by `/unity:build`, `/unity:test` and `/unity:review`. Each role is named after the board column it works in. GitHub is the only handoff between roles.
 
 ### Board
 
-GitHub Project columns are the workflow state. IDs live in `.claude/pipeline.json` (written by `/unity:init`). Picking an issue with `/unity:design` sets the flow in motion; from then on each role moves the issue to the next column, and the developer starts the next role in a fresh session.
+GitHub Project columns are the workflow state. IDs live in `.claude/pipeline.json` (written by `/unity:init`). Picking an issue with `/unity:design` sets the flow in motion; from then on each role moves the issue to the next column, and `/unity:ship` starts the next agent only when the issue moved on.
 
 | Column | Meaning | Moved there by |
 | --- | --- | --- |
 | Backlog | Not picked up yet | the developer |
 | Design | Design and plan in progress, with the developer | `/unity:design` at start |
-| Build | Design approved; implementation and unit tests (TDD), also rework | `/unity:design` once the developer approves the design in conversation; `/unity:test` and `/unity:review` on rejection |
-| Test | PR ready, integration/E2E testing | `/unity:build` when every task is done |
-| Review | Tests passed, final code review | `/unity:test` on PASS |
+| Build | Design approved; implementation and unit tests (TDD), also rework | `/unity:design` once the developer approves the design in conversation; the tester and the reviewer on rejection |
+| Test | PR ready, integration/E2E testing | the builder when every task is done |
+| Review | Tests passed, final code review | the tester on PASS |
 | Done | Merged | the board's "Item closed" workflow, when the merge closes the issue |
 
-The developer's approval of the design is the one human gate: `/unity:design` moves an issue to Build only after it, and `/unity:build` works only on issues in Build.
+The developer's approval of the design is the one human gate: `/unity:design` moves an issue to Build only after it, and the builder works only on issues in Build.
 
 ### Conventions
 
