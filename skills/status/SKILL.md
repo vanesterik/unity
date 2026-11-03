@@ -13,32 +13,11 @@ Show where every issue stands, without opening GitHub. This only reads: it moves
 1. Run:
 
    ```bash
-   node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" board
+   node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" board --markdown
    ```
 
-   It returns JSON: `columns` in board order, each with its `issues` (`number`, `title`, `url`, `next`, and for Build, Test and Review also `pr` and `latest`), and `warnings` (`type`, `message`). If it reports a missing `.claude/pipeline.json`, point the developer to `/unity:init`.
+   If it reports a missing `.claude/pipeline.json`, point the developer to `/unity:init`.
 
-2. Print the overview in this format, and nothing else:
+2. Print its output exactly as it is, and nothing else: no summary, no reordering, no added advice. The script writes the whole overview (the issues per column with their pull request, latest result and next step, the empty columns, the Done count and the warnings), so it reads the same every time for the same board.
 
-   ```markdown
-   **Backlog** (1)
-   - #17 Guest checkout → `/unity:design 17`
-
-   **Build** (1)
-   - #18 Greeting count · PR #20 (draft) · 🔨 Built → `/unity:ship 18`
-
-   **Review** (1)
-   - #15 Custom greeting word · PR #16 · ✅ Review APPROVE on `6e43f62` → ready to merge
-
-   Empty: Design, Test · Done: 9
-
-   **Warnings**
-   - ⚠️ #19 is still open, but PR #22 that closes it is merged: <url>
-   ```
-
-   - List the columns that have issues, in the order given, and leave out Done. Name the empty ones on one line, with the number of issues in Done.
-   - The result comes from `latest`: `✅`, `❌` or `⚠️` (PASS or APPROVE, FAILURE or CHANGES REQUESTED, INCOMPLETE), then `Test` or `Review`, the status and `on <commit>`. A build result is `🔨 Built`, and no `latest` is `no result yet`. Add `(draft)` after a draft PR.
-   - Show `next` as it is: a command in backticks, or its text (`ready to merge`, `decide on the untested criteria`).
-   - Give each warning's `message` as it is, and leave out the **Warnings** heading when there are none.
-
-3. After a `merged-but-open` warning, add one line: close the issue by hand, with a comment saying which pull request delivered it and how each acceptance criterion was met.
+For the same data as JSON, for a script or another skill, run `pipeline.js board` without `--markdown`.

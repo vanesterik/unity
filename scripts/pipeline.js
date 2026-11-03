@@ -15,7 +15,8 @@
 //   pipeline.js check <issue> <Column>          exit 1 unless the issue is in this column; prints its column as JSON
 //   pipeline.js status <issue> <Column>         move the issue's project item to a column
 //   pipeline.js port <issue>                    deterministic local port for this issue's test environment
-//   pipeline.js board                           every board issue per column, with PR, latest result, next step and warnings, as JSON
+//   pipeline.js board [--markdown]              every board issue per column, with PR, latest result, next step and warnings, as JSON
+//                                               (--markdown: the overview /unity:status prints)
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -265,6 +266,43 @@ const boardWarnings = ({ issues, openPrs, mergedPrs, openIssues }) => {
   return warnings;
 };
 
+const RESULT_ICONS = { PASS: '✅', APPROVE: '✅', FAILURE: '❌', 'CHANGES REQUESTED': '❌', INCOMPLETE: '⚠️' };
+
+const formatResult = (latest) => {
+  if (!latest) return 'no result yet';
+  if (latest.role === 'build') return '🔨 Built';
+  const role = latest.role === 'test' ? 'Test' : 'Review';
+  return `${RESULT_ICONS[latest.status] || '❔'} ${role} ${latest.status || 'unknown'}${latest.commit ? ` on \`${latest.commit}\`` : ''}`;
+};
+
+const formatNext = (next) => (next && next.startsWith('/') ? `\`${next}\`` : next);
+
+// The board overview as markdown, the same for the same board: the issues per column (Done only
+// as a count), the empty columns on one line, then the warnings.
+const formatBoard = ({ columns, warnings }) => {
+  const blocks = [];
+  const open = columns.filter((column) => column.name !== 'Done');
+  for (const column of open.filter((c) => c.issues.length)) {
+    const lines = [`**${column.name}** (${column.issues.length})`];
+    for (const issue of column.issues) {
+      const parts = [`#${issue.number} ${issue.title}`];
+      if (issue.pr) parts.push(`PR #${issue.pr.number}${issue.pr.draft ? ' (draft)' : ''}`, formatResult(issue.latest));
+      lines.push(`- ${parts.join(' · ')}${issue.next ? ` → ${formatNext(issue.next)}` : ''}`);
+    }
+    blocks.push(lines.join('\n'));
+  }
+  if (!blocks.length) blocks.push('Nothing in progress.');
+  const empty = open.filter((c) => !c.issues.length).map((c) => c.name);
+  const done = columns.find((c) => c.name === 'Done');
+  blocks.push([empty.length ? `Empty: ${empty.join(', ')}` : null, `Done: ${done ? done.issues.length : 0}`].filter(Boolean).join(' · '));
+  if (warnings.length) {
+    blocks.push(['**Warnings**', ...warnings.map((w) => `- ⚠️ ${w.message}`)].join('\n'));
+    const merged = warnings.filter((w) => w.type === 'merged-but-open').map((w) => `#${w.issue}`);
+    if (merged.length) blocks.push(`Close ${merged.join(', ')} by hand, with a comment saying which pull request delivered it and how each acceptance criterion was met.`);
+  }
+  return blocks.join('\n\n');
+};
+
 // ---------- GitHub Projects ----------
 
 const COLUMNS = ['Backlog', 'Design', 'Build', 'Test', 'Review', 'Done'];
@@ -426,11 +464,11 @@ if (require.main === module) {
     else if (command === 'check') check(args[0], args.slice(1).join(' '));
     else if (command === 'status') setStatus(args[0], args.slice(1).join(' '));
     else if (command === 'port') port(args[0]);
-    else if (command === 'board') console.log(JSON.stringify(board(), null, 2));
+    else if (command === 'board') console.log(args.includes('--markdown') ? formatBoard(board()) : JSON.stringify(board(), null, 2));
     else die('Commands: init | resolve | story | design | comments | pr | tested | queue | check | status | port | board');
   } catch (error) {
     die(error.stderr ? String(error.stderr) : error.message);
   }
 }
 
-module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings };
+module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard };
