@@ -4,7 +4,7 @@
 // - acceptance criteria are first-class: every case maps to criteria, the report shows coverage
 // - overall status and counts are computed here, never trusted from the input
 // - an untested criterion or skipped case makes the run INCOMPLETE instead of PASS/FAILURE
-// - writes summary.md next to index.html so /unity:test can post it on the PR unchanged
+// - writes summary.md next to index.html so the tester agent can post it on the PR unchanged
 // - braces in user content are escaped so text like "{{x}}" can't trip the placeholder check
 // - summary.md avoids GitHub autolinks: no #<case> numbers, and @tags are wrapped in backticks
 const fs = require('fs');
