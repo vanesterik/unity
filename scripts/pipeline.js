@@ -17,6 +17,7 @@
 //   pipeline.js port <issue>                    deterministic local port for this issue's test environment
 //   pipeline.js board [--markdown]              every board issue per column, with PR, latest result, next step and warnings, as JSON
 //                                               (--markdown: the overview /unity:status prints)
+//   pipeline.js pointer <issue> <role>          the one-line pointer to the role's latest output, for the issue timeline
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -303,6 +304,43 @@ const formatBoard = ({ columns, warnings }) => {
   return blocks.join('\n\n');
 };
 
+// ---------- issue pointers ----------
+
+// The one-line pointer a role leaves on the issue, from the role output it posted: the
+// generated PR body or rework comment, test summary or review. Throws on output the
+// generators didn't write, so a pointer never guesses.
+const formatPointer = (role, entry) => {
+  const body = entry.body || '';
+  if (role === 'build') {
+    const rework = body.match(/^##\s+Rework for (test|review) findings$/m);
+    if (rework) return `🔨 Reworked ${rework[1]} findings: ${entry.url}`;
+    const commits = Number((body.match(/^\*\*Commits:\*\*\s+(\d+)/m) || [])[1]);
+    const unit = body.match(/^\*\*Unit tests:\*\*\s+(\d+)\/(\d+)/m);
+    if (!commits || !unit) throw new Error('The build output has no commit or unit test counts; write the PR body with generate-build.js');
+    return `🔨 Built: ${entry.url} (${commits} ${commits === 1 ? 'commit' : 'commits'}, unit tests ${unit[1]}/${unit[2]})`;
+  }
+  if (role === 'test') {
+    const { status, commit } = parseTestSummary(body);
+    if (!status || !commit) throw new Error('The test output has no status or commit; post the summary.md that generate-report.js wrote');
+    return `${RESULT_ICONS[status]} Test ${status} on \`${commit}\`: ${entry.url}`;
+  }
+  if (role === 'review') {
+    const verdict = (body.match(/^##\s+\S+\s+Review\s+(APPROVE|CHANGES REQUESTED)\b/m) || [])[1];
+    if (!verdict) throw new Error('The review output has no verdict; post the review.md that generate-review.js wrote');
+    return `${RESULT_ICONS[verdict]} Review ${verdict}: ${entry.url}`;
+  }
+  throw new Error(`No pointer for role "${role}"; use build, test or review`);
+};
+
+// The pointer for the role's latest output on the issue or its PR.
+const pointer = (issueArg, role) => {
+  const number = resolveIssue(issueArg);
+  if (!number || !role) die('Usage: pipeline.js pointer <issue> <build|test|review>');
+  const entry = comments(number, role);
+  if (!entry) die(`#${number} has no ${role} output on the issue or its PR`);
+  return formatPointer(role, entry);
+};
+
 // ---------- GitHub Projects ----------
 
 const COLUMNS = ['Backlog', 'Design', 'Build', 'Test', 'Review', 'Done'];
@@ -464,11 +502,12 @@ if (require.main === module) {
     else if (command === 'check') check(args[0], args.slice(1).join(' '));
     else if (command === 'status') setStatus(args[0], args.slice(1).join(' '));
     else if (command === 'port') port(args[0]);
+    else if (command === 'pointer') console.log(pointer(args[0], args[1]));
     else if (command === 'board') console.log(args.includes('--markdown') ? formatBoard(board()) : JSON.stringify(board(), null, 2));
-    else die('Commands: init | resolve | story | design | comments | pr | tested | queue | check | status | port | board');
+    else die('Commands: init | resolve | story | design | comments | pr | tested | queue | check | status | port | board | pointer');
   } catch (error) {
     die(error.stderr ? String(error.stderr) : error.message);
   }
 }
 
-module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard };
+module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer };
