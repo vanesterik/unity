@@ -38,7 +38,7 @@ const baseData = {
   ],
   deviations: [{ ruling: 'Lowercase flag only', reason: 'The design names no other spelling', cost: 'a user typing --Dutch gets an error' }],
   run: ['node greet.js --dutch Koen'],
-  unitTests: { command: 'npm test', passed: 12, total: 12, output: '# tests 12\n# pass 12' },
+  unitTests: { passed: 12, total: 12 },
 };
 
 // Runs the generator on a data file in a fresh artifacts directory, from inside the repository.
@@ -62,10 +62,9 @@ const refusal = (data, options) => {
   return result.stderr;
 };
 
-test('the PR body starts with the marker holding the counts, then the summary and the closing keyword', () => {
+test('the PR body starts with the marker and the counts, then the summary and the closing keyword', () => {
   const body = bodyFor(baseData);
-  assert.match(body, /^<!-- role:build commits=2 unit-tests=12\/12 -->\nAdds a `--dutch` flag to the greeting CLI\.\n\nCloses #9\n\n## Acceptance criteria\n/);
-  assert.doesNotMatch(body, /## Summary|\*\*Design:\*\*|\*\*Commits:\*\*|\*\*Unit tests:\*\*/);
+  assert.match(body, /^<!-- role:build -->\n\*\*Design:\*\* v2  \n\*\*Commits:\*\* 2  \n\*\*Unit tests:\*\* 12\/12 passed\n\n## Summary\n\nAdds a `--dutch` flag to the greeting CLI\.\n\nCloses #9\n\n## Acceptance criteria\n/);
 });
 
 test('the commit list comes from git, oldest first, whatever the data says', () => {
@@ -73,7 +72,7 @@ test('the commit list comes from git, oldest first, whatever the data says', () 
   const shas = git(repo, ['log', '--reverse', '--format=%h', 'main..HEAD']).split('\n');
   const body = bodyFor({ ...baseData, commits: ['made up'] }, { repo });
   assert.match(body, new RegExp(`## Review commit by commit\\n\\n1\\. \`${shas[0]}\` Add the Dutch greeting\\n2\\. \`${shas[1]}\` Add the flag\\n3\\. \`${shas[2]}\` test: e2e coverage for #9 \\(AC1, AC2\\)\\n`));
-  assert.match(body, /^<!-- role:build commits=3 /);
+  assert.match(body, /^\*\*Commits:\*\* 3  $/m);
 });
 
 test('the criteria table puts each place and test in backticks, and hands an untested criterion to the test role', () => {
@@ -83,11 +82,11 @@ test('the criteria table puts each place and test in backticks, and hands an unt
   assert.match(body, /^\| AC2 \| `greet\.js flag\(\)` \| verified by the test role \|$/m);
 });
 
-test('the deviations, the run commands and the unit test output each get their section', () => {
+test('the deviations and the run commands each get their section, which end the body', () => {
   const body = bodyFor(baseData);
   assert.match(body, /## Deviations from the design\n\n- \*\*Lowercase flag only\.\*\* The design names no other spelling\. If wrong: a user typing --Dutch gets an error\.\n/);
-  assert.match(body, /## How to run it\n\n```bash\nnode greet\.js --dutch Koen\n```\n/);
-  assert.match(body, /## Unit tests\n\n`npm test`\n\n```\n# tests 12\n# pass 12\n```\n$/);
+  assert.match(body, /## How to run it\n\n```bash\nnode greet\.js --dutch Koen\n```\n$/);
+  assert.doesNotMatch(body, /## Unit tests/);
 });
 
 test('no deviations reads as None', () => {
@@ -97,7 +96,7 @@ test('no deviations reads as None', () => {
 
 test('an @word in the prose is wrapped in backticks, so GitHub mentions nobody', () => {
   const body = bodyFor({ ...baseData, summary: 'Tagged as @AC1 in the tests.' });
-  assert.match(body, /-->\nTagged as `@AC1` in the tests\.\n/);
+  assert.match(body, /## Summary\n\nTagged as `@AC1` in the tests\.\n/);
 });
 
 test('it refuses data that leaves out a criterion of the design', () => {
