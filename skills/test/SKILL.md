@@ -7,7 +7,7 @@ allowed-tools: Agent, Bash
 
 # Test
 
-Run the test role on one issue. The role itself is the `unity:tester` agent, which runs in a fresh context: nothing of this conversation reaches it, and GitHub is its only input.
+Run the test role on one issue. The role itself is the `unity:tester` agent, which runs in a fresh context: nothing of this conversation reaches it, and GitHub is its only input. To run build, test and review one after the other, use `/unity:ship` instead.
 
 ISSUE: $ARGUMENTS (a number, `#42`, an issue or PR URL, or empty)
 
@@ -26,6 +26,6 @@ ISSUE: $ARGUMENTS (a number, `#42`, an issue or PR URL, or empty)
    | Column | Next step |
    | --- | --- |
    | **Review** | `/unity:review <n>` |
-   | **Build** | The test failed: `/unity:build <n>` reworks it. |
+   | **Build** | The test failed: `/unity:build <n>` reworks it, or `/unity:ship <n>` reworks it and runs the rest. |
    | **Test** | The run is INCOMPLETE: the report says which criteria are untested. Test them another way, accept the gap, or send the issue back to `/unity:design <n>`. |
    | Any other | The agent stopped before its work; its report says why. |

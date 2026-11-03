@@ -7,7 +7,7 @@ allowed-tools: Agent, Bash
 
 # Review
 
-Run the review role on one issue. The role itself is the `unity:reviewer` agent, which runs in a fresh context: nothing of this conversation reaches it, and GitHub is its only input.
+Run the review role on one issue. The role itself is the `unity:reviewer` agent, which runs in a fresh context: nothing of this conversation reaches it, and GitHub is its only input. To run build, test and review one after the other, use `/unity:ship` instead.
 
 ISSUE: $ARGUMENTS (a number, `#42`, an issue or PR URL, or empty)
 
@@ -26,6 +26,6 @@ ISSUE: $ARGUMENTS (a number, `#42`, an issue or PR URL, or empty)
    | Column | Next step |
    | --- | --- |
    | **Review** | Ready to merge: read the pull request commit by commit and merge it with a rebase. |
-   | **Build** | Changes requested: `/unity:build <n>` reworks them. |
+   | **Build** | Changes requested: `/unity:build <n>` reworks them, or `/unity:ship <n>` reworks them and runs the rest. |
    | **Test** | The pull request changed after testing: `/unity:test <n>`. |
    | Any other | The agent stopped before its work; its report says why. |

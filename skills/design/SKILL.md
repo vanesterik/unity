@@ -135,8 +135,7 @@ Report to the developer in a few lines:
 - the acceptance criteria, one line each
 - the board column: **Build**
 
-End with the next step as a command the developer can paste into a new terminal. It starts the next role in a fresh session, with none of this conversation in its context:
+End with the next step. The other roles run as agents with a fresh context, so the developer can start them from this session:
 
-```
-claude "/unity:build <n>"
-```
+- `/unity:ship <n>` builds, tests and reviews the issue in one go, and stops at the first role that doesn't move it on.
+- `/unity:build <n>` runs only the build.
