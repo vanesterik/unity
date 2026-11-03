@@ -138,3 +138,7 @@ test('it prints the version, the counts and the path it wrote as JSON', () => {
 test('it refuses a subheading called Acceptance criteria before the real one, which the parser would read instead', () => {
   assert.match(refusal({ designText: design.replace('### Parsing', '### Acceptance criteria for parsing') }), /"### Acceptance criteria for parsing" in Design/);
 });
+
+test('it refuses a plan.md that holds a design comment instead of the plan', () => {
+  assert.match(refusal({ planText: `<!-- role:design v1 -->\n${plan}` }), /plan\.md holds a design comment/);
+});
