@@ -8,6 +8,7 @@
 //   pipeline.js resolve [arg]                   print the issue number (arg, #n, URL, or current branch)
 //   pipeline.js story [arg]                     issue + latest design + acceptance criteria as JSON
 //   pipeline.js design [arg]                    the latest design comment, as markdown
+//   pipeline.js check-design <issue> <file>     exit 1 unless the latest design comment is the generated comment.md
 //   pipeline.js comments <issue> <role>         latest <!-- role:<role> --> comment on the issue or its PR, as JSON
 //   pipeline.js pr <issue>                      the open PR for the issue (number, url, branch, head SHA), as JSON
 //   pipeline.js tested <issue>                  latest test result and whether it still covers the PR head, as JSON
@@ -125,6 +126,29 @@ const story = (arg) => {
     commit: git(['rev-parse', '--short', 'HEAD']),
     pr,
   };
+};
+
+// Null when the posted design comment is the generated comment.md, otherwise the first line
+// that differs. Line endings and trailing whitespace don't count: GitHub may change them.
+const compareComment = (posted, generated) => {
+  if (posted === null || posted === undefined) return 'the issue has no design comment';
+  const lines = (text) => text.replace(/\r\n/g, '\n').trimEnd().split('\n').map((line) => line.trimEnd());
+  const a = lines(posted);
+  const b = lines(generated);
+  for (let i = 0; i < Math.max(a.length, b.length); i += 1) {
+    if (a[i] !== b[i]) return `line ${i + 1} differs: posted "${a[i] || ''}", generated "${b[i] || ''}"`;
+  }
+  return null;
+};
+
+// Exits non-zero unless the issue's latest design comment is the generated comment.md.
+const checkDesign = (issueArg, file) => {
+  const number = resolveIssue(issueArg);
+  if (!number || !file) die('Usage: pipeline.js check-design <issue> artifacts/<n>-<slug>/comment.md');
+  const result = story(number);
+  const difference = compareComment(result.design, fs.readFileSync(path.resolve(file), 'utf8'));
+  if (difference) die(`#${number}'s latest design comment is not ${file}: ${difference}`);
+  return { number, designVersion: result.designVersion, criteria: result.criteria.length, criteriaSource: result.criteriaSource };
 };
 
 // ---------- pull request + role comments ----------
@@ -569,6 +593,7 @@ if (require.main === module) {
     else if (command === 'resolve') { const n = resolveIssue(args[0]); if (!n) die('No issue found'); console.log(n); }
     else if (command === 'story') console.log(JSON.stringify(story(args[0]), null, 2));
     else if (command === 'design') { const { number, design } = story(args[0]); if (!design) die(`#${number} has no design comment`); process.stdout.write(`${design}\n`); }
+    else if (command === 'check-design') console.log(JSON.stringify(checkDesign(args[0], args[1])));
     else if (command === 'comments') console.log(JSON.stringify(comments(args[0], args[1]), null, 2));
     else if (command === 'pr') console.log(JSON.stringify(pr(args[0]), null, 2));
     else if (command === 'tested') console.log(JSON.stringify(tested(args[0]), null, 2));
@@ -586,10 +611,10 @@ if (require.main === module) {
       console.log(args.includes('--post') ? gh(['issue', 'comment', String(resolveIssue(args[0])), '--body', line]) : line);
     }
     else if (command === 'board') console.log(args.includes('--markdown') ? formatBoard(board()) : JSON.stringify(board(), null, 2));
-    else die('Commands: init | resolve | story | design | comments | pr | tested | queue | check | status | port | board | pointer | summary');
+    else die('Commands: init | resolve | story | design | check-design | comments | pr | tested | queue | check | status | port | board | pointer | summary');
   } catch (error) {
     die(error.stderr ? String(error.stderr) : error.message);
   }
 }
 
-module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary };
+module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment };
