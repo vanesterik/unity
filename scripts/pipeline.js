@@ -17,6 +17,9 @@
 //   pipeline.js port <issue>                    deterministic local port for this issue's test environment
 //   pipeline.js board [--markdown]              every board issue per column, with PR, latest result, next step and warnings, as JSON
 //                                               (--markdown: the overview /unity:status prints)
+//   pipeline.js summary <issue> [--since <ISO time>] [--markdown]
+//                                               the build, test and review results posted since the time, with the column
+//                                               and next step, as JSON (--markdown: the summary /unity:ship prints)
 //   pipeline.js pointer <issue> <role> [--post] the one-line pointer to the role's latest output, for the issue timeline
 //                                               (--post: post it on the issue)
 const fs = require('fs');
@@ -342,6 +345,57 @@ const pointer = (issueArg, role) => {
   return formatPointer(role, entry);
 };
 
+// ---------- ship summary ----------
+
+const field = (body, name) => (body.match(new RegExp(`^\\*\\*${name}:\\*\\*\\s+(.+?)\\s*$`, 'm')) || [])[1] || null;
+
+// One line for a role's output, with the counts its generator wrote.
+const resultLine = (role, body) => {
+  if (role === 'build') {
+    const rework = body.match(/^##\s+Rework for (test|review) findings$/m);
+    if (rework) {
+      const counts = body.match(/\*\*Fixed:\*\*\s+(\d+)\s+·\s+\*\*Not fixed:\*\*\s+(\d+)/);
+      return `🔨 Rework of ${rework[1]} findings${counts ? `: ${counts[1]} fixed, ${counts[2]} not fixed` : ''}`;
+    }
+    const commits = Number((field(body, 'Commits') || '').match(/^\d+/));
+    const unit = (field(body, 'Unit tests') || '').match(/^(\d+\/\d+)/);
+    return `🔨 Build${commits && unit ? `: ${commits} ${commits === 1 ? 'commit' : 'commits'}, unit tests ${unit[1]}` : ''}`;
+  }
+  const { commit } = parseTestSummary(body);
+  const on = commit ? ` on \`${commit}\`` : '';
+  if (role === 'test') {
+    const { status } = parseTestSummary(body);
+    const criteria = (field(body, 'Criteria tested') || '').match(/^\d+\/\d+/);
+    const cases = (field(body, 'Cases') || '').match(/^\d+\/\d+ passed/);
+    const counts = [criteria && `${criteria[0]} criteria tested`, cases && `${cases[0].replace(' passed', '')} cases passed`].filter(Boolean);
+    return `${RESULT_ICONS[status] || '❔'} Test ${status || 'unknown'}${on}${counts.length ? `: ${counts.join(', ')}` : ''}`;
+  }
+  const verdict = (body.match(/^##\s+\S+\s+Review\s+(APPROVE|CHANGES REQUESTED)\b/m) || [])[1];
+  const criteria = (field(body, 'Criteria met') || '').match(/^\d+\/\d+/);
+  const findings = field(body, 'Findings');
+  const counts = [criteria && `${criteria[0]} criteria met`, findings].filter(Boolean);
+  return `${RESULT_ICONS[verdict] || '❔'} Review ${verdict || 'unknown'}${on}${counts.length ? `: ${counts.join(', ')}` : ''}`;
+};
+
+// The latest build, test and review output posted since the run started (an ISO time; all
+// when omitted), oldest first.
+const runResults = (entries, since) => {
+  const start = since ? Date.parse(since) : -Infinity;
+  const inRun = entries.filter((entry) => Date.parse(entry.createdAt) >= start);
+  return ['build', 'test', 'review']
+    .map((role) => [role, latestRoleComment(inRun, role)])
+    .filter(([, entry]) => entry)
+    .sort(([, a], [, b]) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
+    .map(([role, entry]) => ({ role, line: resultLine(role, entry.body || ''), url: entry.url }));
+};
+
+// The summary /unity:ship ends with, the same for the same results.
+const formatSummary = ({ number, title, pr, column, next, results }) => [
+  `**#${number} ${title}**${pr ? ` · PR #${pr.number}` : ''}`,
+  results.length ? results.map((result) => `- ${result.line} · ${result.url}`).join('\n') : 'No role posted a result in this run.',
+  `**Column:** ${column || 'not on the board'}${next ? ` → ${formatNext(next)}` : ''}`,
+].join('\n\n');
+
 // ---------- GitHub Projects ----------
 
 const COLUMNS = ['Backlog', 'Design', 'Build', 'Test', 'Review', 'Done'];
@@ -441,13 +495,17 @@ const ISSUE_ITEMS_QUERY = 'query($owner: String!, $name: String!, $number: Int!)
   + 'projectItems(first: 50) { nodes { project { id } fieldValueByName(name: "Status") { ... on ProjectV2ItemFieldSingleSelectValue { name } } } } } } }';
 
 // Asks for this one issue's project items instead of listing the whole board.
+const issueColumn = (number, config) => {
+  const data = ghJson(['api', 'graphql', '-F', 'owner={owner}', '-F', 'name={repo}', '-F', `number=${number}`, '-f', `query=${ISSUE_ITEMS_QUERY}`]);
+  return boardStatus(data.data.repository.issue.projectItems.nodes, config.project.id);
+};
+
 const check = (issueArg, column) => {
   const config = loadConfig();
   const number = resolveIssue(issueArg);
   if (!number || !column) die('Usage: pipeline.js check <issue> <Column>');
   if (!config.project.options[column]) die(`Unknown column "${column}". Known: ${Object.keys(config.project.options).join(', ')}`);
-  const data = ghJson(['api', 'graphql', '-F', 'owner={owner}', '-F', 'name={repo}', '-F', `number=${number}`, '-f', `query=${ISSUE_ITEMS_QUERY}`]);
-  const { onBoard, status } = boardStatus(data.data.repository.issue.projectItems.nodes, config.project.id);
+  const { onBoard, status } = issueColumn(number, config);
   console.log(JSON.stringify({ number, status }));
   if (status !== column) die(`#${number} is ${onBoard ? `in ${status || 'no column'}` : 'not on the board'}, expected ${column}`);
 };
@@ -479,6 +537,21 @@ const board = () => {
   return { columns, warnings: boardWarnings({ issues, openPrs, mergedPrs, openIssues }) };
 };
 
+// One issue's results since the run started, its column and next step. Read-only.
+const summary = (issueArg, since) => {
+  const config = loadConfig();
+  const number = resolveIssue(issueArg);
+  if (!number) die('Usage: pipeline.js summary <issue> [--since <ISO time>] [--markdown]');
+  if (since && Number.isNaN(Date.parse(since))) die(`--since needs an ISO time, such as 2026-11-03T10:00:00Z; got "${since}"`);
+  const { title } = ghJson(['issue', 'view', String(number), '--json', 'title']);
+  const found = findPr(number);
+  const entries = roleEntries(number, found);
+  const pr = found ? { number: found.number, url: found.url, headSha: found.headRefOid } : null;
+  const { status: column } = issueColumn(number, config);
+  const next = nextStep({ number, column, pr, latest: latestResult(entries) });
+  return { number, title, pr, column, next, results: runResults(entries, since) };
+};
+
 const port = (issueArg) => {
   const number = resolveIssue(issueArg);
   if (!number) die('Usage: pipeline.js port <issue>');
@@ -503,15 +576,20 @@ if (require.main === module) {
     else if (command === 'check') check(args[0], args.slice(1).join(' '));
     else if (command === 'status') setStatus(args[0], args.slice(1).join(' '));
     else if (command === 'port') port(args[0]);
+    else if (command === 'summary') {
+      const sinceAt = args.indexOf('--since');
+      const result = summary(args[0], sinceAt === -1 ? undefined : args[sinceAt + 1]);
+      console.log(args.includes('--markdown') ? formatSummary(result) : JSON.stringify(result, null, 2));
+    }
     else if (command === 'pointer') {
       const line = pointer(args[0], args[1]);
       console.log(args.includes('--post') ? gh(['issue', 'comment', String(resolveIssue(args[0])), '--body', line]) : line);
     }
     else if (command === 'board') console.log(args.includes('--markdown') ? formatBoard(board()) : JSON.stringify(board(), null, 2));
-    else die('Commands: init | resolve | story | design | comments | pr | tested | queue | check | status | port | board | pointer');
+    else die('Commands: init | resolve | story | design | comments | pr | tested | queue | check | status | port | board | pointer | summary');
   } catch (error) {
     die(error.stderr ? String(error.stderr) : error.message);
   }
 }
 
-module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer };
+module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary };
