@@ -83,7 +83,7 @@ The PR body is written by a script from your data. Write `artifacts/<n>-<slug>/b
 
 ```json
 {
-  "summary": "What was built, in a few lines.",
+  "summary": "What was built, in a few lines. It opens the PR body, above the closing keyword.",
   "criteria": [
     { "id": "AC1", "implemented": ["src/checkout.ts submitGuestOrder()"], "unitTests": ["test/checkout.test.ts accepts a guest order"] },
     { "id": "AC2", "implemented": ["src/checkout.tsx GuestForm"], "unitTests": [] }
@@ -106,7 +106,7 @@ Then generate the body:
 node "${CLAUDE_PLUGIN_ROOT}/skills/build/references/generate-build.js" artifacts/<n>-<slug>/build-data.json
 ```
 
-The script reads the issue, the design version and the criteria from `story.json`, takes the commit list from git (`main..HEAD`), and writes `artifacts/<n>-<slug>/pr-body.md`. It refuses data that leaves out a criterion of the design or names one it doesn't have, and a red unit test suite. If it refuses the data, fix the data or the code, not `pr-body.md`. Don't edit `pr-body.md` afterwards: the format is the script's.
+The script reads the issue and the criteria from `story.json`, takes the commit list from git (`main..HEAD`), and writes `artifacts/<n>-<slug>/pr-body.md`. It refuses data that leaves out a criterion of the design or names one it doesn't have, and a red unit test suite. If it refuses the data, fix the data or the code, not `pr-body.md`. Don't edit `pr-body.md` afterwards: the format is the script's.
 
 Open the PR after the first task commit:
 

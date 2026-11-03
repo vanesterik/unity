@@ -62,12 +62,10 @@ const refusal = (data, options) => {
   return result.stderr;
 };
 
-test('the PR body starts with the marker and the closing keyword, then the counts', () => {
+test('the PR body starts with the marker holding the counts, then the summary and the closing keyword', () => {
   const body = bodyFor(baseData);
-  assert.match(body, /^<!-- role:build -->\nCloses #9\n\n/);
-  assert.match(body, /^\*\*Design:\*\* v2  $/m);
-  assert.match(body, /^\*\*Commits:\*\* 2  $/m);
-  assert.match(body, /^\*\*Unit tests:\*\* 12\/12 passed$/m);
+  assert.match(body, /^<!-- role:build commits=2 unit-tests=12\/12 -->\nAdds a `--dutch` flag to the greeting CLI\.\n\nCloses #9\n\n## Acceptance criteria\n/);
+  assert.doesNotMatch(body, /## Summary|\*\*Design:\*\*|\*\*Commits:\*\*|\*\*Unit tests:\*\*/);
 });
 
 test('the commit list comes from git, oldest first, whatever the data says', () => {
@@ -75,7 +73,7 @@ test('the commit list comes from git, oldest first, whatever the data says', () 
   const shas = git(repo, ['log', '--reverse', '--format=%h', 'main..HEAD']).split('\n');
   const body = bodyFor({ ...baseData, commits: ['made up'] }, { repo });
   assert.match(body, new RegExp(`## Review commit by commit\\n\\n1\\. \`${shas[0]}\` Add the Dutch greeting\\n2\\. \`${shas[1]}\` Add the flag\\n3\\. \`${shas[2]}\` test: e2e coverage for #9 \\(AC1, AC2\\)\\n`));
-  assert.match(body, /^\*\*Commits:\*\* 3  $/m);
+  assert.match(body, /^<!-- role:build commits=3 /);
 });
 
 test('the criteria table puts each place and test in backticks, and hands an untested criterion to the test role', () => {
@@ -99,7 +97,7 @@ test('no deviations reads as None', () => {
 
 test('an @word in the prose is wrapped in backticks, so GitHub mentions nobody', () => {
   const body = bodyFor({ ...baseData, summary: 'Tagged as @AC1 in the tests.' });
-  assert.match(body, /## Summary\n\nTagged as `@AC1` in the tests\.\n/);
+  assert.match(body, /-->\nTagged as `@AC1` in the tests\.\n/);
 });
 
 test('it refuses data that leaves out a criterion of the design', () => {
