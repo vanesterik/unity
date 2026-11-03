@@ -15,6 +15,7 @@
 //   pipeline.js check <issue> <Column>          exit 1 unless the issue is in this column; prints its column as JSON
 //   pipeline.js status <issue> <Column>         move the issue's project item to a column
 //   pipeline.js port <issue>                    deterministic local port for this issue's test environment
+//   pipeline.js board                           every board issue per column, with PR, latest result, next step and warnings, as JSON
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -125,6 +126,9 @@ const story = (arg) => {
 // The PR whose body closes the issue, or null.
 const prForIssue = (prs, number) => prs.find((p) => new RegExp(`(closes|fixes|resolves)\\s+#${number}\\b`, 'i').test(p.body || '')) || null;
 
+// The issue number a PR body closes, or null.
+const closesIssue = (body) => Number((String(body || '').match(/(?:closes|fixes|resolves)\s+#(\d+)/i) || [])[1]) || null;
+
 // Lists the open PRs instead of searching them: GitHub's search index can lag behind a PR that was
 // just opened. No PR yet is an empty list; a gh failure (auth, network) throws, so it is never
 // mistaken for "no PR".
@@ -145,16 +149,23 @@ const pr = (issueArg) => {
 const comments = (issueArg, role, knownPr) => {
   const number = resolveIssue(issueArg);
   if (!number || !role) die('Usage: pipeline.js comments <issue> <role>');
+  return latestRoleComment(roleEntries(number, knownPr === undefined ? findPr(number) : knownPr), role);
+};
+
+// The issue's comments and its PR's body, comments and reviews, fetched once per issue.
+const entriesCache = new Map();
+const roleEntries = (number, found) => {
+  if (entriesCache.has(number)) return entriesCache.get(number);
   const issue = ghJson(['issue', 'view', String(number), '--json', 'comments']);
   const entries = (issue.comments || []).map((c) => ({ source: 'issue-comment', body: c.body, createdAt: c.createdAt, url: c.url }));
-  const found = knownPr === undefined ? findPr(number) : knownPr;
   if (found) {
     entries.push({ source: 'pr-body', body: found.body, createdAt: found.createdAt, url: found.url });
     const detail = ghJson(['pr', 'view', String(found.number), '--json', 'comments,reviews']);
     for (const c of detail.comments || []) entries.push({ source: 'pr-comment', body: c.body, createdAt: c.createdAt, url: c.url });
     for (const r of detail.reviews || []) entries.push({ source: 'pr-review', body: r.body, createdAt: r.submittedAt, url: found.url });
   }
-  return latestRoleComment(entries, role);
+  entriesCache.set(number, entries);
+  return entries;
 };
 
 // ---------- test result vs. PR head ----------
@@ -178,7 +189,10 @@ const tested = (issueArg) => {
   if (!number) die('Usage: pipeline.js tested <issue>');
   const found = findPr(number);
   if (!found) die(`#${number} has no open PR`);
-  const report = comments(number, 'test', found);
+  return testCoverage(found, comments(number, 'test', found));
+};
+
+const testCoverage = (found, report) => {
   const { status, commit } = parseTestSummary(report ? report.body : '');
   const result = { status, testedCommit: commit, headSha: found.headRefOid, reportUrl: report ? report.url : null, changedSince: [], outsideTestPaths: [] };
   if (!commit) return { ...result, covers: false };
@@ -189,6 +203,66 @@ const tested = (issueArg) => {
   result.outsideTestPaths = outsidePaths(result.changedSince, testPaths);
   const contained = compare.status === 'ahead' || compare.status === 'identical';
   return { ...result, covers: status === 'PASS' && contained && !result.outsideTestPaths.length };
+};
+
+// ---------- board overview ----------
+
+// The newest role result among the entries, with its status and commit: a test or review
+// summary, or else the build's PR body or rework comment.
+const latestResult = (entries) => {
+  const newest = ['test', 'review']
+    .map((role) => [role, latestRoleComment(entries, role)])
+    .filter(([, entry]) => entry)
+    .sort(([, a], [, b]) => String(a.createdAt).localeCompare(String(b.createdAt)))
+    .pop();
+  if (newest) {
+    const [role, entry] = newest;
+    const status = (entry.body.match(new RegExp(`^##\\s+\\S+\\s+${role === 'test' ? 'Test' : 'Review'}\\s+(PASS|FAILURE|INCOMPLETE|APPROVE|CHANGES REQUESTED)\\b`, 'm')) || [])[1] || null;
+    const commit = (entry.body.match(/\*\*Commit:\*\*\s+`([0-9a-f]{7,40})`/) || [])[1] || null;
+    return { role, status, commit, url: entry.url };
+  }
+  const build = latestRoleComment(entries, 'build');
+  return build ? { role: 'build', status: null, commit: null, url: build.url } : null;
+};
+
+// Whether a result was given on the PR's current head.
+const onHead = (latest, pr) => Boolean(latest && latest.commit && pr && pr.headSha && pr.headSha.startsWith(latest.commit));
+
+// The command to run next for an issue, from its column and its latest result.
+const nextStep = (issue) => {
+  const { number, column, pr, latest } = issue;
+  if (column === 'Backlog' || column === 'Design') return `/unity:design ${number}`;
+  if (column === 'Test' && latest && latest.role === 'test' && latest.status === 'INCOMPLETE' && onHead(latest, pr)) return 'decide on the untested criteria';
+  if (column === 'Review' && latest && latest.role === 'review' && latest.status === 'APPROVE' && onHead(latest, pr)) return 'ready to merge';
+  if (column === 'Build' || column === 'Test' || column === 'Review') return `/unity:ship ${number}`;
+  return null;
+};
+
+// What needs the developer's attention beyond the columns.
+const boardWarnings = ({ issues, openPrs, mergedPrs, openIssues }) => {
+  const warnings = [];
+  for (const issue of issues) {
+    if (issue.column !== 'Review' || !issue.coverage || issue.coverage.covers) continue;
+    const { testedCommit, outsideTestPaths } = issue.coverage;
+    const message = testedCommit
+      ? `#${issue.number} is in Review, but its test result on \`${testedCommit}\` no longer covers the PR head${outsideTestPaths.length ? `: ${outsideTestPaths.join(', ')} changed` : ''}`
+      : `#${issue.number} is in Review with no passing test result on its PR`;
+    warnings.push({ type: 'stale-test', issue: issue.number, message });
+  }
+  const onBoard = new Set(issues.map((issue) => issue.number));
+  for (const p of openPrs) {
+    const closes = closesIssue(p.body);
+    if (closes && onBoard.has(closes)) continue;
+    const message = closes ? `PR #${p.number} closes #${closes}, which is not on the board: ${p.url}` : `PR #${p.number} closes no issue: ${p.url}`;
+    warnings.push({ type: 'pr-without-issue', pr: p.number, message });
+  }
+  const open = new Map(openIssues.map((issue) => [issue.number, issue]));
+  for (const p of mergedPrs) {
+    const closes = closesIssue(p.body);
+    if (!closes || !open.has(closes)) continue;
+    warnings.push({ type: 'merged-but-open', issue: closes, pr: p.number, message: `#${closes} is still open, but PR #${p.number} that closes it is merged: ${p.url}` });
+  }
+  return warnings;
 };
 
 // ---------- GitHub Projects ----------
@@ -301,6 +375,33 @@ const check = (issueArg, column) => {
   if (status !== column) die(`#${number} is ${onBoard ? `in ${status || 'no column'}` : 'not on the board'}, expected ${column}`);
 };
 
+// Every issue of this repo on the board, per column in board order, with its PR, latest result
+// and next step, plus the warnings. Read-only.
+const board = () => {
+  const config = loadConfig();
+  const items = boardIssues(config);
+  const openPrs = ghJson(['pr', 'list', '--state', 'open', '--limit', '200', '--json', 'number,url,headRefName,headRefOid,body,createdAt,isDraft']) || [];
+  const mergedPrs = ghJson(['pr', 'list', '--state', 'merged', '--limit', '100', '--json', 'number,url,body']) || [];
+  const openIssues = ghJson(['issue', 'list', '--state', 'open', '--limit', '500', '--json', 'number,title']) || [];
+  const issues = items.map((item) => {
+    const issue = { number: item.content.number, title: item.content.title, url: item.content.url, column: item.status || null };
+    if (['Build', 'Test', 'Review'].includes(issue.column)) {
+      const found = prForIssue(openPrs, issue.number);
+      if (found) {
+        issue.pr = { number: found.number, url: found.url, headSha: found.headRefOid, draft: found.isDraft };
+        issue.latest = latestResult(roleEntries(issue.number, found));
+        if (issue.column === 'Review') issue.coverage = testCoverage(found, latestRoleComment(roleEntries(issue.number, found), 'test'));
+      }
+    }
+    issue.next = nextStep(issue);
+    return issue;
+  });
+  const columns = [...COLUMNS, null]
+    .map((name) => ({ name: name || 'No column', issues: issues.filter((issue) => issue.column === name).map(({ column, coverage, ...rest }) => rest) }))
+    .filter((column) => column.name !== 'No column' || column.issues.length);
+  return { columns, warnings: boardWarnings({ issues, openPrs, mergedPrs, openIssues }) };
+};
+
 const port = (issueArg) => {
   const number = resolveIssue(issueArg);
   if (!number) die('Usage: pipeline.js port <issue>');
@@ -325,10 +426,11 @@ if (require.main === module) {
     else if (command === 'check') check(args[0], args.slice(1).join(' '));
     else if (command === 'status') setStatus(args[0], args.slice(1).join(' '));
     else if (command === 'port') port(args[0]);
-    else die('Commands: init | resolve | story | design | comments | pr | tested | queue | check | status | port');
+    else if (command === 'board') console.log(JSON.stringify(board(), null, 2));
+    else die('Commands: init | resolve | story | design | comments | pr | tested | queue | check | status | port | board');
   } catch (error) {
     die(error.stderr ? String(error.stderr) : error.message);
   }
 }
 
-module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion };
+module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings };
