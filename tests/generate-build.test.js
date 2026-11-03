@@ -67,12 +67,11 @@ test('the PR body starts with the marker and the counts, then the summary and th
   assert.match(body, /^<!-- role:build -->\n\*\*Design:\*\* v2  \n\*\*Commits:\*\* 2  \n\*\*Unit tests:\*\* 12\/12 passed\n\n## Summary\n\nAdds a `--dutch` flag to the greeting CLI\.\n\nCloses #9\n\n## Acceptance criteria\n/);
 });
 
-test('the commit list comes from git, oldest first, whatever the data says', () => {
+test('the commit count comes from git, whatever the data says, and the commits are not listed', () => {
   const repo = repoWith(['Add the Dutch greeting', 'Add the flag', 'test: e2e coverage for #9 (AC1, AC2)']);
-  const shas = git(repo, ['log', '--reverse', '--format=%h', 'main..HEAD']).split('\n');
-  const body = bodyFor({ ...baseData, commits: ['made up'] }, { repo });
-  assert.match(body, new RegExp(`## Review commit by commit\\n\\n1\\. \`${shas[0]}\` Add the Dutch greeting\\n2\\. \`${shas[1]}\` Add the flag\\n3\\. \`${shas[2]}\` test: e2e coverage for #9 \\(AC1, AC2\\)\\n`));
+  const body = bodyFor({ ...baseData, commits: 7 }, { repo });
   assert.match(body, /^\*\*Commits:\*\* 3  $/m);
+  assert.doesNotMatch(body, /Review commit by commit|Add the flag/);
 });
 
 test('the criteria table puts each place and test in backticks, and hands an untested criterion to the test role', () => {
@@ -89,9 +88,10 @@ test('the deviations and the run commands each get their section, which end the 
   assert.doesNotMatch(body, /## Unit tests/);
 });
 
-test('no deviations reads as None', () => {
+test('without deviations the section is left out', () => {
   const body = bodyFor({ ...baseData, deviations: [] });
-  assert.match(body, /## Deviations from the design\n\nNone\.\n/);
+  assert.doesNotMatch(body, /Deviations from the design/);
+  assert.match(body, /\| AC2 \| `greet\.js flag\(\)` \| verified by the test role \|\n\n## How to run it\n/);
 });
 
 test('an @word in the prose is wrapped in backticks, so GitHub mentions nobody', () => {

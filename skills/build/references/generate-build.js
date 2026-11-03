@@ -3,7 +3,8 @@
 // rework-data.json into rework.md, the PR comment on reworked findings.
 // - the issue, the design version and its criteria come from story.json (pipeline.js story), not from the data
 // - every criterion of the design is in the table, and no other one
-// - the commit list and its count come from git (main..HEAD), never from the data
+// - the deviations section is left out when there are none
+// - the commit count comes from git (main..HEAD), never from the data
 // - a red unit test suite is refused: the builder doesn't hand one over
 // - a rework fix names a commit that is on the branch; a finding left unfixed says why
 // - both files avoid GitHub mentions: @words in prose are wrapped in backticks
@@ -145,14 +146,12 @@ const writeBody = () => {
     md.push(`| ${criterion.id} | ${criterion.implemented.filter(nonEmpty).map(code).join(', ')} | ${tests.length ? tests.map(code).join(', ') : 'verified by the test role'} |`);
   }
   md.push('');
-  md.push('## Review commit by commit');
-  md.push('');
-  commits.forEach((commit, index) => md.push(`${index + 1}. ${code(commit.sha)} ${mentions(commit.subject)}`));
-  md.push('');
-  md.push('## Deviations from the design');
-  md.push('');
-  md.push(...(deviations.length ? deviations.map((entry) => `- **${sentence(entry.ruling)}** ${sentence(entry.reason)} If wrong: ${sentence(entry.cost)}`) : ['None.']));
-  md.push('');
+  if (deviations.length) {
+    md.push('## Deviations from the design');
+    md.push('');
+    md.push(...deviations.map((entry) => `- **${sentence(entry.ruling)}** ${sentence(entry.reason)} If wrong: ${sentence(entry.cost)}`));
+    md.push('');
+  }
   md.push('## How to run it');
   md.push('');
   md.push(...fence('bash', run.join('\n')));

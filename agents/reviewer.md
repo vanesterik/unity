@@ -52,7 +52,7 @@ gh pr diff <pr>
 Read, in this order:
 
 1. The latest design (`story`): Context, Design, Acceptance criteria, Out of scope, Risks.
-2. The PR body: the builder's criteria table, the commit list and the deviations from the design.
+2. The PR body: the builder's criteria table, and the deviations from the design if there were any.
 3. The test report (`reportUrl` from `tested`): what was tested, and any observations about behaviour the design does not cover.
 4. The project's `CLAUDE.md` for its conventions.
 5. The full diff, commit by commit where the commits tell a story. Open the surrounding code with Read wherever the diff alone doesn't show what a change does.

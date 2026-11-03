@@ -97,7 +97,7 @@ The PR body is written by a script from your data. Write `artifacts/<n>-<slug>/b
 ```
 
 - `criteria` lists every criterion of the design, AC1 first, in order, each with the files and functions that implement it. A criterion that unit tests cannot reach (for example one about what the user sees in the browser) gets an empty `unitTests`, which shows as "verified by the test role"; don't invent a test.
-- `deviations` holds every ruling from the ledger. Leave it empty (`[]`) when there were none.
+- `deviations` holds every ruling from the ledger. Leave it empty (`[]`) when there were none; the body then has no deviations section.
 - `unitTests` holds the counts of your last run of the project's full unit test suite.
 
 Then generate the body:
@@ -106,7 +106,7 @@ Then generate the body:
 node "${CLAUDE_PLUGIN_ROOT}/skills/build/references/generate-build.js" artifacts/<n>-<slug>/build-data.json
 ```
 
-The script reads the issue, the design version and the criteria from `story.json`, takes the commit list from git (`main..HEAD`), and writes `artifacts/<n>-<slug>/pr-body.md`. It refuses data that leaves out a criterion of the design or names one it doesn't have, and a red unit test suite. If it refuses the data, fix the data or the code, not `pr-body.md`. Don't edit `pr-body.md` afterwards: the format is the script's.
+The script reads the issue, the design version and the criteria from `story.json`, counts the commits in git (`main..HEAD`), and writes `artifacts/<n>-<slug>/pr-body.md`. It refuses data that leaves out a criterion of the design or names one it doesn't have, and a red unit test suite. If it refuses the data, fix the data or the code, not `pr-body.md`. Don't edit `pr-body.md` afterwards: the format is the script's.
 
 Open the PR after the first task commit:
 
@@ -115,7 +115,7 @@ git push -u origin feature/<n>-<slug>
 gh pr create --draft --title "<issue title>" --body-file artifacts/<n>-<slug>/pr-body.md
 ```
 
-After every later task, update the data, generate the body again and update the PR with it (`gh pr edit <pr> --body-file artifacts/<n>-<slug>/pr-body.md`), so the commit list stays complete.
+After every later task, update the data, generate the body again and update the PR with it (`gh pr edit <pr> --body-file artifacts/<n>-<slug>/pr-body.md`), so the body stays current.
 
 ### 5. Hand over
 
@@ -168,7 +168,7 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/build/references/generate-build.js" artifacts
 gh pr comment <pr> --body-file artifacts/<n>-<slug>/rework.md
 ```
 
-The script refuses a fix whose commit isn't on the branch. Run the full unit suite, generate the PR body again from `build-data.json` with the new counts and update the PR with it, so its commit list includes the fixes. Then move the issue and leave the pointer, which the script writes from the rework comment:
+The script refuses a fix whose commit isn't on the branch. Run the full unit suite, generate the PR body again from `build-data.json` with the new counts and update the PR with it, so its counts include the fixes. Then move the issue and leave the pointer, which the script writes from the rework comment:
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" status <n> Test
