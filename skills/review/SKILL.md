@@ -144,4 +144,12 @@ Report to the developer in a few lines:
 - the verdict and the review's URL
 - per acceptance criterion: met or not
 - each blocking finding in one line, and the number of suggestions
-- the board column, and the next step: `/unity:build <n>` in a fresh session for rework, or "ready to merge"
+- the board column
+
+On **CHANGES REQUESTED**, end with the next step as a command the developer can paste into a new terminal. It starts the rework in a fresh session, with none of this conversation in its context:
+
+```
+claude "/unity:build <n>"
+```
+
+On **APPROVE**, end with "ready to merge": the developer reviews the pull request commit by commit and merges it with a rebase.
