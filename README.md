@@ -110,9 +110,9 @@ flowchart TB
     Done["<b>Done</b><br/>merged"]
 
     subgraph ship ["/unity:ship: one agent per role, each with a fresh context"]
-        Build["<b>Build</b><br/>unity:builder<br/>implementation or rework"]
-        Test["<b>Test</b><br/>unity:tester<br/>black-box testing"]
-        Review["<b>Review</b><br/>unity:reviewer<br/>final code review"]
+        Build["<b>Build</b><br/>implementation or rework"]
+        Test["<b>Test</b><br/>black-box testing"]
+        Review["<b>Review</b><br/>final code review"]
     end
 
     Backlog -->|"/unity:design picks it up"| Design
