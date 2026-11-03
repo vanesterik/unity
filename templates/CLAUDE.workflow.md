@@ -5,7 +5,7 @@ This project is built by one developer and Claude in four roles: design -> build
 
 ### Board
 
-GitHub Project columns are the workflow state. IDs live in `.claude/pipeline.json` (written by `/unity:init`). Picking an issue with `/unity:design` sets the flow in motion; from then on each role moves the issue to the next column, and `/unity:ship` starts the next agent only when the issue moved on.
+GitHub Project columns are the workflow state. IDs live in `.claude/pipeline.json` (written by `/unity:init`). Picking an issue with `/unity:design` sets the flow in motion; from then on each role moves the issue to the next column, and `/unity:ship` starts the next agent only when the issue moved on. `/unity:status` shows every issue per column with the next command to run.
 
 | Column | Meaning | Moved there by |
 | --- | --- | --- |
