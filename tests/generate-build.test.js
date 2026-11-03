@@ -137,3 +137,57 @@ test('it prints the counts and the path it wrote as JSON', () => {
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), { body: path.join(dir, 'pr-body.md'), commits: 2, criteria: 2, unitTests: { passed: 12, total: 12 } });
 });
+
+// ---------- rework comment ----------
+
+const reworkRepo = () => repoWith(['Add the Dutch greeting', 'Validate the name before greeting']);
+const headSha = (repo) => git(repo, ['rev-parse', '--short', 'HEAD']);
+
+const reworkFor = (repo, findings, rework = 'test') => {
+  const { dir, result } = generate({ rework, findings }, { repo, name: 'rework-data.json', storyData: null });
+  return { dir, result, comment: result.status === 0 ? fs.readFileSync(path.join(dir, 'rework.md'), 'utf8') : null };
+};
+
+test('a rework comment starts with the marker and names the findings it answers', () => {
+  const repo = reworkRepo();
+  const { comment } = reworkFor(repo, [{ finding: 'Case 2: an empty name greets nobody', fix: 'Validate the name', commit: headSha(repo), proof: 'unit test "rejects an empty name"' }], 'review');
+  assert.match(comment, /^<!-- role:build -->\n## Rework for review findings\n\n\*\*Fixed:\*\* 1 · \*\*Not fixed:\*\* 0\n\n/);
+});
+
+test('a rework row holds the fix, its commit and the proof; a disagreement says why, without a commit', () => {
+  const repo = reworkRepo();
+  const sha = headSha(repo);
+  const { comment } = reworkFor(repo, [
+    { finding: 'Case 2: an empty name greets nobody', fix: 'Validate the name', commit: sha, proof: 'unit test "rejects an empty name"' },
+    { finding: 'Case 5: the greeting is not bold', disagree: 'The design asks for plain text' },
+  ]);
+  assert.match(comment, /^\| Finding \| Fix \| Commit \| Proof \|$/m);
+  assert.match(comment, new RegExp(`^\\| Case 2: an empty name greets nobody \\| Validate the name \\| \`${sha}\` \\| unit test "rejects an empty name" \\|$`, 'm'));
+  assert.match(comment, /^\| Case 5: the greeting is not bold \| Not fixed: The design asks for plain text \| — \| — \|$/m);
+  assert.match(comment, /\*\*Fixed:\*\* 1 · \*\*Not fixed:\*\* 1/);
+});
+
+test('it refuses a fix whose commit is not on the branch', () => {
+  const { result } = reworkFor(reworkRepo(), [{ finding: 'Case 2', fix: 'Validate', commit: 'deadbee', proof: 'unit test' }]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /deadbee is not a commit on this branch/);
+});
+
+test('it refuses a finding with neither a fix nor a disagreement', () => {
+  const { result } = reworkFor(reworkRepo(), [{ finding: 'Case 2' }]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /findings 1 needs "fix", "commit" and "proof", or "disagree"/);
+});
+
+test('it refuses a rework that names neither test nor review findings', () => {
+  const { result } = reworkFor(reworkRepo(), [{ finding: 'Case 2', disagree: 'no' }], 'design');
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /"rework" must be "test" or "review"/);
+});
+
+test('a rework prints its counts and the path it wrote as JSON', () => {
+  const repo = reworkRepo();
+  const { dir, result } = reworkFor(repo, [{ finding: 'Case 2', fix: 'Validate', commit: headSha(repo), proof: 'unit test' }]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), { comment: path.join(dir, 'rework.md'), rework: 'test', fixed: 1, notFixed: 0 });
+});
