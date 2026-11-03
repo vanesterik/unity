@@ -64,7 +64,7 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" design <n> > artifacts/<n>-<slu
 node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" story <n> > artifacts/<n>-<slug>/story.json
 ```
 
-The plan file holds the whole comment. It is not named `plan.md`, which is the designer's draft of the plan when the design was made on this machine: the design sections are the spec, the **Implementation plan** section is the plan.
+The plan file holds the whole comment: the design sections are the spec, the **Implementation plan** section is the plan. It isn't named `plan.md`, because that is the designer's draft of the plan when the design was made on this machine.
 
 ### 3. Implement the plan
 

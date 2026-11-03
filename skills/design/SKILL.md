@@ -74,10 +74,9 @@ Show the developer the plan and get their approval. Revise until they approve it
 
 ### 5. Assemble the comment
 
-Write `artifacts/<n>-<slug>/comment.md` in exactly this shape. The marker must be the first line. Use version `v1` for a first design, otherwise the previous version plus one.
+A script writes the comment from your drafts. `artifacts/<n>-<slug>/design.md` must have exactly these sections, in this order, none empty. A `# title` line above them is fine and is left out of the comment:
 
 ```markdown
-<!-- role:design v1 -->
 ## Context
 Why this change, for whom, and what it must achieve. Goals and constraints.
 
@@ -93,31 +92,29 @@ What this issue deliberately does not do.
 
 ## Risks and open questions
 What could go wrong, and anything the builder may have to decide.
-
-## Implementation plan
-<details>
-<summary><k> tasks</summary>
-
-<the approved plan, with its headings demoted below this one (### and deeper)>
-
-</details>
 ```
 
-Rules for this file:
+- Only the criteria go under `## Acceptance criteria`, one `- AC<n>: text` line each, numbered from 1 without gaps. Wherever the design or the plan names a criterion, it uses one of these IDs.
+- Use `###` and deeper for subsections, and don't call one "Acceptance criteria".
+- `artifacts/<n>-<slug>/plan.md` is the approved plan, with a `Task <n>` heading per task.
 
-- Only the criteria go under `## Acceptance criteria`, one `- AC<n>: text` line each, numbered from 1 without gaps. The parser reads that section until the next heading.
-- No other `##` heading is called "Acceptance criteria", and the plan uses only `###` and deeper.
-- The plan sits in a collapsed `<details>` block, so the issue shows the design first and the plan is one click away. Keep the blank lines after `<summary>` and before `</details>`: without them GitHub renders the plan's markdown as plain text.
-- A GitHub comment holds about 65,000 characters. If the file is longer, stop and tell the developer; do not split or trim it on your own.
+Save the story, so the script knows the version, and generate the comment:
+
+```bash
+node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" story <n> > artifacts/<n>-<slug>/story.json
+node "${CLAUDE_SKILL_DIR}/references/generate-design.js" artifacts/<n>-<slug>/design.md
+```
+
+The script writes `artifacts/<n>-<slug>/comment.md`: the marker with the version (`v1` for a first design, otherwise the previous version plus one), the five sections, and the plan in a collapsed `<details>` block with its task count and its headings below `##`. It refuses a missing, empty or extra section, criteria with gaps, a criterion that is named but doesn't exist, a plan without task headings, and a comment over GitHub's limit of about 65,000 characters. If it refuses, fix the drafts and generate again; if the comment is too long, tell the developer instead of trimming it on your own. Don't edit `comment.md` afterwards: the format is the script's.
 
 ### 6. Post and verify
 
 ```bash
 gh issue comment <n> --body-file artifacts/<n>-<slug>/comment.md
-node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" story <n>
+node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" check-design <n> artifacts/<n>-<slug>/comment.md
 ```
 
-The design is handed over only when `story` returns `criteriaSource: "design-comment"`, the new `designVersion`, and the same criteria you wrote. If it does not, fix the cause in a new comment with the next version; do not edit the posted one.
+`check-design` reads the issue's latest design comment back and exits non-zero, naming the first line that differs, unless it is the generated file. It prints the version and the number of criteria the other roles will read. The design is handed over only when it succeeds. If it doesn't, fix the cause in a new comment with the next version; do not edit the posted one.
 
 ### 7. Move the issue
 
