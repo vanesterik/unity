@@ -119,3 +119,22 @@ test('an environment with a URL shows it in parentheses', () => {
   const summary = summaryFor({ ...baseData, environment: 'local', environmentUrl: 'http://localhost:4009' });
   assert.match(summary, /^\*\*Environment:\*\* local \(http:\/\/localhost:4009\)  $/m);
 });
+
+test('an exploratory criterion is not counted as an acceptance criterion', () => {
+  const { dir, result } = generate({
+    ...baseData,
+    criteria: [...baseData.criteria, { id: 'X', text: 'Exploratory checks beyond the acceptance criteria' }],
+    cases: [...baseData.cases, { number: 2, name: 'Repeated flag', criteria: ['X'], goal: 'g', status: 'PASS', steps: ['run it'] }],
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const summary = fs.readFileSync(path.join(dir, 'summary.md'), 'utf8');
+  assert.match(summary, /^\*\*Criteria tested:\*\* 1\/1 · 1 exploratory case  $/m);
+  assert.match(summary, /^\| X \| Exploratory checks beyond the acceptance criteria \| 2 \| ✅ \|$/m);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.coveredCriteria, 1);
+  assert.equal(output.totalCriteria, 1);
+});
+
+test('without exploratory cases the criteria line has only the count', () => {
+  assert.match(summaryFor(baseData), /^\*\*Criteria tested:\*\* 1\/1  $/m);
+});
