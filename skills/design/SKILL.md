@@ -134,4 +134,9 @@ Report to the developer in a few lines:
 - the design version posted, with the comment's URL
 - the acceptance criteria, one line each
 - the board column: **Build**
-- the next step: `/unity:build <n>`, in a fresh session
+
+End with the next step as a command the developer can paste into a new terminal. It starts the next role in a fresh session, with none of this conversation in its context:
+
+```
+claude "/unity:build <n>"
+```

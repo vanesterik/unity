@@ -156,3 +156,10 @@ Report to the user in a few lines:
 - criteria coverage (`n/m tested`) and any failures or flakiness findings, one line each
 - the tests committed
 - the local path to `index.html` for the visual evidence
+
+On **PASS** or **FAILURE**, end with the next step as a command the developer can paste into a new terminal. It starts the next role in a fresh session, with none of this conversation in its context:
+
+- PASS: `claude "/unity:review <n>"`
+- FAILURE: `claude "/unity:build <n>"`
+
+On **INCOMPLETE**, end with the choice the developer has to make instead (see step 6).

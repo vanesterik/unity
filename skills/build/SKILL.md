@@ -176,4 +176,10 @@ Report to the developer in a few lines:
 - per acceptance criterion, one line: where it is implemented, or "for the test role"
 - the rulings you made, each with what it costs if wrong
 - the unit test result (command and pass count)
-- the board column: **Test**, and the next step: `/unity:test <n>`, in a fresh session
+- the board column: **Test**
+
+End with the next step as a command the developer can paste into a new terminal. It starts the next role in a fresh session, with none of this conversation in its context:
+
+```
+claude "/unity:test <n>"
+```

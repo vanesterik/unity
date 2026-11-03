@@ -73,10 +73,10 @@ The repository is its own marketplace.
 
    This is the role you work with; the other three run on their own. It moves the issue to **Design**, reads the codebase, and works out the design with you, with numbered acceptance criteria (`AC1`, `AC2`, ...) that can be checked from outside the code. Then it writes an implementation plan, one commit per task. You approve the design and then the plan: that approval is the one human gate in the flow. It posts both as one comment on the issue and moves the issue to **Build**.
 
-5. **Build, in a fresh session** (`/clear`, or a new terminal):
+5. **Build, in a fresh session.** Design ends by printing the command; paste it into a new terminal:
 
    ```
-   /unity:build <issue>
+   claude "/unity:build <issue>"
    ```
 
    It creates `feature/<issue>-<slug>`, implements the plan task by task with unit tests written first, and pushes each task as its own commit to a draft pull request. When every task is done, it marks the pull request ready and moves the issue to **Test**.
@@ -84,7 +84,7 @@ The repository is its own marketplace.
 6. **Test, in a fresh session:**
 
    ```
-   /unity:test <issue> [auto]
+   claude "/unity:test <issue> [auto]"
    ```
 
    It tests the running system against the acceptance criteria as a black box, codifies the cases as integration or E2E tests on the branch, and posts a report on the pull request. On a pass it moves the issue to **Review**; on a failure, back to **Build**, where `/unity:build <issue>` reworks the findings. A criterion it couldn't test leaves the issue in **Test** for you to decide. Without `auto`, it asks once which cases to run.
@@ -94,14 +94,14 @@ The repository is its own marketplace.
 7. **Review, in a fresh session:**
 
    ```
-   /unity:review <issue>
+   claude "/unity:review <issue>"
    ```
 
    It reviews the whole pull request against the design, runs the tests itself, and posts a verdict. Blocking findings send the issue back to **Build** for `/unity:build <issue>`. An approval leaves it in **Review**, ready for you.
 
 8. **Merge.** Review the pull request commit by commit and merge it with a rebase, so each task stays its own commit on `main`. The `Closes #<issue>` line closes the issue, and the "Item closed" workflow moves it to **Done**. If GitHub doesn't close the issue, close it by hand with a comment on how each criterion was met.
 
-Every role ends by naming the next command, and each one checks the board first: a role started on an issue in the wrong column stops. Along the way the issue collects a one-line pointer to each role's result, so it reads as a timeline of the story.
+Every role ends by printing the command that starts the next one. `claude "<command>"` opens a new session with an empty context and runs it, so no role inherits the previous one's conversation, and you still see every step and can answer its questions. Typing `/clear` and then the command does the same in the session you are in. Each role also checks the board first: a role started on an issue in the wrong column stops. Along the way the issue collects a one-line pointer to each role's result, so it reads as a timeline of the story.
 
 ## Board
 
