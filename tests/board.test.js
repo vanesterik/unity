@@ -109,3 +109,72 @@ test('boardWarnings flags an open issue whose closing PR is merged, naming the P
   assert.equal(warning.pr, 10);
   assert.match(warning.message, /pull\/10/);
 });
+
+const { formatBoard } = require('../scripts/pipeline.js');
+
+const overview = {
+  columns: [
+    { name: 'Backlog', issues: [{ number: 17, title: 'Guest checkout', next: '/unity:design 17' }] },
+    { name: 'Design', issues: [] },
+    { name: 'Build', issues: [{ number: 18, title: 'Greeting count', pr: { number: 20, draft: true }, latest: { role: 'build', status: null, commit: null }, next: '/unity:ship 18' }] },
+    { name: 'Test', issues: [{ number: 21, title: 'Shout mode', pr: { number: 22, draft: false }, latest: { role: 'test', status: 'INCOMPLETE', commit: 'abc1234' }, next: 'decide on the untested criteria' }] },
+    { name: 'Review', issues: [
+      { number: 15, title: 'Custom greeting word', pr: { number: 16, draft: false }, latest: { role: 'review', status: 'APPROVE', commit: '6e43f62' }, next: 'ready to merge' },
+      { number: 23, title: 'Version flag', pr: { number: 24, draft: false }, latest: null, next: '/unity:ship 23' },
+    ] },
+    { name: 'Done', issues: [{ number: 1 }, { number: 2 }] },
+  ],
+  warnings: [],
+};
+
+test('formatBoard lists each column with issues, its result and next step', () => {
+  assert.equal(formatBoard(overview), [
+    '**Backlog** (1)',
+    '- #17 Guest checkout → `/unity:design 17`',
+    '',
+    '**Build** (1)',
+    '- #18 Greeting count · PR #20 (draft) · 🔨 Built → `/unity:ship 18`',
+    '',
+    '**Test** (1)',
+    '- #21 Shout mode · PR #22 · ⚠️ Test INCOMPLETE on `abc1234` → decide on the untested criteria',
+    '',
+    '**Review** (2)',
+    '- #15 Custom greeting word · PR #16 · ✅ Review APPROVE on `6e43f62` → ready to merge',
+    '- #23 Version flag · PR #24 · no result yet → `/unity:ship 23`',
+    '',
+    'Empty: Design · Done: 2',
+  ].join('\n'));
+});
+
+test('formatBoard marks a failed test and requested changes with a cross', () => {
+  const failing = { columns: [{ name: 'Build', issues: [
+    { number: 6, title: 'A', pr: { number: 7 }, latest: { role: 'test', status: 'FAILURE', commit: '5e2047c' }, next: '/unity:ship 6' },
+    { number: 8, title: 'B', pr: { number: 9 }, latest: { role: 'review', status: 'CHANGES REQUESTED', commit: 'abc1234' }, next: '/unity:ship 8' },
+  ] }], warnings: [] };
+  const lines = formatBoard(failing).split('\n');
+  assert.equal(lines[1], '- #6 A · PR #7 · ❌ Test FAILURE on `5e2047c` → `/unity:ship 6`');
+  assert.equal(lines[2], '- #8 B · PR #9 · ❌ Review CHANGES REQUESTED on `abc1234` → `/unity:ship 8`');
+});
+
+test('formatBoard says so when the board has no open work', () => {
+  const empty = { columns: [{ name: 'Backlog', issues: [] }, { name: 'Done', issues: [{ number: 1 }] }], warnings: [] };
+  assert.equal(formatBoard(empty), 'Nothing in progress.\n\nEmpty: Backlog · Done: 1');
+});
+
+test('formatBoard ends with the warnings, and how to close a merged-but-open issue', () => {
+  const warned = { columns: [{ name: 'Done', issues: [] }], warnings: [
+    { type: 'pr-without-issue', pr: 21, message: 'PR #21 closes no issue: p21' },
+    { type: 'merged-but-open', issue: 19, pr: 22, message: '#19 is still open, but PR #22 that closes it is merged: p22' },
+  ] };
+  assert.equal(formatBoard(warned), [
+    'Nothing in progress.',
+    '',
+    'Done: 0',
+    '',
+    '**Warnings**',
+    '- ⚠️ PR #21 closes no issue: p21',
+    '- ⚠️ #19 is still open, but PR #22 that closes it is merged: p22',
+    '',
+    'Close #19 by hand, with a comment saying which pull request delivered it and how each acceptance criterion was met.',
+  ].join('\n'));
+});
