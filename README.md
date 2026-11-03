@@ -103,27 +103,12 @@ The repository is its own marketplace.
 
 Every role ends by naming the next command, and each one checks the board first: a role started on an issue in the wrong column stops. Along the way the issue collects a one-line pointer to each role's result, so it reads as a timeline of the story.
 
-## Commands
-
-`/unity:init` sets up a project once, the four role commands run the workflow, and the last three are the skills the roles build on, which you can also run on their own.
-
-| Command | What it does |
-| --- | --- |
-| `/unity:init <owner> <project>` | Sets up a repository: `.claude/pipeline.json` with the board IDs and the detected start and test commands, the `CLAUDE.md` workflow section, `.gitignore`, plugin settings |
-| `/unity:design <issue>` | Works out the design, acceptance criteria and plan with you, posts them as one issue comment, and moves the issue to Build on your approval |
-| `/unity:build <issue>` | Implements the approved plan task by task with test-first unit tests, opens a pull request that maps each criterion to code and tests, and moves the issue to Test; also reworks test and review findings |
-| `/unity:test <issue> [auto]` | Tests against the acceptance criteria as a black box, writes integration or E2E tests, posts the report on the pull request, and moves the issue to Review or back to Build |
-| `/unity:review <issue or PR>` | Reviews the whole pull request against the design and criteria, posts a verdict with blocking findings and suggestions, and sends the issue back to Build or leaves it ready to merge |
-| `/unity:test-user-story <issue or story>` | Exploratory testing with an evidence report, used by `/unity:test`; also usable on its own |
-| `/unity:write-e2e-test` | Writes and stabilizes scripted E2E or integration tests, used by `/unity:test`; also usable on its own |
-| `/unity:get-user-story <issue>` | The issue, its latest design and its acceptance criteria, as the other skills use them |
-
 ## Board
 
 The board's **Status** field is the workflow state, and each role is named after the column it works in. Each arrow says who moves the issue:
 
 ```mermaid
-flowchart LR
+flowchart TB
     Backlog["<b>Backlog</b><br/>not picked up yet"]
     Design["<b>Design</b><br/>design and plan,<br/>with you"]
     Build["<b>Build</b><br/>implementation<br/>or rework"]
@@ -143,6 +128,21 @@ flowchart LR
 You add new issues to **Backlog**. A criterion that `/unity:test` couldn't test leaves the issue in **Test** for you to decide.
 
 Designs and plans live in the issue, as the latest `role:design` comment, not as files in the repository. Build, test and review post on the pull request. Each role output starts with a hidden marker (`<!-- role:test -->`), so the next role finds the latest one.
+
+## Commands
+
+`/unity:init` sets up a project once, the four role commands run the workflow, and the last three are the skills the roles build on, which you can also run on their own.
+
+| Command | What it does |
+| --- | --- |
+| `/unity:init <owner> <project>` | Sets up a repository: `.claude/pipeline.json` with the board IDs and the detected start and test commands, the `CLAUDE.md` workflow section, `.gitignore`, plugin settings |
+| `/unity:design <issue>` | Works out the design, acceptance criteria and plan with you, posts them as one issue comment, and moves the issue to Build on your approval |
+| `/unity:build <issue>` | Implements the approved plan task by task with test-first unit tests, opens a pull request that maps each criterion to code and tests, and moves the issue to Test; also reworks test and review findings |
+| `/unity:test <issue> [auto]` | Tests against the acceptance criteria as a black box, writes integration or E2E tests, posts the report on the pull request, and moves the issue to Review or back to Build |
+| `/unity:review <issue or PR>` | Reviews the whole pull request against the design and criteria, posts a verdict with blocking findings and suggestions, and sends the issue back to Build or leaves it ready to merge |
+| `/unity:test-user-story <issue or story>` | Exploratory testing with an evidence report, used by `/unity:test`; also usable on its own |
+| `/unity:write-e2e-test` | Writes and stabilizes scripted E2E or integration tests, used by `/unity:test`; also usable on its own |
+| `/unity:get-user-story <issue>` | The issue, its latest design and its acceptance criteria, as the other skills use them |
 
 ## License
 
