@@ -2,7 +2,7 @@
 
 # Unity
 
-**Unity** is a [Claude Code](https://claude.com/claude-code) plugin for a role-based development flow on GitHub: **design → build → test → review**. Each role runs in its own fresh session, and the GitHub issue, its pull request and a Project board are the only handoff between them.
+**Unity** is a [Claude Code](https://claude.com/claude-code) plugin for a role-based development flow on GitHub: **design → build → test → review**. Design is a conversation with you; build, test and review each run as their own agent with a fresh context, one after the other, from a single command. The GitHub issue, its pull request and a Project board are the only handoff between them.
 
 ## Motivation
 
@@ -53,7 +53,7 @@ The repository is its own marketplace.
 
    It writes `.claude/pipeline.json` with the board's IDs and the project's start and test commands, adds a workflow section to `CLAUDE.md` and `artifacts/` to `.gitignore`, and enables the plugin. It asks you to confirm what it detected, and suggests the commit to make.
 
-2. **Let the board move merged issues to Done.** This is the only move no role makes, and GitHub's API can't configure it, so you set it once by hand. It works in two links: the pull request that `/unity:build` opens has `Closes #<issue>` in its body, so merging it into `main` closes the issue; the board's **Item closed** workflow then sets a closed issue's Status to **Done**. To turn the workflow on:
+2. **Let the board move merged issues to Done.** This is the only move no role makes, and GitHub's API can't configure it, so you set it once by hand. It works in two links: the pull request that the builder opens has `Closes #<issue>` in its body, so merging it into `main` closes the issue; the board's **Item closed** workflow then sets a closed issue's Status to **Done**. To turn the workflow on:
 
    1. Open the project board on GitHub and choose **⋯** (top right) > **Workflows**.
    2. Select **Item closed** in the list of default workflows.
@@ -71,77 +71,77 @@ The repository is its own marketplace.
    /unity:design <issue>
    ```
 
-   This is the role you work with; the other three run on their own. It moves the issue to **Design**, reads the codebase, and works out the design with you, with numbered acceptance criteria (`AC1`, `AC2`, ...) that can be checked from outside the code. Then it writes an implementation plan, one commit per task. You approve the design and then the plan: that approval is the one human gate in the flow. It posts both as one comment on the issue and moves the issue to **Build**.
+   This is the one role you work with. It moves the issue to **Design**, reads the codebase, and works out the design with you, with numbered acceptance criteria (`AC1`, `AC2`, ...) that can be checked from outside the code. Then it writes an implementation plan, one commit per task. You approve the design and then the plan: that approval is the one human gate in the flow. It posts both as one comment on the issue and moves the issue to **Build**.
 
-5. **Build, in a fresh session.** Design ends by printing the command; paste it into a new terminal:
-
-   ```
-   claude "/unity:build <issue>"
-   ```
-
-   It creates `feature/<issue>-<slug>`, implements the plan task by task with unit tests written first, and pushes each task as its own commit to a draft pull request. When every task is done, it marks the pull request ready and moves the issue to **Test**.
-
-6. **Test, in a fresh session:**
+5. **Ship it**, from the same session:
 
    ```
-   claude "/unity:test <issue> [auto]"
+   /unity:ship <issue>
    ```
 
-   It tests the running system against the acceptance criteria as a black box, codifies the cases as integration or E2E tests on the branch, and posts a report on the pull request. On a pass it moves the issue to **Review**; on a failure, back to **Build**, where `/unity:build <issue>` reworks the findings. A criterion it couldn't test leaves the issue in **Test** for you to decide. Without `auto`, it asks once which cases to run.
+   This runs the other three roles one after the other, each as its own agent with a fresh context, so none of them sees your design conversation or another role's reasoning. After each agent, it reads the board and goes on only if the issue moved to the next column. You watch nothing in between; you read the results on GitHub.
 
-   The tester may only write tests, never application code or unit tests, so a failure goes back to the builder instead of being fixed in place. A hook enforces this: `/unity:test` writes `artifacts/.test-active` when a run starts and removes it at the end, and while that file exists, edits outside `test.writablePaths` in `.claude/pipeline.json` are blocked. Outside a test run the hook does nothing. If a run is interrupted, the file stays behind and `/unity:build` stops until you delete it.
+   - **The builder** (`unity:builder`) creates `feature/<issue>-<slug>`, implements the plan task by task with unit tests written first, and pushes each task as its own commit to a draft pull request. When every task is done, it marks the pull request ready and moves the issue to **Test**.
+   - **The tester** (`unity:tester`) tests the running system against the acceptance criteria as a black box, codifies the cases as integration or E2E tests on the branch, and posts a report on the pull request. On a pass it moves the issue to **Review**; on a failure, back to **Build**. A criterion it couldn't test leaves the issue in **Test**.
 
-7. **Review, in a fresh session:**
+     The tester may only write tests, never application code or unit tests, so a failure goes back to the builder instead of being fixed in place. A hook enforces this: the tester writes `artifacts/.test-active` when a run starts and removes it at the end, and while that file exists, edits outside `test.writablePaths` in `.claude/pipeline.json` are blocked. Outside a test run the hook does nothing. If a run is interrupted, the file stays behind and the builder stops until you delete it.
+   - **The reviewer** (`unity:reviewer`) reviews the whole pull request against the design, runs the tests itself, and posts a verdict. Blocking findings send the issue back to **Build**. An approval leaves it in **Review**, ready for you.
 
-   ```
-   claude "/unity:review <issue>"
-   ```
+6. **If it stops early**, its report says why, with the stopping role's report below it:
 
-   It reviews the whole pull request against the design, runs the tests itself, and posts a verdict. Blocking findings send the issue back to **Build** for `/unity:build <issue>`. An approval leaves it in **Review**, ready for you.
+   - **A failed test or blocking findings** put the issue back in **Build**. Run `/unity:ship <issue>` again: the builder reworks the findings, and test and review run again. Each role runs at most once per `/unity:ship`, so a rework never loops on its own.
+   - **An untested criterion** leaves the issue in **Test** for you to decide: test it another way, accept the gap, or send it back to `/unity:design`.
+   - **A role that stopped** before its work (a leftover test marker, a design without criteria) says what it needs.
 
-8. **Merge.** Review the pull request commit by commit and merge it with a rebase, so each task stays its own commit on `main`. The `Closes #<issue>` line closes the issue, and the "Item closed" workflow moves it to **Done**. If GitHub doesn't close the issue, close it by hand with a comment on how each criterion was met.
+   To run a single role instead, use `/unity:build`, `/unity:test` or `/unity:review`. Each starts its agent the same way, and `/unity:ship` picks up from whatever column the issue is in.
 
-Every role ends by printing the command that starts the next one. `claude "<command>"` opens a new session with an empty context and runs it, so no role inherits the previous one's conversation, and you still see every step and can answer its questions. Typing `/clear` and then the command does the same in the session you are in. Each role also checks the board first: a role started on an issue in the wrong column stops. Along the way the issue collects a one-line pointer to each role's result, so it reads as a timeline of the story.
+7. **Merge.** Review the pull request commit by commit and merge it with a rebase, so each task stays its own commit on `main`. The `Closes #<issue>` line closes the issue, and the "Item closed" workflow moves it to **Done**. If GitHub doesn't close the issue, close it by hand with a comment on how each criterion was met.
+
+The agents can't ask you anything mid-run: where a role needs a decision, it stops and hands back. Each role also checks the board first, so a role started on an issue in the wrong column stops. Along the way the issue collects a one-line pointer to each role's result, so it reads as a timeline of the story.
 
 ## Board
 
-The board's **Status** field is the workflow state, and each role is named after the column it works in. Each arrow says who moves the issue:
+The board's **Status** field is the workflow state, and each role is named after the column it works in. Design runs in your session; the three roles inside the box run as agents, started by `/unity:ship`. It follows the solid arrows and stops at a dashed one:
 
 ```mermaid
 flowchart TB
     Backlog["<b>Backlog</b><br/>not picked up yet"]
-    Design["<b>Design</b><br/>design and plan,<br/>with you"]
-    Build["<b>Build</b><br/>implementation<br/>or rework"]
-    Test["<b>Test</b><br/>black-box testing"]
-    Review["<b>Review</b><br/>final code review"]
+    Design["<b>Design</b><br/>design and plan, with you"]
     Done["<b>Done</b><br/>merged"]
+
+    subgraph ship ["/unity:ship: one agent per role, each with a fresh context"]
+        Build["<b>Build</b><br/>unity:builder<br/>implementation or rework"]
+        Test["<b>Test</b><br/>unity:tester<br/>black-box testing"]
+        Review["<b>Review</b><br/>unity:reviewer<br/>final code review"]
+    end
 
     Backlog -->|"/unity:design picks it up"| Design
     Design -->|"/unity:design on your approval"| Build
-    Build -->|"/unity:build when every task is done"| Test
-    Test -->|"/unity:test on a pass"| Review
-    Test -->|"/unity:test on a failure"| Build
-    Review -->|"/unity:review on blocking findings"| Build
+    Build -->|"every task done"| Test
+    Test -->|"pass"| Review
+    Test -.->|"failure"| Build
+    Review -.->|"blocking findings"| Build
     Review -->|"you merge; Item closed workflow"| Done
 ```
 
-You add new issues to **Backlog**. A criterion that `/unity:test` couldn't test leaves the issue in **Test** for you to decide.
+You add new issues to **Backlog**. A criterion the tester couldn't test leaves the issue in **Test** for you to decide.
 
 Designs and plans live in the issue, as the latest `role:design` comment, not as files in the repository. Build, test and review post on the pull request. Each role output starts with a hidden marker (`<!-- role:test -->`), so the next role finds the latest one.
 
 ## Commands
 
-`/unity:init` sets up a project once, the four role commands run the workflow, and the last three are the skills the roles build on, which you can also run on their own.
+`/unity:init` sets up a project once. `/unity:design` and `/unity:ship` run the workflow, the three role commands run one role each as its agent, and the last three are the skills the roles build on, which you can also run on their own.
 
 | Command | What it does |
 | --- | --- |
 | `/unity:init <owner> <project>` | Sets up a repository: `.claude/pipeline.json` with the board IDs and the detected start and test commands, the `CLAUDE.md` workflow section, `.gitignore`, plugin settings |
 | `/unity:design <issue>` | Works out the design, acceptance criteria and plan with you, posts them as one issue comment, and moves the issue to Build on your approval |
-| `/unity:build <issue>` | Implements the approved plan task by task with test-first unit tests, opens a pull request that maps each criterion to code and tests, and moves the issue to Test; also reworks test and review findings |
-| `/unity:test <issue> [auto]` | Tests against the acceptance criteria as a black box, writes integration or E2E tests, posts the report on the pull request, and moves the issue to Review or back to Build |
-| `/unity:review <issue or PR>` | Reviews the whole pull request against the design and criteria, posts a verdict with blocking findings and suggestions, and sends the issue back to Build or leaves it ready to merge |
-| `/unity:test-user-story <issue or story>` | Exploratory testing with an evidence report, used by `/unity:test`; also usable on its own |
-| `/unity:write-e2e-test` | Writes and stabilizes scripted E2E or integration tests, used by `/unity:test`; also usable on its own |
+| `/unity:ship <issue>` | Runs the builder, tester and reviewer agents one after the other, from the issue's current column, as long as each one moves it on |
+| `/unity:build <issue>` | Runs the builder agent: implements the approved plan task by task with test-first unit tests, opens a pull request that maps each criterion to code and tests, and moves the issue to Test; also reworks test and review findings |
+| `/unity:test <issue>` | Runs the tester agent: tests against the acceptance criteria as a black box, writes integration or E2E tests, posts the report on the pull request, and moves the issue to Review or back to Build |
+| `/unity:review <issue or PR>` | Runs the reviewer agent: reviews the whole pull request against the design and criteria, posts a verdict with blocking findings and suggestions, and sends the issue back to Build or leaves it ready to merge |
+| `/unity:test-user-story <issue or story>` | Exploratory testing with an evidence report, used by the tester; also usable on its own |
+| `/unity:write-e2e-test` | Writes and stabilizes scripted E2E or integration tests, used by the tester; also usable on its own |
 | `/unity:get-user-story <issue>` | The issue, its latest design and its acceptance criteria, as the other skills use them |
 
 ## License
