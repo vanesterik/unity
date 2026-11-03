@@ -139,8 +139,11 @@ const coverage = criteria.map((criterion) => {
 const passedCases = cases.filter((testCase) => testCase.status === 'PASS').length;
 const failedCases = cases.filter((testCase) => testCase.status === 'FAIL').length;
 const skippedCases = cases.filter((testCase) => testCase.status === 'SKIPPED').length;
-const untested = coverage.filter((criterion) => criterion.status === 'UNTESTED');
-const coveredCriteria = coverage.length - untested.length;
+// Only the design's criteria (AC<n>) count; an exploratory criterion such as X is listed but not counted.
+const acceptance = coverage.filter((criterion) => /^AC\d+$/.test(criterion.id));
+const untested = acceptance.filter((criterion) => criterion.status === 'UNTESTED');
+const coveredCriteria = acceptance.length - untested.length;
+const exploratoryCases = cases.filter((testCase) => !testCase.criteria.some((id) => /^AC\d+$/.test(id))).length;
 
 let overallStatus = 'PASS';
 if (failedCases) overallStatus = 'FAILURE';
@@ -273,7 +276,7 @@ const report = replaceAll(reportWithoutTemplates, {
   '{{PASSED_CASES}}': String(passedCases),
   '{{TOTAL_CASES}}': String(cases.length),
   '{{COVERED_CRITERIA}}': String(coveredCriteria),
-  '{{TOTAL_CRITERIA}}': String(coverage.length),
+  '{{TOTAL_CRITERIA}}': String(acceptance.length),
   '{{COVERAGE_ROWS}}': coverageRows,
   '{{TEST_CASE_CARDS}}': cards,
 });
@@ -291,7 +294,7 @@ md.push('<!-- role:test -->');
 md.push(`## ${icon} Test ${overallStatus}${issueLabel ? ` · ${issueLabel}` : ''} · ${cell(data.storyName || issue.title || 'User story')}`);
 md.push('');
 md.push(`**Cases:** ${passedCases}/${cases.length} passed${failedCases ? ` · ${failedCases} failed` : ''}${skippedCases ? ` · ${skippedCases} skipped` : ''}  `);
-md.push(`**Criteria tested:** ${coveredCriteria}/${coverage.length}  `);
+md.push(`**Criteria tested:** ${coveredCriteria}/${acceptance.length}${exploratoryCases ? ` · ${exploratoryCases} exploratory ${exploratoryCases === 1 ? 'case' : 'cases'}` : ''}  `);
 md.push(`**Environment:** ${cell(data.environment || '—')}${data.environmentUrl ? ` (${cell(data.environmentUrl)})` : ''}  `);
 md.push(`**Commit:** ${code(data.commit || '—')} on ${code(data.branch || '—')}`);
 md.push('');
@@ -363,4 +366,4 @@ md.push('_Full evidence report (screenshots/videos) is kept locally in `' + path
 
 fs.writeFileSync(outputPath, report);
 fs.writeFileSync(summaryPath, md.join('\n') + '\n');
-console.log(JSON.stringify({ overallStatus, report: outputPath, summary: summaryPath, passedCases, totalCases: cases.length, coveredCriteria, totalCriteria: coverage.length }));
+console.log(JSON.stringify({ overallStatus, report: outputPath, summary: summaryPath, passedCases, totalCases: cases.length, coveredCriteria, totalCriteria: acceptance.length }));
