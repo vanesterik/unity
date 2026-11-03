@@ -97,7 +97,7 @@ The repository is its own marketplace.
 
 7. **Merge.** Review the pull request commit by commit and merge it with a rebase, so each task stays its own commit on `main`. The `Closes #<issue>` line closes the issue, and the "Item closed" workflow moves it to **Done**. If GitHub doesn't close the issue, close it by hand with a comment on how each criterion was met.
 
-The agents can't ask you anything mid-run: where a role needs a decision, it stops and hands back. Each role also checks the board first, so a role started on an issue in the wrong column stops. Along the way the issue collects a one-line pointer to each role's result, so it reads as a timeline of the story.
+The agents can't ask you anything mid-run: where a role needs a decision, it stops and hands back. Each role also checks the board first, so a role started on an issue in the wrong column stops. Along the way the issue collects a one-line pointer to each role's result, so it reads as a timeline of the story. To see where every issue stands and what to run next, without opening GitHub, run `/unity:status`.
 
 ## Board
 
@@ -130,13 +130,14 @@ Designs and plans live in the issue, as the latest `role:design` comment, not as
 
 ## Commands
 
-`/unity:init` sets up a project once. `/unity:design` and `/unity:ship` run the workflow, the three role commands run one role each as its agent, and the last three are the skills the roles build on, which you can also run on their own.
+`/unity:init` sets up a project once. `/unity:design` and `/unity:ship` run the workflow, `/unity:status` shows where every issue stands, the three role commands run one role each as its agent, and the last three are the skills the roles build on, which you can also run on their own.
 
 | Command | What it does |
 | --- | --- |
 | `/unity:init <owner> <project>` | Sets up a repository: `.claude/pipeline.json` with the board IDs and the detected start and test commands, the `CLAUDE.md` workflow section, `.gitignore`, plugin settings |
 | `/unity:design <issue>` | Works out the design, acceptance criteria and plan with you, posts them as one issue comment, and moves the issue to Build on your approval |
 | `/unity:ship <issue>` | Runs the builder, tester and reviewer agents one after the other, from the issue's current column, as long as each one moves it on |
+| `/unity:status` | Shows every issue on the board per column, with its pull request, latest result and next command, and warns about what the columns don't show; changes nothing |
 | `/unity:build <issue>` | Runs the builder agent: implements the approved plan task by task with test-first unit tests, opens a pull request that maps each criterion to code and tests, and moves the issue to Test; also reworks test and review findings |
 | `/unity:test <issue>` | Runs the tester agent: tests against the acceptance criteria as a black box, writes integration or E2E tests, posts the report on the pull request, and moves the issue to Review or back to Build |
 | `/unity:review <issue or PR>` | Runs the reviewer agent: reviews the whole pull request against the design and criteria, posts a verdict with blocking findings and suggestions, and sends the issue back to Build or leaves it ready to merge |
