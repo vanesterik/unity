@@ -4,7 +4,7 @@
 // - the issue, the design version and its criteria come from story.json (pipeline.js story), not from the data
 // - every criterion of the design is in the table, and no other one
 // - the deviations section is left out when there are none
-// - the commit count comes from git (main..HEAD), never from the data
+// - the commit count and the handed-over commit (the branch head) come from git (main..HEAD), never from the data
 // - a red unit test suite is refused: the builder doesn't hand one over
 // - a rework fix names a commit that is on the branch; a finding left unfixed says why
 // - both files avoid GitHub mentions: @words in prose are wrapped in backticks
@@ -78,7 +78,8 @@ const writeRework = () => {
   md.push('<!-- role:build -->');
   md.push(`## Rework for ${data.rework} findings`);
   md.push('');
-  md.push(`**Fixed:** ${fixed.length} · **Not fixed:** ${findings.length - fixed.length}`);
+  md.push(`**Fixed:** ${fixed.length} · **Not fixed:** ${findings.length - fixed.length}  `);
+  md.push(`**Commit:** ${code(commits[commits.length - 1].sha)}`);
   md.push('');
   md.push('| Finding | Fix | Commit | Proof |');
   md.push('| --- | --- | --- | --- |');
@@ -129,7 +130,8 @@ const writeBody = () => {
   md.push('<!-- role:build -->');
   md.push(`**Design:** v${story.designVersion}  `);
   md.push(`**Commits:** ${commits.length}  `);
-  md.push(`**Unit tests:** ${unit.passed}/${unit.total} passed`);
+  md.push(`**Unit tests:** ${unit.passed}/${unit.total} passed  `);
+  md.push(`**Commit:** ${code(commits[commits.length - 1].sha)}`);
   md.push('');
   md.push('## Summary');
   md.push('');
