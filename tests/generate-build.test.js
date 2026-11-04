@@ -13,6 +13,8 @@ const git = (cwd, args) => {
   return result.stdout.trim();
 };
 
+const headSha = (repo) => git(repo, ['rev-parse', '--short', 'HEAD']);
+
 // A repository with main and a feature branch holding the given commits, oldest first.
 const repoWith = (subjects) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'unity-build-'));
@@ -64,7 +66,13 @@ const refusal = (data, options) => {
 
 test('the PR body starts with the marker and the counts, then the summary and the closing keyword', () => {
   const body = bodyFor(baseData);
-  assert.match(body, /^<!-- role:build -->\n\*\*Design:\*\* v2  \n\*\*Commits:\*\* 2  \n\*\*Unit tests:\*\* 12\/12 passed\n\n## Summary\n\nAdds a `--dutch` flag to the greeting CLI\.\n\nCloses #9\n\n## Acceptance criteria\n/);
+  assert.match(body, /^<!-- role:build -->\n\*\*Design:\*\* v2  \n\*\*Commits:\*\* 2  \n\*\*Unit tests:\*\* 12\/12 passed  \n\*\*Commit:\*\* `[0-9a-f]{7}`\n\n## Summary\n\nAdds a `--dutch` flag to the greeting CLI\.\n\nCloses #9\n\n## Acceptance criteria\n/);
+});
+
+test('the PR body names the commit the builder handed over, the branch head', () => {
+  const repo = repoWith(['Add the Dutch greeting', 'Add the flag']);
+  const body = bodyFor(baseData, { repo });
+  assert.match(body, new RegExp(`^\\*\\*Commit:\\*\\* \`${headSha(repo)}\`$`, 'm'));
 });
 
 test('the commit count comes from git, whatever the data says, and the commits are not listed', () => {
@@ -138,7 +146,6 @@ test('it prints the counts and the path it wrote as JSON', () => {
 // ---------- rework comment ----------
 
 const reworkRepo = () => repoWith(['Add the Dutch greeting', 'Validate the name before greeting']);
-const headSha = (repo) => git(repo, ['rev-parse', '--short', 'HEAD']);
 
 const reworkFor = (repo, findings, rework = 'test') => {
   const { dir, result } = generate({ rework, findings }, { repo, name: 'rework-data.json', storyData: null });
@@ -148,7 +155,7 @@ const reworkFor = (repo, findings, rework = 'test') => {
 test('a rework comment starts with the marker and names the findings it answers', () => {
   const repo = reworkRepo();
   const { comment } = reworkFor(repo, [{ finding: 'Case 2: an empty name greets nobody', fix: 'Validate the name', commit: headSha(repo), proof: 'unit test "rejects an empty name"' }], 'review');
-  assert.match(comment, /^<!-- role:build -->\n## Rework for review findings\n\n\*\*Fixed:\*\* 1 · \*\*Not fixed:\*\* 0\n\n/);
+  assert.match(comment, new RegExp(`^<!-- role:build -->\\n## Rework for review findings\\n\\n\\*\\*Fixed:\\*\\* 1 · \\*\\*Not fixed:\\*\\* 0  \\n\\*\\*Commit:\\*\\* \`${headSha(repo)}\`\\n\\n`));
 });
 
 test('a rework row holds the fix, its commit and the proof; a disagreement says why, without a commit', () => {
