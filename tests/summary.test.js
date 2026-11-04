@@ -71,3 +71,85 @@ test('formatSummary leaves out the next step for a Done issue', () => {
   const summary = formatSummary({ number: 9, title: 'Greet', pr: null, column: 'Done', next: null, results: [] });
   assert.match(summary, /\*\*Column:\*\* Done$/);
 });
+
+// ---------- commits since the last sign-off ----------
+
+const { changesSince, signOffs } = require('../scripts/pipeline.js');
+
+const prCommits = [
+  { sha: '2ddfc20aaaa', subject: 'feat: add --polite' },
+  { sha: '3b2908baaaa', subject: 'Break the polite greeting on purpose' },
+  { sha: '0ba6ef7aaaa', subject: 'test: integration coverage for #29' },
+  { sha: 'eec110aaaaa', subject: 'fix: spell Good day' },
+];
+
+test('changesSince lists the commits after the last sign-off up to the commit the stopping result judged', () => {
+  assert.deepEqual(changesSince({ commits: prCommits, signOffs: [{ role: 'build', commit: '2ddfc20' }], stopAt: '3b2908b' }), {
+    since: { role: 'build', commit: '2ddfc20' },
+    commits: [{ sha: '3b2908b', subject: 'Break the polite greeting on purpose' }],
+  });
+});
+
+test('changesSince ignores a sign-off on a later commit, and takes the latest one before the stop', () => {
+  const offs = [{ role: 'build', commit: '2ddfc20' }, { role: 'test', commit: '3b2908b' }, { role: 'build', commit: 'eec110a' }];
+  const result = changesSince({ commits: prCommits, signOffs: offs, stopAt: '0ba6ef7' });
+  assert.deepEqual(result.since, { role: 'test', commit: '3b2908b' });
+  assert.deepEqual(result.commits.map((c) => c.sha), ['0ba6ef7']);
+});
+
+test('changesSince runs to the PR head without a stopping commit', () => {
+  const result = changesSince({ commits: prCommits, signOffs: [{ role: 'test', commit: '3b2908b' }, { role: 'review', commit: '3b2908b' }] });
+  assert.deepEqual(result.since, { role: 'review', commit: '3b2908b' });
+  assert.deepEqual(result.commits.map((c) => c.sha), ['0ba6ef7', 'eec110a']);
+});
+
+test('changesSince has no commits when the stopping result judged the signed-off commit itself', () => {
+  assert.deepEqual(changesSince({ commits: prCommits, signOffs: [{ role: 'build', commit: '2ddfc20' }], stopAt: '2ddfc20' }).commits, []);
+});
+
+test('changesSince lists every commit up to the stop when no role signed off', () => {
+  const result = changesSince({ commits: prCommits, signOffs: [], stopAt: '3b2908b' });
+  assert.equal(result.since, null);
+  assert.deepEqual(result.commits.map((c) => c.sha), ['2ddfc20', '3b2908b']);
+});
+
+test('signOffs takes the build handovers, passing tests and approvals, in the order they were posted', () => {
+  const body = (text, commit) => `${text}\n\n**Commit:** \`${commit}\` on \`feature/29\``;
+  const offs = signOffs([
+    { body: body('<!-- role:test -->\n## ❌ Test FAILURE · #29', '3b2908b'), createdAt: '2026-11-03T10:20:00Z' },
+    { body: '<!-- role:build -->\n**Commits:** 1  \n**Commit:** `2ddfc20`', createdAt: '2026-11-03T10:01:00Z' },
+    { body: body('<!-- role:test -->\n## ✅ Test PASS · #29', 'eec110a'), createdAt: '2026-11-03T11:20:00Z' },
+    { body: body('<!-- role:review -->\n## ✅ Review APPROVE · #29', 'eec110a'), createdAt: '2026-11-03T11:30:00Z' },
+    { body: body('<!-- role:review -->\n## ❌ Review CHANGES REQUESTED · #29', 'eec110a'), createdAt: '2026-11-03T11:40:00Z' },
+    { body: '<!-- role:build -->\nCloses #29', createdAt: '2026-11-03T09:00:00Z' },
+  ]);
+  assert.deepEqual(offs, [{ role: 'build', commit: '2ddfc20' }, { role: 'test', commit: 'eec110a' }, { role: 'review', commit: 'eec110a' }]);
+});
+
+test('formatSummary shows the commits since the sign-off with their files, marking test-only ones', () => {
+  const summary = formatSummary({
+    number: 29, title: 'Polite greeting', pr: { number: 30 }, column: 'Build', next: '/unity:ship 29',
+    results: [{ role: 'test', line: '❌ Test FAILURE on `3b2908b`: 9/9 criteria tested, 7/12 cases passed', url: 'c1' }],
+    changes: { since: { role: 'build', commit: '2ddfc20' }, commits: [
+      { sha: '3b2908b', subject: 'Break the polite greeting on purpose', files: ['greet.js'], testOnly: false },
+      { sha: '0ba6ef7', subject: 'test: integration coverage for #29', files: ['tests/a.js', 'tests/b.js', 'tests/c.js', 'tests/d.js'], testOnly: true },
+    ] },
+  });
+  assert.equal(summary, [
+    '**#29 Polite greeting** · PR #30',
+    '',
+    '- ❌ Test FAILURE on `3b2908b`: 9/9 criteria tested, 7/12 cases passed · c1',
+    '',
+    '**Commits since the build on `2ddfc20`:**',
+    '- `3b2908b` Break the polite greeting on purpose · greet.js',
+    '- `0ba6ef7` test: integration coverage for #29 · tests/a.js, tests/b.js, tests/c.js and 1 more (test paths only)',
+    '',
+    '**Column:** Build → `/unity:ship 29`',
+  ].join('\n'));
+});
+
+test('formatSummary says so when nothing landed after the sign-off, or when no role signed off', () => {
+  const base = { number: 29, title: 'P', pr: { number: 30 }, column: 'Build', next: '/unity:ship 29', results: [] };
+  assert.match(formatSummary({ ...base, changes: { since: { role: 'build', commit: '2ddfc20' }, commits: [] } }), /\n\n\*\*No commits since the build on `2ddfc20`\.\*\*\n\n/);
+  assert.match(formatSummary({ ...base, changes: { since: null, commits: [{ sha: '2ddfc20', subject: 'feat', files: ['greet.js'], testOnly: false }] } }), /\n\n\*\*Commits, none signed off by a role:\*\*\n- `2ddfc20` feat · greet\.js\n\n/);
+});
