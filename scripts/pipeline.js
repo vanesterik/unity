@@ -410,7 +410,12 @@ const runResults = (entries, since) => {
     .map((role) => [role, latestRoleComment(inRun, role)])
     .filter(([, entry]) => entry)
     .sort(([, a], [, b]) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
-    .map(([role, entry]) => ({ role, line: resultLine(role, entry.body || ''), url: entry.url }));
+    .map(([role, entry]) => {
+      const result = { role, line: resultLine(role, entry.body || ''), url: entry.url };
+      // The test summary names the local evidence report, which never leaves the tester's machine.
+      const report = role === 'test' && ((entry.body || '').match(/kept locally in `([^`]+\.html)`/) || [])[1];
+      return report ? { ...result, report } : result;
+    });
 };
 
 // The commits a role vouched for, in the order they were posted: a build handover (the PR body
@@ -472,9 +477,10 @@ const formatChanges = ({ since, commits }) => {
 };
 
 // The summary /unity:ship ends with, the same for the same results.
-const formatSummary = ({ number, title, pr, column, next, results, changes }) => [
+const formatSummary = ({ number, title, pr, column, next, results, report, changes }) => [
   `**#${number} ${title}**${pr ? ` · PR #${pr.number}` : ''}`,
   results.length ? results.map((result) => `- ${result.line} · ${result.url}`).join('\n') : 'No role posted a result in this run.',
+  ...(report ? [`**Test report:** \`${report}\``] : []),
   ...(changes ? [formatChanges(changes)] : []),
   `**Column:** ${column || 'not on the board'}${next ? ` → ${formatNext(next)}` : ''}`,
 ].join('\n\n');
@@ -633,6 +639,8 @@ const summary = (issueArg, since) => {
   const { status: column } = issueColumn(number, config);
   const next = nextStep({ number, column, pr, latest: latestResult(entries) });
   const result = { number, title, pr, column, next, results: runResults(entries, since) };
+  const tested = result.results.find((r) => r.report);
+  if (tested && fs.existsSync(path.join(root, tested.report))) result.report = path.join(root, tested.report);
   // A run that stopped short of an approval shows what landed since a role last vouched for the code.
   if (found && next !== 'ready to merge') {
     const commits = ghJson(['pr', 'view', String(found.number), '--json', 'commits']).commits
