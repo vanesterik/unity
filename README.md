@@ -71,7 +71,7 @@ The repository is its own marketplace.
    /unity:design <issue>
    ```
 
-   This is the one role you work with. It moves the issue to **Design**, reads the codebase, and works out the design with you, with numbered acceptance criteria (`AC1`, `AC2`, ...) that can be checked from outside the code. Then it writes an implementation plan, one commit per task. You approve the design and then the plan: that approval is the one human gate in the flow. A script assembles both into one comment and checks its sections and criteria. The comment is posted on the issue and read back to make sure it arrived unchanged, and the issue moves to **Build**.
+   This is the one role you work with. It moves the issue to **Design**, reads the codebase, and works out the design with you, with numbered acceptance criteria (`AC1`, `AC2`, ...) that can be checked from outside the code. Then it writes an implementation plan, one commit per task. A script assembles both into one comment and checks its sections and criteria. The comment is posted on the issue and read back to make sure it arrived unchanged, while the issue stays in **Design**. You read it on GitHub and approve it in the conversation: that approval is the one human gate in the flow, and only then does the issue move to **Build**. Changes you ask for go up as a new version (v2, v3...).
 
 5. **Ship it**, from the same session:
 
@@ -135,7 +135,7 @@ Designs and plans live in the issue, as the latest `role:design` comment, not as
 | Command | What it does |
 | --- | --- |
 | `/unity:init <owner> <project>` | Sets up a repository: `.claude/pipeline.json` with the board IDs and the detected start and test commands, the `CLAUDE.md` workflow section, `.gitignore`, plugin settings |
-| `/unity:design <issue>` | Works out the design, acceptance criteria and plan with you, posts them as one issue comment, and moves the issue to Build on your approval |
+| `/unity:design <issue>` | Works out the design, acceptance criteria and plan with you, posts them as one issue comment for you to read on GitHub, and moves the issue to Build once you approve the posted version |
 | `/unity:ship <issue>` | Runs the builder, tester and reviewer agents one after the other, from the issue's current column, as long as each one moves it on |
 | `/unity:status` | Shows every issue on the board per column, with its pull request, latest result and next command, and warns about what the columns don't show; changes nothing |
 | `/unity:build <issue>` | Runs the builder agent: implements the approved plan task by task with test-first unit tests, opens a pull request that maps each criterion to code and tests, and moves the issue to Test; also reworks test and review findings |
