@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { runResults, formatSummary } = require('../scripts/pipeline.js');
 
 const prBody = '<!-- role:build -->\n**Design:** v1  \n**Commits:** 3  \n**Unit tests:** 30/30 passed\n\n## Summary\n\nAdds a flag.\n\nCloses #9';
-const testSummary = '<!-- role:test -->\n## ✅ Test PASS · #9 · Greet\n\n**Cases:** 8/8 passed  \n**Criteria tested:** 6/6  \n**Environment:** local  \n**Commit:** `abc1234` on `feature/9-greet`';
+const testSummary = '<!-- role:test -->\n## ✅ Test PASS · #9 · Greet\n\n**Cases:** 8/8 passed  \n**Criteria tested:** 6/6  \n**Environment:** local  \n**Commit:** `abc1234` on `feature/9-greet`\n\n_Full evidence report (screenshots/videos) is kept locally in `artifacts/9-greet/index.html`._';
 const review = '<!-- role:review -->\n## ✅ Review APPROVE · #9 · Greet\n\n**Criteria met:** 6/6  \n**Findings:** 0 blocking, 2 suggestions  \n**Tests run:** unit 30/30, regression 9/9  \n**Design:** v1  \n**Commit:** `abc1234` on `feature/9-greet`';
 const rework = '<!-- role:build -->\n## Rework for test findings\n\n**Fixed:** 2 · **Not fixed:** 1';
 
@@ -17,7 +17,7 @@ const entries = [
 test('runResults lists each role result of the run in the order they were posted', () => {
   assert.deepEqual(runResults(entries, '2026-11-03T10:00:00Z'), [
     { role: 'build', line: '🔨 Build: 3 commits, unit tests 30/30', url: 'p10' },
-    { role: 'test', line: '✅ Test PASS on `abc1234`: 6/6 criteria tested, 8/8 cases passed', url: 'c1' },
+    { role: 'test', line: '✅ Test PASS on `abc1234`: 6/6 criteria tested, 8/8 cases passed', url: 'c1', report: 'artifacts/9-greet/index.html' },
     { role: 'review', line: '✅ Review APPROVE on `abc1234`: 6/6 criteria met, 0 blocking, 2 suggestions', url: 'p10' },
   ]);
 });
@@ -152,4 +152,13 @@ test('formatSummary says so when nothing landed after the sign-off, or when no r
   const base = { number: 29, title: 'P', pr: { number: 30 }, column: 'Build', next: '/unity:ship 29', results: [] };
   assert.match(formatSummary({ ...base, changes: { since: { role: 'build', commit: '2ddfc20' }, commits: [] } }), /\n\n\*\*No commits since the build on `2ddfc20`\.\*\*\n\n/);
   assert.match(formatSummary({ ...base, changes: { since: null, commits: [{ sha: '2ddfc20', subject: 'feat', files: ['greet.js'], testOnly: false }] } }), /\n\n\*\*Commits, none signed off by a role:\*\*\n- `2ddfc20` feat · greet\.js\n\n/);
+});
+
+test('formatSummary names the local test report below the results', () => {
+  const summary = formatSummary({
+    number: 9, title: 'Greet', pr: { number: 10 }, column: 'Review', next: 'ready to merge',
+    results: [{ role: 'test', line: '✅ Test PASS on `abc1234`: 6/6 criteria tested', url: 'c1', report: 'artifacts/9-greet/index.html' }],
+    report: '/Users/dev/project/artifacts/9-greet/index.html',
+  });
+  assert.match(summary, /· c1\n\n\*\*Test report:\*\* `\/Users\/dev\/project\/artifacts\/9-greet\/index\.html`\n\n\*\*Column:\*\*/);
 });
