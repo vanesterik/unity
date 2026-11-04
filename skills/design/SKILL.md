@@ -1,6 +1,6 @@
 ---
 name: design
-description: Design phase of the design -> build -> test -> review pipeline. Picks up an issue, works out the design with the developer, writes numbered acceptance criteria and an implementation plan, posts them as one issue comment, and moves the issue to Build once the developer approves. Run manually as /unity:design <issue>.
+description: Design phase of the design -> build -> test -> review pipeline. Picks up an issue, works out the design with the developer, writes numbered acceptance criteria and an implementation plan, posts them as one issue comment for the developer to read on GitHub, and moves the issue to Build once the developer approves the posted version. Run manually as /unity:design <issue>.
 disable-model-invocation: true
 allowed-tools: Bash, Read, Grep, Glob, Write, Skill, Agent
 ---
@@ -19,8 +19,8 @@ ARGS: $ARGUMENTS
 1. **No code, no branch, no commits.** You read the codebase; you never change it. The builder creates the branch.
 2. **The design lives in the issue, not in the repository.** Whatever Superpowers says about saving a design or a plan to `docs/` and committing it, here the design and the plan are posted as one issue comment (step 6). Drafts go in `artifacts/`, which git ignores.
 3. **Every acceptance criterion is observable from outside the code.** The test role checks them as a black box, through the UI, the API or the command line. "Uses a repository class" is not a criterion; "an invalid email shows an inline error and blocks submission" is. Criteria describe what the product does, not how it is built or unit-tested: "the unit tests pass" or "has no dependencies" belong in the Design section or the plan, because unit tests are the builder's job.
-4. **Nothing moves to Build without the developer's explicit approval** of the design and of the plan, given in this conversation.
-5. **Never edit an earlier design comment.** A revision is a new comment with the next version number; the latest one counts.
+4. **Nothing moves to Build without the developer's explicit approval of the posted version**: the latest design comment on the issue, design and plan together. They read it on GitHub and give their approval in this conversation; a comment on the issue doesn't count, and neither does approval of the drafts or of an earlier version.
+5. **Never edit a posted design comment**, approved or not. A revision is a new comment with the next version number; the latest one counts.
 
 ## Workflow
 
@@ -36,7 +36,7 @@ node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" check <n> Design
 
 | Current column | Action |
 | --- | --- |
-| **Design** | Continue: this is an interrupted or revised design. |
+| **Design** | Continue: this is an interrupted or revised design, or a posted design waiting for approval. |
 | **Backlog**, or not on the board | Picking it up starts the flow: `node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" status <n> Design` |
 | **Build** or later | Stop. The design was already approved and work has started. If the developer wants to change it, they move the issue back to **Design** on the board first. |
 
@@ -47,7 +47,7 @@ node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" story <n>
 gh issue view <n> --comments
 ```
 
-Read the issue body and all comments. If there is an earlier `role:design` comment, this is a revision: note its version (`designVersion`) and find out from the developer what has to change.
+Read the issue body and all comments. If there is an earlier `role:design` comment, note its version (`designVersion`) and ask the developer whether it still needs changes. If they approve it as posted, go to step 8; otherwise this is a revision, so find out what has to change.
 
 Read the project's `CLAUDE.md` and explore the codebase for the patterns, modules and constraints the change touches. Point at real files; don't guess how the code works.
 
@@ -70,7 +70,7 @@ Use the `superpowers:writing-plans` skill, with these changes:
 - Each task names the files it touches, the unit tests it adds, and the acceptance criteria it serves (`AC2`). Each task ends in one commit.
 - Skip the skill's execution handoff. Do not ask how to execute the plan: `/unity:build` is the next role.
 
-Show the developer the plan and get their approval. Revise until they approve it.
+Once the plan is drafted, assemble and post it with the design (steps 5 and 6). Don't ask for approval of the plan on its own: the developer approves design and plan together, on the posted version (step 7).
 
 ### 5. Assemble the comment
 
@@ -96,7 +96,7 @@ What could go wrong, and anything the builder may have to decide.
 
 - Only the criteria go under `## Acceptance criteria`, one `- AC<n>: text` line each, numbered from 1 without gaps. Wherever the design or the plan names a criterion, it uses one of these IDs.
 - Use `###` and deeper for subsections, and don't call one "Acceptance criteria".
-- `artifacts/<n>-<slug>/plan.md` is the approved plan, with a `Task <n>` heading per task.
+- `artifacts/<n>-<slug>/plan.md` is the plan, with a `Task <n>` heading per task.
 
 Save the story, so the script knows the version, and generate the comment:
 
@@ -114,15 +114,23 @@ gh issue comment <n> --body-file artifacts/<n>-<slug>/comment.md
 node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" check-design <n> artifacts/<n>-<slug>/comment.md
 ```
 
-`check-design` reads the issue's latest design comment back and exits non-zero, naming the first line that differs, unless it is the generated file. It prints the version and the number of criteria the other roles will read. The design is handed over only when it succeeds. If it doesn't, fix the cause in a new comment with the next version; do not edit the posted one.
+`check-design` reads the issue's latest design comment back and exits non-zero, naming the first line that differs, unless it is the generated file. It prints the version and the number of criteria the other roles will read. If it fails, fix the cause in a new comment with the next version; do not edit the posted one.
 
-### 7. Move the issue
+The issue stays in **Design** while the developer reads it, so no builder picks it up: the builder works only on issues in Build.
+
+### 7. Ask for approval
+
+Give the developer the version and the comment's URL (`gh issue comment` prints it), and ask them to read the design on GitHub and approve it here.
+
+If they ask for changes, revise `design.md` and `plan.md`, then repeat steps 5 and 6: save `story.json` again so the version goes up, generate, post the new version and check it. Ask again with the new URL. Only the latest posted version can be approved.
+
+### 8. Move the issue
 
 ```bash
 node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" status <n> Build
 ```
 
-Only after step 6 succeeded and the developer approved both the design and the plan.
+Only after `check-design` succeeded on the latest version and the developer approved that version in this conversation.
 
 ## Finish
 
@@ -130,7 +138,7 @@ Report to the developer in a few lines:
 
 - the design version posted, with the comment's URL
 - the acceptance criteria, one line each
-- the board column: **Build**
+- the board column: **Build** once approved. If the session ends before approval, the column is **Design**: the issue moves to Build only on approval, and `/unity:design <n>` picks it up again.
 
 End with the next step. The other roles run as agents with a fresh context, so the developer can start them from this session:
 
