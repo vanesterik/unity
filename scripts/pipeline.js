@@ -413,10 +413,69 @@ const runResults = (entries, since) => {
     .map(([role, entry]) => ({ role, line: resultLine(role, entry.body || ''), url: entry.url }));
 };
 
+// The commits a role vouched for, in the order they were posted: a build handover (the PR body
+// or a rework comment), a passing test, an approval.
+const signOffs = (entries) => entries
+  .map((entry) => {
+    const body = entry.body || '';
+    const commit = (body.match(/\*\*Commit:\*\*\s+`([0-9a-f]{7,40})`/) || [])[1];
+    if (!commit) return null;
+    if (/<!--\s*role:build(?=\s|-->)/.test(body)) return { role: 'build', commit, createdAt: entry.createdAt };
+    if (/<!--\s*role:test(?=\s|-->)/.test(body) && parseTestSummary(body).status === 'PASS') return { role: 'test', commit, createdAt: entry.createdAt };
+    if (/<!--\s*role:review(?=\s|-->)/.test(body) && /^##\s+\S+\s+Review\s+APPROVE\b/m.test(body)) return { role: 'review', commit, createdAt: entry.createdAt };
+    return null;
+  })
+  .filter(Boolean)
+  .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
+  .map(({ role, commit }) => ({ role, commit }));
+
+// The PR's commits (oldest first) after the newest sign-off up to the stopping commit (the PR head
+// when there is none): what changed since a role last vouched for the code.
+const changesSince = ({ commits, signOffs: offs, stopAt }) => {
+  const at = (sha) => commits.findIndex((commit) => commit.sha.startsWith(sha) || sha.startsWith(commit.sha));
+  const stop = stopAt && at(stopAt) !== -1 ? at(stopAt) : commits.length - 1;
+  let since = null;
+  let from = -1;
+  for (const off of offs) {
+    const index = at(off.commit);
+    if (index !== -1 && index <= stop && index >= from) { since = off; from = index; }
+  }
+  return {
+    since: since && { role: since.role, commit: since.commit.slice(0, 7) },
+    commits: commits.slice(from + 1, stop + 1).map((commit) => ({ sha: commit.sha.slice(0, 7), subject: commit.subject })),
+  };
+};
+
+// The commit a failing test or a review with changes requested judged in this run, or null.
+const stopCommit = (entries, since) => {
+  const start = since ? Date.parse(since) : -Infinity;
+  const newest = ['test', 'review']
+    .map((role) => latestRoleComment(entries.filter((entry) => Date.parse(entry.createdAt) >= start), role))
+    .filter(Boolean)
+    .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
+    .pop();
+  if (!newest) return null;
+  const body = newest.body || '';
+  const passed = parseTestSummary(body).status === 'PASS' || /^##\s+\S+\s+Review\s+APPROVE\b/m.test(body);
+  return passed ? null : parseTestSummary(body).commit;
+};
+
+const formatFiles = (files) => (files.length > 3 ? `${files.slice(0, 3).join(', ')} and ${files.length - 3} more` : files.join(', '));
+
+const formatChanges = ({ since, commits }) => {
+  const label = since ? `since the ${since.role} on \`${since.commit}\`` : null;
+  if (!commits.length) return `**No commits ${label || 'on the PR'}.**`;
+  return [
+    label ? `**Commits ${label}:**` : '**Commits, none signed off by a role:**',
+    ...commits.map((commit) => `- \`${commit.sha}\` ${commit.subject}${commit.files && commit.files.length ? ` · ${formatFiles(commit.files)}` : ''}${commit.testOnly ? ' (test paths only)' : ''}`),
+  ].join('\n');
+};
+
 // The summary /unity:ship ends with, the same for the same results.
-const formatSummary = ({ number, title, pr, column, next, results }) => [
+const formatSummary = ({ number, title, pr, column, next, results, changes }) => [
   `**#${number} ${title}**${pr ? ` · PR #${pr.number}` : ''}`,
   results.length ? results.map((result) => `- ${result.line} · ${result.url}`).join('\n') : 'No role posted a result in this run.',
+  ...(changes ? [formatChanges(changes)] : []),
   `**Column:** ${column || 'not on the board'}${next ? ` → ${formatNext(next)}` : ''}`,
 ].join('\n\n');
 
@@ -573,7 +632,21 @@ const summary = (issueArg, since) => {
   const pr = found ? { number: found.number, url: found.url, headSha: found.headRefOid } : null;
   const { status: column } = issueColumn(number, config);
   const next = nextStep({ number, column, pr, latest: latestResult(entries) });
-  return { number, title, pr, column, next, results: runResults(entries, since) };
+  const result = { number, title, pr, column, next, results: runResults(entries, since) };
+  // A run that stopped short of an approval shows what landed since a role last vouched for the code.
+  if (found && next !== 'ready to merge') {
+    const commits = ghJson(['pr', 'view', String(found.number), '--json', 'commits']).commits
+      .map((commit) => ({ sha: commit.oid, subject: commit.messageHeadline }));
+    const changes = changesSince({ commits, signOffs: signOffs(entries), stopAt: stopCommit(entries, since) });
+    const config = readConfig();
+    const testPaths = ((config.test && config.test.writablePaths) || []).filter((p) => !/^artifacts\/?$/.test(p));
+    for (const commit of changes.commits) {
+      commit.files = (ghJson(['api', `repos/{owner}/{repo}/commits/${commit.sha}`]).files || []).map((file) => file.filename);
+      commit.testOnly = Boolean(testPaths.length && commit.files.length && !outsidePaths(commit.files, testPaths).length);
+    }
+    result.changes = changes;
+  }
+  return result;
 };
 
 const port = (issueArg) => {
@@ -617,4 +690,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment };
+module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs };
