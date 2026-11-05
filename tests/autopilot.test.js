@@ -3,8 +3,8 @@ const assert = require('node:assert/strict');
 const { reworksSince, maxReworks, stoppedPlan, formatStopComment } = require('../scripts/pipeline.js');
 
 const prBody = { source: 'pr-body', body: '<!-- role:build -->\n**Design:** v1\n\nCloses #8', createdAt: '2026-11-05T10:01:00Z' };
-const rework = (createdAt) => ({ source: 'pr-comment', body: '<!-- role:build -->\n## Rework for test findings\n\n**Fixed:** 1', createdAt });
-const testFail = { source: 'pr-comment', body: '<!-- role:test -->\n## ❌ Test FAILURE · #8', createdAt: '2026-11-05T10:20:00Z' };
+const rework = (createdAt) => ({ source: 'pr-comment', body: '<!-- role:build -->\n## Rework\n\n**Findings of:** test  \n**Fixed:** 1', createdAt });
+const testFail = { source: 'pr-comment', body: '<!-- role:test -->\n## ❌ Test', createdAt: '2026-11-05T10:20:00Z' };
 
 test('reworksSince ignores reworks before the run', () => {
   const entries = [prBody, rework('2026-11-04T09:00:00Z'), testFail, rework('2026-11-05T10:30:00Z'), rework('2026-11-05T11:30:00Z')];
