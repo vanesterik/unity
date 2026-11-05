@@ -71,7 +71,7 @@ The repository is its own marketplace.
    /unity:design <issue>
    ```
 
-   This is the one role you work with. It moves the issue to **Design**, reads the codebase, and works out the design with you, with numbered acceptance criteria (`AC1`, `AC2`, ...) that can be checked from outside the code. Then it writes an implementation plan, one commit per task. A script assembles both into one comment and checks its sections and criteria. The comment is posted on the issue and read back to make sure it arrived unchanged, while the issue stays in **Design**. You read it on GitHub and approve it in the conversation: that approval is the one human gate in the flow, and only then does the issue move to **Build**. Changes you ask for go up as a new version (v2, v3...).
+   This is the one role you work with. It moves the issue to **Design**, reads the codebase, and works out the design with you, with numbered acceptance criteria (`AC1`, `AC2`, ...) that can be checked from outside the code. A script assembles the design into one comment and checks its sections and criteria. The comment is posted on the issue and read back to make sure it arrived unchanged, while the issue stays in **Design**. You read it on GitHub and approve it in the conversation: that approval is the one human gate in the flow, and only then does the issue move to **Build**. Changes you ask for go up as a new version (v2, v3...).
 
 5. **Ship it**, from the same session:
 
@@ -81,7 +81,7 @@ The repository is its own marketplace.
 
    This runs the other three roles one after the other, each as its own agent with a fresh context, so none of them sees your design conversation or another role's reasoning. After each agent, it reads the board and goes on only if the issue moved to the next column. You watch nothing in between. At the end it prints one line per role with its result and link, the path to the tester's local evidence report, then the column and the next step, written by a script from what the roles posted on GitHub. When it stopped early, it also lists the commits that landed since a role last signed off, so you can see where a failure may come from.
 
-   - **The builder** (`unity:builder`) creates `feature/<issue>-<slug>`, implements the plan task by task with unit tests written first, and pushes each task as its own commit to a draft pull request. A script writes the pull request body from the builder's data, with a table that maps every criterion of the design to its code and unit tests. When every task is done, it marks the pull request ready and moves the issue to **Test**.
+   - **The builder** (`unity:builder`) creates `feature/<issue>-<slug>` from the latest `main`, writes the implementation plan against that code (one commit per task), posts it on the pull request as a record, and implements it task by task with unit tests written first, and pushes each task as its own commit to a draft pull request. A script writes the pull request body from the builder's data, with a table that maps every criterion of the design to its code and unit tests. When every task is done, it marks the pull request ready and moves the issue to **Test**.
    - **The tester** (`unity:tester`) tests the running system against the acceptance criteria as a black box, codifies the cases as integration or E2E tests on the branch, and posts a report on the pull request. On a pass it moves the issue to **Review**; on a failure, back to **Build**. A criterion it couldn't test leaves the issue in **Test**.
 
      The tester may only write tests, never application code or unit tests, so a failure goes back to the builder instead of being fixed in place. A hook enforces this: the tester writes `artifacts/.test-active` when a run starts and removes it at the end, and while that file exists, edits outside `test.writablePaths` in `.claude/pipeline.json` are blocked. Outside a test run the hook does nothing. If a run is interrupted, the file stays behind and the builder stops until you delete it.
@@ -121,7 +121,7 @@ The board's **Status** field is the workflow state, and each role is named after
 ```mermaid
 flowchart TB
     Backlog["<b>Backlog</b><br/>not picked up yet"]
-    Design["<b>Design</b><br/>design and plan, with you"]
+    Design["<b>Design</b><br/>design, with you"]
     Done["<b>Done</b><br/>merged"]
 
     subgraph ship ["/unity:ship: one agent per role, each with a fresh context"]
@@ -141,7 +141,7 @@ flowchart TB
 
 You add new issues to **Backlog**. A criterion the tester couldn't test leaves the issue in **Test** for you to decide.
 
-Designs and plans live in the issue, as the latest `role:design` comment, not as files in the repository. Build, test and review post on the pull request. Each role output starts with a hidden marker (`<!-- role:test -->`), so the next role finds the latest one.
+Designs live in the issue, as the latest `role:design` comment, and the builder's plan on the pull request, as a `role:plan` comment; neither is a file in the repository. Build, test and review post on the pull request. Each role output starts with a hidden marker (`<!-- role:test -->`), so the next role finds the latest one.
 
 ## Commands
 
@@ -150,11 +150,11 @@ Designs and plans live in the issue, as the latest `role:design` comment, not as
 | Command | What it does |
 | --- | --- |
 | `/unity:init <owner> <project>` | Sets up a repository: `.claude/pipeline.json` with the board IDs and the detected start and test commands, the `CLAUDE.md` workflow section, `.gitignore`, plugin settings |
-| `/unity:design <issue>` | Works out the design, acceptance criteria and plan with you, posts them as one issue comment for you to read on GitHub, and moves the issue to Build once you approve the posted version |
+| `/unity:design <issue>` | Works out the design and acceptance criteria with you, posts them as one issue comment for you to read on GitHub, and moves the issue to Build once you approve the posted version |
 | `/unity:ship <issue>` | Runs the builder, tester and reviewer agents one after the other, from the issue's current column, as long as each one moves it on |
 | `/unity:autopilot` | Builds, tests, reviews and merges every story in Build, top first, through `pipeline.js merge`; stops the run at the first story that can't get to `main` and ends with a digest |
 | `/unity:status` | Shows every issue on the board per column, with its pull request, latest result and next command, and warns about what the columns don't show; changes nothing |
-| `/unity:build <issue>` | Runs the builder agent: implements the approved plan task by task with test-first unit tests, opens a pull request that maps each criterion to code and tests, and moves the issue to Test; also reworks test and review findings |
+| `/unity:build <issue>` | Runs the builder agent: plans the approved design against the current code, implements it task by task with test-first unit tests, opens a pull request that maps each criterion to code and tests, and moves the issue to Test; also reworks test and review findings |
 | `/unity:test <issue>` | Runs the tester agent: tests against the acceptance criteria as a black box, writes integration or E2E tests, posts the report on the pull request, and moves the issue to Review or back to Build |
 | `/unity:review <issue or PR>` | Runs the reviewer agent: reviews the whole pull request against the design and criteria, posts a verdict with blocking findings and suggestions, and sends the issue back to Build or leaves it ready to merge |
 | `/unity:test-user-story <issue or story>` | Exploratory testing with an evidence report, used by the tester; also usable on its own |
