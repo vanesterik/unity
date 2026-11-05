@@ -28,7 +28,7 @@
 //                                               (--check: only report, never merge or wait)
 //   pipeline.js reworks <issue> --since <time>  the builder's reworks on the issue since the time, and the limit, as JSON
 //   pipeline.js stop <issue> --reason <text> [--url <url>]
-//                                               label the issue autopilot:stopped and comment why the run stopped there
+//                                               label the issue autopilot:stopped, move it from Build to Design, and comment why
 //   pipeline.js resume                          what an autopilot run does with stories earlier runs stopped at, as JSON:
 //                                               the one to resume, the labels cleared, and the stories that block the run
 //   pipeline.js digest --since <time> [--stopped <issue>] [--blocked] [--markdown]
@@ -843,11 +843,18 @@ const stoppedPlan = (stopped) => {
   return { resume: resume ? resume.number : null, clear: stopped.filter((story) => story.column === 'Done').map((story) => story.number), blocked: [] };
 };
 
-const formatStopComment = ({ number, reason, url }) => [
+// Where a stopped story goes: one that stopped in Build moves to Design, so the next run doesn't spend
+// another round of reworks on it before the developer has looked. Moving it back to Build is the
+// developer's signal to try again. A story that stopped elsewhere stays where it is.
+const stopColumn = (column) => (column === 'Build' ? 'Design' : column);
+
+const formatStopComment = ({ number, reason, url, movedTo }) => [
   '<!-- autopilot:stopped -->',
   `**Autopilot stopped at #${number}:** ${reason}`,
   ...(url ? [url] : []),
-  `Move the story back to Build to try again, or finish it with /unity:ship ${number}; the next /unity:autopilot continues from there.`,
+  movedTo === 'Design'
+    ? `Moved to Design. Revise the design with /unity:design ${number}, or move the story back to Build to try it again as it is; the next /unity:autopilot continues from there.`
+    : `Move the story back to Build to try again, or finish it with /unity:ship ${number}; the next /unity:autopilot continues from there.`,
 ].join('\n\n');
 
 const reworks = (issueArg, since) => {
@@ -861,7 +868,10 @@ const stop = (issueArg, reason, url) => {
   if (!number || !reason) die('Usage: pipeline.js stop <issue> --reason <text> [--url <url>]');
   gh(['label', 'create', STOPPED_LABEL, '--color', 'B60205', '--description', 'A story that stopped an autopilot run', '--force']);
   gh(['issue', 'edit', String(number), '--add-label', STOPPED_LABEL]);
-  return gh(['issue', 'comment', String(number), '--body', formatStopComment({ number, reason, url })]);
+  const { status: column } = issueColumn(number, loadConfig());
+  const movedTo = stopColumn(column) !== column ? stopColumn(column) : null;
+  if (movedTo) setStatus(number, movedTo);
+  return gh(['issue', 'comment', String(number), '--body', formatStopComment({ number, reason, url, movedTo })]);
 };
 
 // The stories earlier runs stopped at, and what this run does with them. A closed issue counts as Done.
@@ -1019,4 +1029,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, formatStopComment, allRunResults, formatDigest, parseChecksOutput, mergeArgs, mergeOutcome, mergedSince };
+module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, stopColumn, formatStopComment, allRunResults, formatDigest, parseChecksOutput, mergeArgs, mergeOutcome, mergedSince };

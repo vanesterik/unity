@@ -18,7 +18,7 @@ This skill takes no arguments. Running it is the opt-in.
 - **Never do a role's work yourself**, before, between or after the agents. Don't fix code, tests, the branch or the pull request.
 - **Merge only with `pipeline.js merge`.** Never run `gh pr merge` or push to `main` yourself.
 - **One agent at a time**, one story at a time.
-- **Only take stories from Build.** Never touch an issue in Backlog or Design, and never start a story that is in Test or Review when the run starts: the developer may be handling it.
+- **Only take stories from Build.** Never take an issue from Backlog or Design (only `pipeline.js stop` moves a stuck story into Design), and never start a story that is in Test or Review when the run starts: the developer may be handling it.
 - **The first story that can't get to `main` ends the run.** Later stories may depend on it.
 - Script output is printed exactly as the script writes it: no rewording, no code block, nothing added.
 
@@ -110,7 +110,7 @@ Repeat until the story merges or stops:
 
 ### 5. Stop a story
 
-When a story stops, record why on the issue, with the URL of the result that stopped it (the failing test, the review, or none):
+When a story stops, record why on the issue and take it out of the queue, with the URL of the result that stopped it (the failing test, the review, or none):
 
 ```bash
 pipeline.js stop <n> --reason "<reason>" [--url <url>]
@@ -122,7 +122,7 @@ Then print the digest and, below it, the stopping role's report as the agent ret
 pipeline.js digest --since <start> --stopped <n> --markdown
 ```
 
-That ends the run. The story stays in the column it is in; nothing is reverted.
+That ends the run. A story that stopped in Build is moved to **Design** by `stop`, so the next run doesn't retry it before the developer has looked; a story that stopped anywhere else stays in its column. Nothing is reverted.
 
 ## Finish
 

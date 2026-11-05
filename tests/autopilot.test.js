@@ -52,3 +52,23 @@ test('formatStopComment says why the run stopped and how to continue', () => {
   ].join('\n\n'));
   assert.ok(!formatStopComment({ number: 8, reason: 'r' }).includes('undefined'));
 });
+
+const { stopColumn } = require('../scripts/pipeline.js');
+
+test('stopColumn moves a story that stopped in Build to Design, so the next run does not retry it unseen', () => {
+  assert.equal(stopColumn('Build'), 'Design');
+  assert.deepEqual(stoppedPlan([{ number: 8, title: 'B', column: stopColumn('Build') }]).blocked, [{ number: 8, title: 'B', column: 'Design' }]);
+});
+
+test('stopColumn leaves a story that stopped elsewhere where it is', () => {
+  for (const column of ['Test', 'Review', 'Design', 'Done', null]) assert.equal(stopColumn(column), column);
+});
+
+test('formatStopComment says the story moved to Design and how to continue from there', () => {
+  assert.equal(formatStopComment({ number: 8, reason: 'failed test after 2 reworks', url: 'https://x/c1', movedTo: 'Design' }), [
+    '<!-- autopilot:stopped -->',
+    '**Autopilot stopped at #8:** failed test after 2 reworks',
+    'https://x/c1',
+    'Moved to Design. Revise the design with /unity:design 8, or move the story back to Build to try it again as it is; the next /unity:autopilot continues from there.',
+  ].join('\n\n'));
+});
