@@ -57,7 +57,7 @@ Read, in this order:
 4. The project's `CLAUDE.md` for its conventions.
 5. The full diff, commit by commit where the commits tell a story. Open the surrounding code with Read wherever the diff alone doesn't show what a change does.
 
-Check out the PR head (`gh pr checkout <pr>`) and run the unit tests and the regression tests once (`integration.runCommand` or `e2e.runCommand` from `.claude/pipeline.json`), so you are not taking the reports on trust.
+Check out the PR head (`gh pr checkout <pr>`) and run the unit tests and the test role's integration or E2E tests once (`integration.runCommand` or `e2e.runCommand` from `.claude/pipeline.json`), so you are not taking the reports on trust.
 
 ### 3. Review
 
@@ -88,7 +88,6 @@ Write your review as `artifacts/<n>-<slug>/review-data.json`:
 ```json
 {
   "issue": { "number": 9, "title": "Greet in Dutch" },
-  "branch": "feature/9-greet-in-dutch",
   "commit": "<head sha>",
   "designVersion": 1,
   "designCriteria": 8,
@@ -105,13 +104,13 @@ Write your review as `artifacts/<n>-<slug>/review-data.json`:
   "declined": [
     { "behaviour": "<behaviour>", "reason": "<why it is outside the design>" }
   ],
-  "tests": { "unit": { "passed": 11, "total": 11 }, "regression": { "passed": 9, "total": 9 } }
+  "tests": { "unit": { "passed": 11, "total": 11 }, "integration": { "passed": 9, "total": 9 } }
 }
 ```
 
 - `designVersion` and `designCriteria` (the number of criteria) come from `story`, not from your own count; the script refuses a review that lists a different number.
 - `criteria` lists every criterion of the design, AC1 first, in order. `where` holds only `file:line` or `file:line-line` references, no explanation: the code that meets the criterion, or the code that fails it.
-- `tests` holds your own runs from step 2, not the numbers from the PR body or the test report.
+- `tests` holds your own runs from step 2, not the numbers from the PR body or the test report. `integration` is the test role's tests, integration or E2E, whichever the project has.
 - Leave a list empty (`[]`) when it has no entries.
 
 Then generate the comment:

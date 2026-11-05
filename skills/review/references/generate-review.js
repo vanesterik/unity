@@ -38,7 +38,7 @@ const nonEmpty = (value) => typeof value === 'string' && value.trim() !== '';
 
 const issue = data.issue || {};
 if (!Number.isInteger(issue.number) || !nonEmpty(issue.title)) fail('"issue" needs a "number" and a "title"');
-if (!nonEmpty(data.commit) || !nonEmpty(data.branch)) fail('"commit" and "branch" are required');
+if (!nonEmpty(data.commit)) fail('"commit" is required');
 if (!Number.isInteger(data.designVersion)) fail('"designVersion" must be the design version number, e.g. 1');
 
 if (!Number.isInteger(data.designCriteria) || data.designCriteria < 1) fail('"designCriteria" must be the number of criteria in the design, from story');
@@ -66,7 +66,7 @@ const blocking = findings('blocking');
 const suggestions = findings('suggestions');
 
 const tests = data.tests || {};
-const runs = ['unit', 'regression'].map((kind) => {
+const runs = ['unit', 'integration'].map((kind) => {
   const run = tests[kind] || {};
   if (!Number.isInteger(run.passed) || !Number.isInteger(run.total) || run.passed > run.total) {
     fail(`"tests.${kind}" needs whole numbers "passed" and "total", with passed <= total`);
@@ -105,13 +105,14 @@ const findingList = (list) => {
 
 const md = [];
 md.push('<!-- role:review -->');
-md.push(`## ${blocking.length ? '❌' : '✅'} Review ${verdict} · #${issue.number} · ${cell(issue.title)}`);
+// The heading carries the verdict as an icon, as the tables do: ✅ approved, ❌ changes requested.
+md.push(`## ${blocking.length ? '❌' : '✅'} Review`);
 md.push('');
+md.push(`**Design:** v${data.designVersion}  `);
 md.push(`**Criteria met:** ${criteria.length - unmet.length}/${criteria.length}  `);
 md.push(`**Findings:** ${blocking.length} blocking, ${suggestions.length} ${suggestions.length === 1 ? 'suggestion' : 'suggestions'}  `);
 md.push(`**Tests run:** ${runs.map((run) => `${run.kind} ${run.passed}/${run.total}`).join(', ')}  `);
-md.push(`**Design:** v${data.designVersion}  `);
-md.push(`**Commit:** ${code(data.commit.trim().slice(0, 7))} on ${code(data.branch)}`);
+md.push(`**Commit:** ${code(data.commit.trim().slice(0, 7))}`);
 md.push('');
 md.push('### Acceptance criteria');
 md.push('');
