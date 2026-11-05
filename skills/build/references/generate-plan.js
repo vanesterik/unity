@@ -63,9 +63,10 @@ const plan = planLines.map((entry) => {
 
 const version = story.designVersion || 1;
 const comment = [
-  `<!-- role:plan design v${version} -->`,
-  `## Implementation plan · design v${version}`,
+  '<!-- role:plan -->',
+  '## Plan',
   '',
+  `**Design:** v${version}  `,
   `**Tasks:** ${tasks}`,
   '',
   plan,

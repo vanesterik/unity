@@ -134,7 +134,7 @@ git push -u origin feature/<n>-<slug>
 gh pr create --draft --title "<issue title>" --body-file artifacts/<n>-<slug>/pr-body.md
 ```
 
-Then post the plan on it. The comment from step 3 has a `<!-- role:plan design v<k> -->` marker naming the design version it implements; generate it again first if you changed `plan.md` since:
+Then post the plan on it. The comment from step 3 starts with a `<!-- role:plan -->` marker and names the design version it implements in its `**Design:**` field; generate it again first if you changed `plan.md` since:
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/skills/build/references/generate-plan.js" artifacts/<n>-<slug>/plan.md

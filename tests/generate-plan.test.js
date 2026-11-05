@@ -45,13 +45,13 @@ const refusal = (options) => {
   return result.stderr;
 };
 
-test('the comment names the design version it implements', () => {
-  assert.match(commentFor(), /^<!-- role:plan design v2 -->\n## Implementation plan · design v2\n/);
+test('the comment is headed Plan, with the design version it implements and its task count', () => {
+  assert.match(commentFor(), /^<!-- role:plan -->\n## Plan\n\n\*\*Design:\*\* v2  \n\*\*Tasks:\*\* 2\n\n/);
 });
 
 test('the plan follows its task count in the open, with headings demoted below ##', () => {
   const comment = commentFor();
-  assert.match(comment, /^<!-- role:plan design v2 -->\n## Implementation plan · design v2\n\n\*\*Tasks:\*\* 2\n\n### Greet in Dutch Implementation Plan\n/);
+  assert.match(comment, /\*\*Tasks:\*\* 2\n\n### Greet in Dutch Implementation Plan\n/);
   assert.doesNotMatch(comment, /<details>|<summary>/);
   assert.match(comment, /\n#### Task 1: Add the Dutch word \(AC1\)\n/);
   assert.match(comment, /\n##### Step 1\n/);
@@ -78,7 +78,7 @@ test('it refuses an issue without a design', () => {
 
 test('it refuses a plan.md that holds a role comment instead of the plan', () => {
   assert.match(refusal({ planText: `<!-- role:design v1 -->\n${plan}` }), /plan\.md holds a role comment/);
-  assert.match(refusal({ planText: `<!-- role:plan design v1 -->\n${plan}` }), /plan\.md holds a role comment/);
+  assert.match(refusal({ planText: `<!-- role:plan -->\n${plan}` }), /plan\.md holds a role comment/);
 });
 
 test('it refuses a comment over GitHub\'s size limit instead of trimming it', () => {

@@ -147,28 +147,34 @@ test('it prints the counts and the path it wrote as JSON', () => {
 
 const reworkRepo = () => repoWith(['Add the Dutch greeting', 'Validate the name before greeting']);
 
-const reworkFor = (repo, findings, rework = 'test') => {
-  const { dir, result } = generate({ rework, findings }, { repo, name: 'rework-data.json', storyData: null });
+const reworkFor = (repo, findings, rework = 'test', storyData = story) => {
+  const { dir, result } = generate({ rework, findings }, { repo, name: 'rework-data.json', storyData });
   return { dir, result, comment: result.status === 0 ? fs.readFileSync(path.join(dir, 'rework.md'), 'utf8') : null };
 };
 
-test('a rework comment starts with the marker and names the findings it answers', () => {
+test('a rework comment is headed Rework, with Design first, whose findings it reworks, the counts and Commit last', () => {
   const repo = reworkRepo();
   const { comment } = reworkFor(repo, [{ finding: 'Case 2: an empty name greets nobody', fix: 'Validate the name', commit: headSha(repo), proof: 'unit test "rejects an empty name"' }], 'review');
-  assert.match(comment, new RegExp(`^<!-- role:build -->\\n## Rework for review findings\\n\\n\\*\\*Fixed:\\*\\* 1 · \\*\\*Not fixed:\\*\\* 0  \\n\\*\\*Commit:\\*\\* \`${headSha(repo)}\`\\n\\n`));
+  assert.match(comment, new RegExp(`^<!-- role:build -->\\n## Rework\\n\\n\\*\\*Design:\\*\\* v2  \\n\\*\\*Findings of:\\*\\* review  \\n\\*\\*Fixed:\\*\\* 1  \\n\\*\\*Not fixed:\\*\\* 0  \\n\\*\\*Commit:\\*\\* \`${headSha(repo)}\`\\n\\n`));
 });
 
-test('a rework row holds the fix, its commit and the proof; a disagreement says why, without a commit', () => {
+test('a rework needs story.json for the design version', () => {
+  const { result } = reworkFor(reworkRepo(), [{ finding: 'Case 2', disagree: 'no' }], 'test', null);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /story\.json/);
+});
+
+test('a rework row holds the fix with its proof, its commit and a status; a disagreement says why, without a commit', () => {
   const repo = reworkRepo();
   const sha = headSha(repo);
   const { comment } = reworkFor(repo, [
     { finding: 'Case 2: an empty name greets nobody', fix: 'Validate the name', commit: sha, proof: 'unit test "rejects an empty name"' },
     { finding: 'Case 5: the greeting is not bold', disagree: 'The design asks for plain text' },
   ]);
-  assert.match(comment, /^\| Finding \| Fix \| Commit \| Proof \|$/m);
-  assert.match(comment, new RegExp(`^\\| Case 2: an empty name greets nobody \\| Validate the name \\| \`${sha}\` \\| unit test "rejects an empty name" \\|$`, 'm'));
-  assert.match(comment, /^\| Case 5: the greeting is not bold \| Not fixed: The design asks for plain text \| — \| — \|$/m);
-  assert.match(comment, /\*\*Fixed:\*\* 1 · \*\*Not fixed:\*\* 1/);
+  assert.match(comment, /^\| Finding \| Fix \| Commit \| Status \|$/m);
+  assert.match(comment, new RegExp(`^\\| Case 2: an empty name greets nobody \\| Validate the name\\. Proof: unit test "rejects an empty name"\\. \\| \`${sha}\` \\| ✅ \\|$`, 'm'));
+  assert.match(comment, /^\| Case 5: the greeting is not bold \| The design asks for plain text\. \| — \| ❌ \|$/m);
+  assert.match(comment, /\*\*Fixed:\*\* 1  \n\*\*Not fixed:\*\* 1  /);
 });
 
 test('it refuses a fix whose commit is not on the branch', () => {
