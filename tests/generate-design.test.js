@@ -29,29 +29,12 @@ Other languages.
 None known.
 `;
 
-const plan = `# Greet in Dutch Implementation Plan
-
-> Execute with superpowers:executing-plans.
-
-## Task 1: Add the Dutch word (AC1)
-
-\`\`\`js
-// ## Task 9: not a heading inside a code block
-\`\`\`
-
-### Step 1
-Write the failing test.
-
-## Task 2: Add the flag (AC2)
-`;
-
 const story = { number: 9, design: null, designVersion: null };
 
-// Runs the generator on design.md, with plan.md and story.json next to it.
-const generate = ({ designText = design, planText = plan, storyData = story } = {}) => {
+// Runs the generator on design.md, with story.json next to it.
+const generate = ({ designText = design, storyData = story } = {}) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'unity-design-'));
   fs.writeFileSync(path.join(dir, 'design.md'), designText);
-  if (planText !== null) fs.writeFileSync(path.join(dir, 'plan.md'), planText);
   if (storyData) fs.writeFileSync(path.join(dir, 'story.json'), JSON.stringify(storyData));
   return { dir, result: spawnSync('node', [generator, path.join(dir, 'design.md')], { encoding: 'utf8' }) };
 };
@@ -72,27 +55,13 @@ test('a first design gets the v1 marker and the five sections, without the draft
   const comment = commentFor();
   assert.match(comment, /^<!-- role:design v1 -->\n## Context\nDutch users want a Dutch greeting\.\n\n## Design\n/);
   assert.match(comment, /### Parsing\nThe flag is read before the name\.\n\n## Acceptance criteria\n- AC1: /);
-  assert.match(comment, /\n## Out of scope\nOther languages\.\n\n## Risks and open questions\nNone known\.\n\n## Implementation plan\n/);
+  assert.match(comment, /\n## Out of scope\nOther languages\.\n\n## Risks and open questions\nNone known\.\n$/);
   assert.doesNotMatch(comment, /# Greet in Dutch\n/);
 });
 
 test('a revision gets the previous version plus one', () => {
   const comment = commentFor({ storyData: { number: 9, design: '<!-- role:design v2 -->', designVersion: 2 } });
   assert.match(comment, /^<!-- role:design v3 -->\n/);
-});
-
-test('the plan sits in a collapsed block with its task count and headings demoted below ##', () => {
-  const comment = commentFor();
-  assert.match(comment, /## Implementation plan\n<details>\n<summary>2 tasks<\/summary>\n\n### Greet in Dutch Implementation Plan\n/);
-  assert.match(comment, /\n#### Task 1: Add the Dutch word \(AC1\)\n/);
-  assert.match(comment, /\n##### Step 1\n/);
-  assert.match(comment, /\/\/ ## Task 9: not a heading inside a code block\n/);
-  assert.match(comment, /\n#### Task 2: Add the flag \(AC2\)\n\n<\/details>\n$/);
-});
-
-test('one task reads as 1 task', () => {
-  const comment = commentFor({ planText: '## Task 1: Everything (AC1, AC2)\n' });
-  assert.match(comment, /<summary>1 task<\/summary>/);
 });
 
 test('it refuses criteria numbered with a gap', () => {
@@ -111,34 +80,31 @@ test('it refuses a missing, empty or extra section', () => {
   assert.match(refusal({ designText: design.replace('## Out of scope', '## Notes\nA note.\n\n## Out of scope') }), /found Context, Design, Acceptance criteria, Notes, Out of scope/);
 });
 
-test('it refuses a mention of a criterion that does not exist, in the design or the plan', () => {
+test('it refuses a mention of a criterion that does not exist', () => {
   assert.match(refusal({ designText: design.replace('AC2 covers the flag', 'AC4 covers the flag') }), /AC4 is mentioned, but the criteria are AC1-AC2/);
-  assert.match(refusal({ planText: plan.replace('(AC2)', '(AC5)') }), /AC5 is mentioned, but the criteria are AC1-AC2/);
 });
 
-test('it refuses a plan without Task headings', () => {
-  assert.match(refusal({ planText: '# Plan\n\nDo it all.\n' }), /plan\.md has no "Task <n>" headings/);
-});
-
-test('it refuses to run without plan.md or story.json', () => {
-  assert.match(refusal({ planText: null }), /plan\.md/);
+test('it refuses to run without story.json', () => {
   assert.match(refusal({ storyData: null }), /story\.json/);
 });
 
+test('the comment is the design alone: it ends after Risks and open questions, with no plan', () => {
+  const comment = commentFor();
+  assert.match(comment, /\n## Risks and open questions\nNone known\.\n$/);
+  assert.doesNotMatch(comment, /Implementation plan|<details>/);
+});
+
 test('it refuses a comment over GitHub\'s size limit instead of trimming it', () => {
-  assert.match(refusal({ planText: `${plan}\n${'x'.repeat(66000)}\n` }), /over GitHub's limit of 65000/);
+  assert.match(refusal({ designText: design.replace('None known.', 'x'.repeat(66000)) }), /over GitHub's limit of 65000/);
 });
 
 test('it prints the version, the counts and the path it wrote as JSON', () => {
   const { dir, result } = generate();
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(JSON.parse(result.stdout), { comment: path.join(dir, 'comment.md'), designVersion: 1, criteria: 2, tasks: 2 });
+  assert.deepEqual(JSON.parse(result.stdout), { comment: path.join(dir, 'comment.md'), designVersion: 1, criteria: 2 });
 });
 
 test('it refuses a subheading called Acceptance criteria before the real one, which the parser would read instead', () => {
   assert.match(refusal({ designText: design.replace('### Parsing', '### Acceptance criteria for parsing') }), /"### Acceptance criteria for parsing" in Design/);
 });
 
-test('it refuses a plan.md that holds a design comment instead of the plan', () => {
-  assert.match(refusal({ planText: `<!-- role:design v1 -->\n${plan}` }), /plan\.md holds a design comment/);
-});
