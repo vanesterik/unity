@@ -73,20 +73,27 @@ const writeRework = () => {
   });
   const fixed = rows.filter((row) => row.commit);
   const cell = (value) => mentions(flat(value));
+  const storyPath = path.join(dir, 'story.json');
+  if (!fs.existsSync(storyPath)) fail(`no story.json next to it; save it with pipeline.js story <n> > ${path.relative(process.cwd(), storyPath)}`);
+  const { designVersion } = JSON.parse(fs.readFileSync(storyPath, 'utf8'));
+  if (!Number.isInteger(designVersion)) fail('story.json has no design version; save it again with pipeline.js story <n>');
 
   const md = [];
   md.push('<!-- role:build -->');
-  md.push(`## Rework for ${data.rework} findings`);
+  md.push('## Rework');
   md.push('');
-  md.push(`**Fixed:** ${fixed.length} · **Not fixed:** ${findings.length - fixed.length}  `);
+  md.push(`**Design:** v${designVersion}  `);
+  md.push(`**Findings of:** ${data.rework}  `);
+  md.push(`**Fixed:** ${fixed.length}  `);
+  md.push(`**Not fixed:** ${findings.length - fixed.length}  `);
   md.push(`**Commit:** ${code(commits[commits.length - 1].sha)}`);
   md.push('');
-  md.push('| Finding | Fix | Commit | Proof |');
+  md.push('| Finding | Fix | Commit | Status |');
   md.push('| --- | --- | --- | --- |');
   for (const { finding, commit } of rows) {
     md.push(commit
-      ? `| ${cell(finding.finding)} | ${cell(finding.fix)} | ${code(commit.sha)} | ${cell(finding.proof)} |`
-      : `| ${cell(finding.finding)} | Not fixed: ${cell(finding.disagree)} | — | — |`);
+      ? `| ${cell(finding.finding)} | ${sentence(finding.fix)} Proof: ${sentence(finding.proof)} | ${code(commit.sha)} | ✅ |`
+      : `| ${cell(finding.finding)} | ${sentence(finding.disagree)} | — | ❌ |`);
   }
 
   const commentPath = path.join(dir, 'rework.md');

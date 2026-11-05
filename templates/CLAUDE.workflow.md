@@ -23,7 +23,7 @@ The developer's approval of the design is the one human gate. `/unity:design` po
 - **Branch:** `feature/<issue>-<slug>` (e.g. `feature/42-guest-checkout`).
 - **PR body** contains `Closes #<issue>`.
 - **The design lives in the issue, the plan on the PR, neither in the repository.** The latest `role:design` comment is the design. The builder writes the implementation plan when it starts, against the current main, and posts it on the PR as a `role:plan` comment; nobody approves it. This overrides any convention that commits specs or plans as files (such as `docs/specs/` and `docs/plans/`), and the file-saving steps of planning skills: post the content as the comment instead.
-- **Role comments** start with a hidden marker so the next role can find them: `<!-- role:design v1 -->`, `<!-- role:plan design v1 -->`, `<!-- role:build -->`, `<!-- role:test -->`, `<!-- role:review -->`. A revised design is a new comment with a higher version; the latest one counts. The design is posted on the issue; build, test and review post on the PR, and each also leaves a one-line pointer on the issue (no marker), so the issue shows the whole flow.
+- **Role comments** start with a hidden marker so the next role can find them: `<!-- role:design v1 -->`, `<!-- role:plan -->`, `<!-- role:build -->`, `<!-- role:test -->`, `<!-- role:review -->`. A revised design is a new comment with a higher version; the latest one counts. The design is posted on the issue; build, test and review post on the PR, and each also leaves a one-line pointer on the issue (no marker), so the issue shows the whole flow.
 - **Acceptance criteria** are part of the design comment, numbered and testable from the outside:
 
   ```markdown
