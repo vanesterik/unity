@@ -1,6 +1,6 @@
 ---
 name: design
-description: Design phase of the design -> build -> test -> review pipeline. Picks up an issue, works out the design with the developer, writes numbered acceptance criteria and an implementation plan, posts them as one issue comment for the developer to read on GitHub, and moves the issue to Build once the developer approves the posted version. Run manually as /unity:design <issue>.
+description: Design phase of the design -> build -> test -> review pipeline. Picks up an issue, works out the design with the developer, writes numbered acceptance criteria, posts the design as an issue comment for the developer to read on GitHub, and moves the issue to Build once the developer approves the posted version. Run manually as /unity:design <issue>.
 disable-model-invocation: true
 allowed-tools: Bash, Read, Grep, Glob, Write, Skill, Agent
 ---
@@ -17,9 +17,9 @@ ARGS: $ARGUMENTS
 ## Hard rules
 
 1. **No code, no branch, no commits.** You read the codebase; you never change it. The builder creates the branch.
-2. **The design lives in the issue, not in the repository.** Whatever Superpowers says about saving a design or a plan to `docs/` and committing it, here the design and the plan are posted as one issue comment (step 6). Drafts go in `artifacts/`, which git ignores.
-3. **Every acceptance criterion is observable from outside the code.** The test role checks them as a black box, through the UI, the API or the command line. "Uses a repository class" is not a criterion; "an invalid email shows an inline error and blocks submission" is. Criteria describe what the product does, not how it is built or unit-tested: "the unit tests pass" or "has no dependencies" belong in the Design section or the plan, because unit tests are the builder's job.
-4. **Nothing moves to Build without the developer's explicit approval of the posted version**: the latest design comment on the issue, design and plan together. They read it on GitHub and give their approval in this conversation; a comment on the issue doesn't count, and neither does approval of the drafts or of an earlier version.
+2. **The design lives in the issue, not in the repository.** Whatever Superpowers says about saving a design to `docs/` and committing it, here the design is posted as an issue comment (step 5). Drafts go in `artifacts/`, which git ignores.
+3. **Every acceptance criterion is observable from outside the code.** The test role checks them as a black box, through the UI, the API or the command line. "Uses a repository class" is not a criterion; "an invalid email shows an inline error and blocks submission" is. Criteria describe what the product does, not how it is built or unit-tested: "the unit tests pass" or "has no dependencies" belong in the Design section, because unit tests are the builder's job.
+4. **Nothing moves to Build without the developer's explicit approval of the posted version**: the latest design comment on the issue. They read it on GitHub and give their approval in this conversation; a comment on the issue doesn't count, and neither does approval of the drafts or of an earlier version.
 5. **Never edit a posted design comment**, approved or not. A revision is a new comment with the next version number; the latest one counts.
 
 ## Workflow
@@ -47,7 +47,7 @@ node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" story <n>
 gh issue view <n> --comments
 ```
 
-Read the issue body and all comments. If there is an earlier `role:design` comment, note its version (`designVersion`) and ask the developer whether it still needs changes. If they approve it as posted, go to step 8; otherwise this is a revision, so find out what has to change.
+Read the issue body and all comments. If there is an earlier `role:design` comment, note its version (`designVersion`) and ask the developer whether it still needs changes. If they approve it as posted, go to step 7; otherwise this is a revision, so find out what has to change.
 
 Read the project's `CLAUDE.md` and explore the codebase for the patterns, modules and constraints the change touches. Point at real files; don't guess how the code works.
 
@@ -57,24 +57,13 @@ Use the `superpowers:brainstorming` skill, with these changes:
 
 - The developer's preference on where the design goes overrides the skill's default: draft it in `artifacts/<n>-<slug>/design.md`, never under `docs/`, and do not commit it.
 - Size: treat the issue as "a project with a written design" unless the developer says it is smaller.
-- The written design follows the comment structure in step 5 (Context through Risks), so it can be posted as it is.
+- The written design follows the comment structure in step 4 (Context through Risks), so it can be posted as it is.
 
-Its hard gate applies unchanged: the developer approves the full written design before you plan.
+Its hard gate applies unchanged: the developer approves the full written design. Skip what the skill does after approval: **don't write an implementation plan**. The builder plans when it starts, against the `main` it branches from, so a plan written now would be stale by then. Once the developer approves the design in conversation, assemble and post it (steps 4 and 5) for their approval on GitHub.
 
-### 4. Plan
+### 4. Assemble the comment
 
-Use the `superpowers:writing-plans` skill, with these changes:
-
-- Draft the plan in `artifacts/<n>-<slug>/plan.md`, not under `docs/`, and do not commit it.
-- In the plan header, name `superpowers:executing-plans` as the execution skill: `/unity:build` runs the plan in one session, task by task.
-- Each task names the files it touches, the unit tests it adds, and the acceptance criteria it serves (`AC2`). Each task ends in one commit.
-- Skip the skill's execution handoff. Do not ask how to execute the plan: `/unity:build` is the next role.
-
-Once the plan is drafted, assemble and post it with the design (steps 5 and 6). Don't ask for approval of the plan on its own: the developer approves design and plan together, on the posted version (step 7).
-
-### 5. Assemble the comment
-
-A script writes the comment from your drafts. `artifacts/<n>-<slug>/design.md` must have exactly these sections, in this order, none empty. A `# title` line above them is fine and is left out of the comment:
+A script writes the comment from your draft. `artifacts/<n>-<slug>/design.md` must have exactly these sections, in this order, none empty. A `# title` line above them is fine and is left out of the comment:
 
 ```markdown
 ## Context
@@ -94,9 +83,8 @@ What this issue deliberately does not do.
 What could go wrong, and anything the builder may have to decide.
 ```
 
-- Only the criteria go under `## Acceptance criteria`, one `- AC<n>: text` line each, numbered from 1 without gaps. Wherever the design or the plan names a criterion, it uses one of these IDs.
+- Only the criteria go under `## Acceptance criteria`, one `- AC<n>: text` line each, numbered from 1 without gaps. Wherever the design names a criterion, it uses one of these IDs.
 - Use `###` and deeper for subsections, and don't call one "Acceptance criteria".
-- `artifacts/<n>-<slug>/plan.md` is the plan, with a `Task <n>` heading per task.
 
 Save the story, so the script knows the version, and generate the comment:
 
@@ -105,9 +93,9 @@ node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" story <n> > artifacts/<n>-<
 node "${CLAUDE_SKILL_DIR}/references/generate-design.js" artifacts/<n>-<slug>/design.md
 ```
 
-The script writes `artifacts/<n>-<slug>/comment.md`: the marker with the version (`v1` for a first design, otherwise the previous version plus one), the five sections, and the plan in a collapsed `<details>` block with its task count and its headings below `##`. It refuses a missing, empty or extra section, criteria with gaps, a criterion that is named but doesn't exist, a plan without task headings, and a comment over GitHub's limit of about 65,000 characters. If it refuses, fix the drafts and generate again; if the comment is too long, tell the developer instead of trimming it on your own. Don't edit `comment.md` afterwards: the format is the script's.
+The script writes `artifacts/<n>-<slug>/comment.md`: the marker with the version (`v1` for a first design, otherwise the previous version plus one), and the five sections. It refuses a missing, empty or extra section, criteria with gaps, a criterion that is named but doesn't exist, and a comment over GitHub's limit of about 65,000 characters. If it refuses, fix the draft and generate again; if the comment is too long, tell the developer instead of trimming it on your own. Don't edit `comment.md` afterwards: the format is the script's.
 
-### 6. Post and verify
+### 5. Post and verify
 
 ```bash
 gh issue comment <n> --body-file artifacts/<n>-<slug>/comment.md
@@ -118,13 +106,13 @@ node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" check-design <n> artifacts/
 
 The issue stays in **Design** while the developer reads it, so no builder picks it up: the builder works only on issues in Build.
 
-### 7. Ask for approval
+### 6. Ask for approval
 
 Give the developer the version and the comment's URL (`gh issue comment` prints it), and ask them to read the design on GitHub and approve it here.
 
-If they ask for changes, revise `design.md` and `plan.md`, then repeat steps 5 and 6: save `story.json` again so the version goes up, generate, post the new version and check it. Ask again with the new URL. Only the latest posted version can be approved.
+If they ask for changes, revise `design.md`, then repeat steps 4 and 5: save `story.json` again so the version goes up, generate, post the new version and check it. Ask again with the new URL. Only the latest posted version can be approved.
 
-### 8. Move the issue
+### 7. Move the issue
 
 ```bash
 node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" status <n> Build

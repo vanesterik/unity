@@ -1,9 +1,8 @@
 #!/usr/bin/env node
-// Turns the design role's drafts (design.md and plan.md) into comment.md, the design comment on the issue.
+// Turns the design role's draft (design.md) into comment.md, the design comment on the issue.
 // - the version comes from story.json (pipeline.js story): the previous design's plus one, or v1
 // - design.md has exactly the five sections, in order, none empty
 // - the criteria are "- AC<n>: text" lines numbered from 1 without gaps, and every AC<n> mentioned exists
-// - the plan's headings are demoted below ##, and it goes in a collapsed block with its task count
 // - a comment over GitHub's size limit is refused, never trimmed
 const fs = require('fs');
 const path = require('path');
@@ -32,9 +31,7 @@ const read = (name, hint) => {
 };
 
 const designText = fs.readFileSync(path.resolve(designPath), 'utf8').replace(/\r\n/g, '\n');
-const planText = read('plan.md', 'write the plan there');
 const story = JSON.parse(read('story.json', 'save it with pipeline.js story <n> > artifacts/<n>-<slug>/story.json'));
-if (/<!--\s*role:design\b/.test(planText)) fail('plan.md holds a design comment, not the plan; write the plan there again');
 
 // Lines with whether each one sits inside a fenced code block (the fence lines themselves count as inside).
 const withFences = (text) => {
@@ -77,21 +74,9 @@ const criteria = sections[2].body.split('\n').filter((line) => line.trim()).map(
 });
 
 const range = criteria.length === 1 ? 'AC1' : `AC1-AC${criteria.length}`;
-for (const [, n] of `${designText}\n${planText}`.matchAll(/\bAC(\d+)\b/g)) {
+for (const [, n] of designText.matchAll(/\bAC(\d+)\b/g)) {
   if (Number(n) < 1 || Number(n) > criteria.length) fail(`AC${n} is mentioned, but the criteria are ${range}`);
 }
-
-// ---------- plan.md: demoted, counted ----------
-
-const planLines = withFences(planText.trim());
-const levels = planLines.map(heading).filter(Boolean).map((match) => match[1].length);
-const shift = levels.length ? Math.max(0, 3 - Math.min(...levels)) : 0;
-const tasks = planLines.map(heading).filter((match) => match && /^Task\s+\d+\b/.test(match[2])).length;
-if (!tasks) fail('plan.md has no "Task <n>" headings; give every task one, such as "## Task 1: <name>"');
-const plan = planLines.map((entry) => {
-  const match = heading(entry);
-  return match ? `${'#'.repeat(Math.min(6, match[1].length + shift))} ${match[2]}` : entry.line;
-}).join('\n');
 
 // ---------- comment.md ----------
 
@@ -99,17 +84,9 @@ const version = story.design ? (story.designVersion || 1) + 1 : 1;
 const comment = [
   `<!-- role:design v${version} -->`,
   sections.map((section) => `## ${section.name}\n${section.body}`).join('\n\n'),
-  '',
-  '## Implementation plan',
-  '<details>',
-  `<summary>${tasks} ${tasks === 1 ? 'task' : 'tasks'}</summary>`,
-  '',
-  plan,
-  '',
-  '</details>',
 ].join('\n') + '\n';
-if (comment.length > LIMIT) fail(`the comment is ${comment.length} characters, over GitHub's limit of ${LIMIT}; shorten the design or the plan with the developer`);
+if (comment.length > LIMIT) fail(`the comment is ${comment.length} characters, over GitHub's limit of ${LIMIT}; shorten the design with the developer`);
 
 const commentPath = path.join(dir, 'comment.md');
 fs.writeFileSync(commentPath, comment);
-console.log(JSON.stringify({ comment: commentPath, designVersion: version, criteria: criteria.length, tasks }));
+console.log(JSON.stringify({ comment: commentPath, designVersion: version, criteria: criteria.length }));
