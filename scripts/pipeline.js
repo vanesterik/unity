@@ -24,7 +24,7 @@
 //   pipeline.js pointer <issue> <role> [--post] the one-line pointer to the role's latest output, for the issue timeline
 //                                               (--post: post it on the issue)
 //   pipeline.js merge <issue> [--check]         merge the PR with a rebase when tested and approved on its head and CI is green
-//                                               (waits up to 15 minutes for running checks); exit 1 with the reasons otherwise
+//                                               (waits up to 8 minutes for running checks); exit 1 with the reasons otherwise
 //                                               (--check: only report, never merge or wait)
 //   pipeline.js reworks <issue> --since <time>  the builder's reworks on the issue since the time, and the limit, as JSON
 //   pipeline.js stop <issue> --reason <text> [--url <url>]
@@ -678,7 +678,8 @@ const port = (issueArg) => {
 
 // ---------- merge ----------
 
-const CI_WAIT_MINUTES = 15;
+// One merge call must fit in a 10-minute tool call; the skill runs it a second time while CI still runs.
+const CI_WAIT_MINUTES = 8;
 const CI_POLL_SECONDS = 30;
 
 // The state of a PR's CI from `gh pr checks --json bucket`: a failed or cancelled check fails it,
@@ -727,15 +728,37 @@ const reviewResult = (entry) => {
 
 const sleep = (seconds) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, seconds * 1000);
 
-// `gh pr checks` exits non-zero on failed checks and when none are configured, so read its output either way.
+// `gh pr checks` exits non-zero on failed checks and when none are configured, so its output is read
+// either way. Only "no checks reported" means no checks: any other error is not a pass.
+const parseChecksOutput = ({ stdout = '', stderr = '', failed = false }) => {
+  try { const checks = JSON.parse(stdout); if (Array.isArray(checks)) return checks; } catch { /* not JSON */ }
+  if (!failed && !String(stdout).trim()) return [];
+  if (/no checks reported/i.test(stderr)) return [];
+  throw new Error(`could not read the CI checks: ${String(stderr || stdout).trim()}`);
+};
+
 const prChecks = (prNumber) => {
-  let output;
-  try { output = gh(['pr', 'checks', String(prNumber), '--json', 'bucket']); } catch (error) { output = String(error.stdout || ''); }
-  try { return JSON.parse(output || '[]'); } catch { return []; }
+  try { return parseChecksOutput({ stdout: gh(['pr', 'checks', String(prNumber), '--json', 'bucket']) }); }
+  catch (error) {
+    if (error.message && error.message.startsWith('could not read the CI checks')) throw error;
+    return parseChecksOutput({ stdout: String(error.stdout || ''), stderr: String(error.stderr || error.message), failed: true });
+  }
+};
+
+// The merge, pinned to the head commit the check approved, so a commit pushed meanwhile is never merged.
+const mergeArgs = (prNumber, headSha) => ['pr', 'merge', String(prNumber), '--rebase', '--match-head-commit', headSha];
+
+// Whether the merge went through, from the PR's state afterwards rather than gh's exit code: a queued
+// merge exits 0 without merging, and a merge can complete while gh fails on what comes after.
+const mergeOutcome = ({ error, state }) => {
+  if (state === 'MERGED') return error ? { merged: true, warning: `gh: ${error}` } : { merged: true };
+  return error ? { merged: false, reason: `GitHub refused the merge: ${error}` } : { merged: false, reason: 'the merge was queued, not completed' };
 };
 
 const run = (cmd, args) => execFileSync(cmd, args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
-const mainLog = () => run('git', ['log', '--format=%H%x09%s', '-500', 'main'])
+// origin/main after a fetch, so the range doesn't depend on the local checkout.
+const mainLog = () => { run('git', ['fetch', '--quiet', 'origin', 'main']); return run('git', ['log', '--format=%H%x09%s', '-500', 'origin/main']); };
+const mainCommits = () => mainLog()
   .split('\n').filter(Boolean).map((line) => { const [sha, ...rest] = line.split('\t'); return { sha, subject: rest.join('\t') }; });
 
 const merge = (issueArg, { checkOnly = false } = {}) => {
@@ -768,24 +791,27 @@ const merge = (issueArg, { checkOnly = false } = {}) => {
   if (checkOnly || !decision.mergeable) return result;
 
   const branch = found.headRefName;
-  const tip = git(['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`]) || null;
   const subjects = ghJson(['pr', 'view', String(found.number), '--json', 'commits']).commits.map((commit) => commit.messageHeadline);
-  try {
-    gh(['pr', 'merge', String(found.number), '--rebase', '--delete-branch']);
-  } catch (error) {
-    const reason = String(error.stderr || error.message).trim();
-    return { ...result, mergeable: false, merged: false, reasons: [`GitHub refused the merge: ${reason}`] };
-  }
+  let error;
+  try { gh(mergeArgs(found.number, found.headRefOid)); } catch (failure) { error = String(failure.stderr || failure.message).trim(); }
+  const outcome = mergeOutcome({ error, state: ghJson(['pr', 'view', String(found.number), '--json', 'state']).state });
+  if (!outcome.merged) return { ...result, mergeable: false, merged: false, reasons: [outcome.reason] };
   result.merged = true;
-  try { run('git', ['checkout', 'main']); run('git', ['pull', '--ff-only']); } catch (error) { result.warning = `could not update local main: ${String(error.stderr || error.message).trim()}`; }
-  const log = mainLog();
+  const warnings = outcome.warning ? [outcome.warning] : [];
+  // The remote branch: gone already when the repository deletes merged branches.
+  try { run('git', ['push', '--quiet', 'origin', '--delete', branch]); } catch { /* already deleted */ }
+  const log = mainCommits();
   result.range = mergedRange(subjects, log);
-  if (git(['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`])) {
+  // The local branch, only once every commit's subject is on main (a rebase merge changes the SHAs).
+  const tip = git(['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`]);
+  if (tip) {
     const onMain = new Set(log.map((commit) => commit.subject));
-    const missing = git(['log', '--format=%s', `main..${branch}`]).split('\n').filter(Boolean).filter((subject) => !onMain.has(subject));
-    if (missing.length) result.warning = `kept local branch ${branch}: ${missing.length} commit(s) not on main`;
+    const missing = git(['log', '--format=%s', `origin/main..${branch}`]).split('\n').filter(Boolean).filter((subject) => !onMain.has(subject));
+    if (missing.length) warnings.push(`kept local branch ${branch}: ${missing.length} commit(s) not on main`);
+    else if (currentBranch() === branch) warnings.push(`kept local branch ${branch}: it is checked out`);
     else { run('git', ['branch', '-D', branch]); result.deletedBranch = { name: branch, tip }; }
-  } else if (tip) result.deletedBranch = { name: branch, tip };
+  }
+  if (warnings.length) result.warning = warnings.join('; ');
   result.issueClosed = ghJson(['issue', 'view', String(number), '--json', 'state']).state === 'CLOSED';
   return result;
 };
@@ -905,16 +931,21 @@ const formatDigest = ({ merged, stopped, waiting, blocked }) => [
   ...(waiting.length ? [`**Still waiting in Build:** ${waiting.map(({ number, title }) => `#${number} ${title}`).join(', ')}`] : []),
 ].join('\n\n');
 
+// The merged PRs of the run that close an issue, oldest first, each with its issue number.
+const mergedSince = (prs, since) => prs
+  .filter((p) => Date.parse(p.mergedAt) >= Date.parse(since) && closesIssue(p.body))
+  .sort((a, b) => Date.parse(a.mergedAt) - Date.parse(b.mergedAt))
+  .map((p) => ({ ...p, issue: closesIssue(p.body) }));
+
 const digest = (since, { stoppedArg, withBlocked } = {}) => {
   const config = loadConfig();
   if (!since || Number.isNaN(Date.parse(since))) die('Usage: pipeline.js digest --since <ISO time> [--stopped <issue>] [--blocked] [--markdown]');
-  const log = (() => { try { return mainLog(); } catch { return []; } })();
-  const prs = ghJson(['pr', 'list', '--state', 'merged', '--search', `merged:>=${since}`, '--limit', '100', '--json', 'number,body,commits,mergedAt']) || [];
-  const merged = prs
-    .filter((p) => Date.parse(p.mergedAt) >= Date.parse(since) && closesIssue(p.body))
-    .sort((a, b) => Date.parse(a.mergedAt) - Date.parse(b.mergedAt))
+  const log = (() => { try { return mainCommits(); } catch { return []; } })();
+  // Listed rather than searched: GitHub's search index can lag behind a merge seconds ago.
+  const prs = ghJson(['pr', 'list', '--state', 'merged', '--limit', '50', '--json', 'number,body,commits,mergedAt']) || [];
+  const merged = mergedSince(prs, since)
     .map((p) => {
-      const number = closesIssue(p.body);
+      const number = p.issue;
       const issue = ghJson(['issue', 'view', String(number), '--json', 'title,state']);
       return { number, title: issue.title, pr: { number: p.number }, range: mergedRange(p.commits.map((c) => c.messageHeadline), log), issueClosed: issue.state === 'CLOSED' };
     });
@@ -988,4 +1019,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, formatStopComment, allRunResults, formatDigest };
+module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, formatStopComment, allRunResults, formatDigest, parseChecksOutput, mergeArgs, mergeOutcome, mergedSince };

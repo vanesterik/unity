@@ -63,7 +63,7 @@ test('mergeDecision refuses without an open pull request', () => {
 
 test('mergeDecision refuses on failed or still-running CI, and a draft', () => {
   assert.deepEqual(mergeDecision({ ...ready, checks: 'fail' }).reasons, ['a CI check failed']);
-  assert.deepEqual(mergeDecision({ ...ready, checks: 'pending' }).reasons, ['CI checks still running after 15 minutes']);
+  assert.deepEqual(mergeDecision({ ...ready, checks: 'pending' }).reasons, ['CI checks still running after 8 minutes']);
   assert.deepEqual(mergeDecision({ ...ready, draft: true }).reasons, ['the pull request is a draft']);
 });
 
@@ -88,4 +88,36 @@ test('mergedRange finds the pull request commits as one run on main', () => {
 test('mergedRange is null when a commit is not on main', () => {
   assert.equal(mergedRange(['A', 'B', 'X'], log), null);
   assert.equal(mergedRange([], log), null);
+});
+
+const { parseChecksOutput, mergeArgs, mergeOutcome } = require('../scripts/pipeline.js');
+
+test('parseChecksOutput reads the checks gh printed, whatever its exit code', () => {
+  assert.deepEqual(parseChecksOutput({ stdout: '[{"bucket":"pass"}]' }), [{ bucket: 'pass' }]);
+  assert.deepEqual(parseChecksOutput({ stdout: '[{"bucket":"fail"}]', stderr: '', failed: true }), [{ bucket: 'fail' }]);
+});
+
+test('parseChecksOutput treats "no checks reported" as no checks', () => {
+  assert.deepEqual(parseChecksOutput({ stdout: '', stderr: "no checks reported on the 'feature/7-x' branch", failed: true }), []);
+});
+
+test('parseChecksOutput refuses any other gh error instead of counting it as passing', () => {
+  assert.throws(() => parseChecksOutput({ stdout: '', stderr: 'HTTP 401: Bad credentials', failed: true }), /could not read the CI checks: HTTP 401/);
+});
+
+test('mergeArgs pins the merge to the head commit that was checked', () => {
+  assert.deepEqual(mergeArgs(31, 'abc1234ff00'), ['pr', 'merge', '31', '--rebase', '--match-head-commit', 'abc1234ff00']);
+});
+
+test('mergeOutcome only counts a merge GitHub completed', () => {
+  assert.deepEqual(mergeOutcome({ state: 'MERGED' }), { merged: true });
+  assert.deepEqual(mergeOutcome({ state: 'OPEN' }), { merged: false, reason: 'the merge was queued, not completed' });
+});
+
+test('mergeOutcome keeps a merge that gh reported as failed after it went through', () => {
+  assert.deepEqual(mergeOutcome({ error: 'failed to delete local branch', state: 'MERGED' }), { merged: true, warning: 'gh: failed to delete local branch' });
+});
+
+test('mergeOutcome passes on GitHub refusing the merge', () => {
+  assert.deepEqual(mergeOutcome({ error: 'Required approving review', state: 'OPEN' }), { merged: false, reason: 'GitHub refused the merge: Required approving review' });
 });

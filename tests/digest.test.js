@@ -88,3 +88,15 @@ test('allRunResults lists every result of the run, reworks included', () => {
   ]);
   assert.deepEqual(allRunResults(entries, '2026-11-05T11:10:00Z').map((r) => r.url), ['t2', 'r1']);
 });
+
+const { mergedSince } = require('../scripts/pipeline.js');
+
+test('mergedSince keeps the PRs merged during the run that close an issue, oldest first', () => {
+  const prs = [
+    { number: 33, body: 'Closes #9', mergedAt: '2026-11-05T12:00:00Z' },
+    { number: 30, body: 'Closes #6', mergedAt: '2026-11-04T12:00:00Z' },
+    { number: 31, body: 'Closes #7', mergedAt: '2026-11-05T11:00:00Z' },
+    { number: 32, body: 'no keyword', mergedAt: '2026-11-05T11:30:00Z' },
+  ];
+  assert.deepEqual(mergedSince(prs, '2026-11-05T10:00:00Z').map((p) => [p.number, p.issue]), [[31, 7], [33, 9]]);
+});
