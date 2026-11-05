@@ -7,7 +7,7 @@
 //   pipeline.js init <owner> <project-number>   discover project/field/option IDs into .claude/pipeline.json
 //   pipeline.js resolve [arg]                   print the issue number (arg, #n, URL, or current branch)
 //   pipeline.js story [arg]                     issue + latest design + acceptance criteria as JSON
-//   pipeline.js design [arg]                    the latest design comment, as markdown
+//   pipeline.js design [arg]                    the latest design comment, as markdown (without an older comment's plan)
 //   pipeline.js check-design <issue> <file>     exit 1 unless the latest design comment is the generated comment.md
 //   pipeline.js comments <issue> <role>         latest <!-- role:<role> --> comment on the issue or its PR, as JSON
 //   pipeline.js pr <issue>                      the open PR for the issue (number, url, branch, head SHA), as JSON
@@ -91,6 +91,13 @@ const latestRoleComment = (entries, role) => {
   const matches = entries.filter((entry) => marker.test(entry.body || ''));
   matches.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
   return matches.length ? matches[matches.length - 1] : null;
+};
+
+// The design as the builder's spec: an older design comment still carries the designer's
+// Implementation plan, written against an older main; the builder plans afresh, so it is cut off.
+const designSpec = (body) => {
+  const at = body.search(/^## Implementation plan\s*$/m);
+  return at === -1 ? body : `${body.slice(0, at).trimEnd()}\n`;
 };
 
 // Version number from a <!-- role:design v<n> --> marker; a marker without one is version 1.
@@ -992,7 +999,7 @@ if (require.main === module) {
     if (command === 'init') init(args[0], args[1]);
     else if (command === 'resolve') { const n = resolveIssue(args[0]); if (!n) die('No issue found'); console.log(n); }
     else if (command === 'story') console.log(JSON.stringify(story(args[0]), null, 2));
-    else if (command === 'design') { const { number, design } = story(args[0]); if (!design) die(`#${number} has no design comment`); process.stdout.write(`${design}\n`); }
+    else if (command === 'design') { const { number, design } = story(args[0]); if (!design) die(`#${number} has no design comment`); process.stdout.write(`${designSpec(design).trimEnd()}\n`); }
     else if (command === 'check-design') console.log(JSON.stringify(checkDesign(args[0], args[1])));
     else if (command === 'comments') console.log(JSON.stringify(comments(args[0], args[1]), null, 2));
     else if (command === 'pr') console.log(JSON.stringify(pr(args[0]), null, 2));
@@ -1034,4 +1041,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, stopColumn, formatStopComment, allRunResults, formatDigest, parseChecksOutput, mergeArgs, mergeOutcome, mergedSince };
+module.exports = { designSpec, parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, stopColumn, formatStopComment, allRunResults, formatDigest, parseChecksOutput, mergeArgs, mergeOutcome, mergedSince };

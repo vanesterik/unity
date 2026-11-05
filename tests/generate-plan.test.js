@@ -89,3 +89,33 @@ test('it prints the path it wrote, the design version and the task count as JSON
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), { comment: path.join(dir, 'plan-comment.md'), designVersion: 2, tasks: 2 });
 });
+
+// A repository on a feature branch with the given number of commits since main.
+const repoWithCommits = (count) => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'unity-plan-repo-'));
+  const git = (...args) => spawnSync('git', args, { cwd: repo, encoding: 'utf8' });
+  git('init', '-q', '-b', 'main');
+  git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', 'base');
+  git('switch', '-q', '-c', 'feature/9-dutch');
+  for (let i = 1; i <= count; i += 1) git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', `task ${i}`);
+  return repo;
+};
+
+const handover = (commits) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'unity-plan-'));
+  fs.writeFileSync(path.join(dir, 'plan.md'), plan);
+  fs.writeFileSync(path.join(dir, 'story.json'), JSON.stringify(story));
+  return spawnSync('node', [generator, path.join(dir, 'plan.md'), '--handover'], { cwd: repoWithCommits(commits), encoding: 'utf8' });
+};
+
+test('at handover it accepts a plan whose tasks match the commits since main', () => {
+  const result = handover(2);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(JSON.parse(result.stdout).commits, 2);
+});
+
+test('at handover it refuses a plan whose tasks no longer match the commits', () => {
+  const result = handover(3);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /plan\.md has 2 tasks, but the branch has 3 commits since main/);
+});

@@ -101,3 +101,15 @@ test('designVersion reads the version number from the design marker', () => {
 test('designVersion counts a marker without a version as version 1', () => {
   assert.equal(designVersion('<!-- role:design -->\n## Context'), 1);
 });
+
+const { designSpec } = require('../scripts/pipeline.js');
+
+test('designSpec drops the Implementation plan an older design comment still carries', () => {
+  const body = '<!-- role:design v2 -->\n## Context\nWhy.\n\n## Risks and open questions\nNone.\n\n## Implementation plan\n<details>\n<summary>2 tasks</summary>\n\n### Task 1\n\n</details>\n';
+  assert.equal(designSpec(body), '<!-- role:design v2 -->\n## Context\nWhy.\n\n## Risks and open questions\nNone.\n');
+});
+
+test('designSpec leaves a design without a plan as it is', () => {
+  const body = '<!-- role:design v3 -->\n## Context\nWhy.\n\n## Risks and open questions\nNone.\n';
+  assert.equal(designSpec(body), body);
+});

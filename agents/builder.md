@@ -77,7 +77,13 @@ Use the `superpowers:writing-plans` skill on `artifacts/<n>-<slug>/build-design.
 - Skip the skill's execution handoff: you carry the plan out yourself (step 4), without asking anyone.
 - Some older design comments still carry an **Implementation plan** section from before the builder planned. Ignore it and plan afresh: it was written against an older main.
 
-Nobody approves the plan. It is posted on the PR (step 5) as a record for the reviewer and the developer.
+Check the plan with the script that will post it, before you write any code:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/skills/build/references/generate-plan.js" artifacts/<n>-<slug>/plan.md
+```
+
+It reads `story.json` from step 2. It refuses a plan without `Task <n>` headings and a criterion the design doesn't have; fix `plan.md`, not the generated `plan-comment.md`. Nobody approves the plan. It is posted on the PR (step 5) as a record for the reviewer and the developer.
 
 ### 4. Implement the plan
 
@@ -128,14 +134,14 @@ git push -u origin feature/<n>-<slug>
 gh pr create --draft --title "<issue title>" --body-file artifacts/<n>-<slug>/pr-body.md
 ```
 
-Then post the plan on it. A script writes the comment from `plan.md`, with a `<!-- role:plan design v<k> -->` marker naming the design version it implements:
+Then post the plan on it. The comment from step 3 has a `<!-- role:plan design v<k> -->` marker naming the design version it implements; generate it again first if you changed `plan.md` since:
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/skills/build/references/generate-plan.js" artifacts/<n>-<slug>/plan.md
 gh pr comment <pr> --body-file artifacts/<n>-<slug>/plan-comment.md
 ```
 
-It refuses a plan without `Task <n>` headings and a criterion the design doesn't have; fix `plan.md`, not `plan-comment.md`. If you change the plan along the way, the change is a ruling in the ledger, not a new plan comment.
+If the tasks change along the way (a task split, merged or added), update `plan.md` to what you build, so it keeps one task per commit, and note why in the ledger. The posted plan is brought up to date at handover (step 6).
 
 After every later task, update the data, generate the body again and update the PR with it (`gh pr edit <pr> --body-file artifacts/<n>-<slug>/pr-body.md`), so the body stays current.
 
@@ -144,15 +150,22 @@ After every later task, update the data, generate the body again and update the 
 When every task is done:
 
 1. Run the project's full unit test suite once more and put its counts in `build-data.json`. Any failure, including one you didn't cause, is reported by name; do not hand over a red suite.
-2. Generate the body again with the final rulings, and update the PR with it.
-3. Mark the PR ready and move the issue:
+2. Check that the plan still matches what you built, one commit per task:
+
+   ```bash
+   node "${CLAUDE_PLUGIN_ROOT}/skills/build/references/generate-plan.js" artifacts/<n>-<slug>/plan.md --handover
+   ```
+
+   It refuses when the plan's tasks and the branch's commits since main differ: make `plan.md` the tasks you built. If `plan.md` changed since you posted it, post the new `plan-comment.md` on the PR; the latest plan comment counts.
+3. Generate the body again with the final rulings, and update the PR with it.
+4. Mark the PR ready and move the issue:
 
    ```bash
    gh pr ready <pr>
    node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" status <n> Test
    ```
 
-4. Leave a one-line pointer on the issue, so the issue reads as a timeline of the flow. The script writes it from the PR body, without a `role:` marker:
+5. Leave a one-line pointer on the issue, so the issue reads as a timeline of the flow. The script writes it from the PR body, without a `role:` marker:
 
    ```bash
    node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" pointer <n> build --post

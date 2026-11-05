@@ -4,13 +4,15 @@
 // - every AC<n> the plan mentions is a criterion of that design
 // - the plan's headings are demoted below ##, and it goes in a collapsed block with its task count
 // - a comment over GitHub's size limit is refused, never trimmed
+// - with --handover, the tasks must match the branch's commits since main, one commit per task
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 
 const LIMIT = 65000;
 
 const usage = () => {
-  console.error('Usage: node <plugin>/skills/build/references/generate-plan.js artifacts/<n>-<slug>/plan.md');
+  console.error('Usage: node <plugin>/skills/build/references/generate-plan.js artifacts/<n>-<slug>/plan.md [--handover]');
   process.exit(1);
 };
 
@@ -20,6 +22,7 @@ const fail = (message) => {
 };
 
 const planPath = process.argv[2];
+const atHandover = process.argv.includes('--handover');
 if (!planPath) usage();
 
 const dir = path.dirname(path.resolve(planPath));
@@ -71,6 +74,12 @@ const comment = [
 ].join('\n') + '\n';
 if (comment.length > LIMIT) fail(`the comment is ${comment.length} characters, over GitHub's limit of ${LIMIT}; split the story with the developer`);
 
+let commits;
+if (atHandover) {
+  commits = Number(execFileSync('git', ['rev-list', '--count', 'main..HEAD'], { encoding: 'utf8' }).trim());
+  if (commits !== tasks) fail(`plan.md has ${tasks} ${tasks === 1 ? 'task' : 'tasks'}, but the branch has ${commits} ${commits === 1 ? 'commit' : 'commits'} since main; make plan.md the tasks you built, one per commit, and post it again`);
+}
+
 const commentPath = path.join(dir, 'plan-comment.md');
 fs.writeFileSync(commentPath, comment);
-console.log(JSON.stringify({ comment: commentPath, designVersion: version, tasks }));
+console.log(JSON.stringify({ comment: commentPath, designVersion: version, tasks, ...(atHandover ? { commits } : {}) }));
