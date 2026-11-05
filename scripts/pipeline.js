@@ -26,6 +26,11 @@
 //   pipeline.js merge <issue> [--check]         merge the PR with a rebase when tested and approved on its head and CI is green
 //                                               (waits up to 15 minutes for running checks); exit 1 with the reasons otherwise
 //                                               (--check: only report, never merge or wait)
+//   pipeline.js reworks <issue> --since <time>  the builder's reworks on the issue since the time, and the limit, as JSON
+//   pipeline.js stop <issue> --reason <text> [--url <url>]
+//                                               label the issue autopilot:stopped and comment why the run stopped there
+//   pipeline.js resume                          what an autopilot run does with stories earlier runs stopped at, as JSON:
+//                                               the one to resume, the labels cleared, and the stories that block the run
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -782,6 +787,68 @@ const merge = (issueArg, { checkOnly = false } = {}) => {
   return result;
 };
 
+// ---------- autopilot: reworks and stopped stories ----------
+
+const STOPPED_LABEL = 'autopilot:stopped';
+
+// The builder's rework comments posted since the run started: this run's reworks only.
+const reworksSince = (entries, since) => {
+  const start = Date.parse(since);
+  return entries.filter((entry) => /<!--\s*role:build(?=\s|-->)/.test(entry.body || '')
+    && /^##\s+Rework for\b/m.test(entry.body || '')
+    && Date.parse(entry.createdAt) >= start).length;
+};
+
+const maxReworks = (config) => {
+  const value = config && config.autopilot && config.autopilot.maxReworks;
+  return Number.isInteger(value) && value >= 0 ? value : 2;
+};
+
+// What to do with the stories an earlier run stopped at, from their columns. Any of them outside
+// Build and Done blocks the run, since later stories may depend on it; one back in Build goes first;
+// one in Done only needs its label cleared.
+const stoppedPlan = (stopped) => {
+  const blocked = stopped.filter((story) => story.column !== 'Build' && story.column !== 'Done');
+  if (blocked.length) return { resume: null, clear: [], blocked };
+  const resume = stopped.find((story) => story.column === 'Build');
+  return { resume: resume ? resume.number : null, clear: stopped.filter((story) => story.column === 'Done').map((story) => story.number), blocked: [] };
+};
+
+const formatStopComment = ({ number, reason, url }) => [
+  '<!-- autopilot:stopped -->',
+  `**Autopilot stopped at #${number}:** ${reason}`,
+  ...(url ? [url] : []),
+  `Move the story back to Build to try again, or finish it with /unity:ship ${number}; the next /unity:autopilot continues from there.`,
+].join('\n\n');
+
+const reworks = (issueArg, since) => {
+  const number = resolveIssue(issueArg);
+  if (!number || !since || Number.isNaN(Date.parse(since))) die('Usage: pipeline.js reworks <issue> --since <ISO time>');
+  return { number, reworks: reworksSince(roleEntries(number, findPr(number)), since), max: maxReworks(readConfig()) };
+};
+
+const stop = (issueArg, reason, url) => {
+  const number = resolveIssue(issueArg);
+  if (!number || !reason) die('Usage: pipeline.js stop <issue> --reason <text> [--url <url>]');
+  gh(['label', 'create', STOPPED_LABEL, '--color', 'B60205', '--description', 'A story that stopped an autopilot run', '--force']);
+  gh(['issue', 'edit', String(number), '--add-label', STOPPED_LABEL]);
+  return gh(['issue', 'comment', String(number), '--body', formatStopComment({ number, reason, url })]);
+};
+
+// The stories earlier runs stopped at, and what this run does with them. A closed issue counts as Done.
+const resume = () => {
+  const config = loadConfig();
+  const labelled = ghJson(['issue', 'list', '--label', STOPPED_LABEL, '--state', 'all', '--json', 'number,title,state']) || [];
+  const stopped = labelled.map((issue) => ({
+    number: issue.number,
+    title: issue.title,
+    column: issue.state === 'CLOSED' ? 'Done' : issueColumn(issue.number, config).status,
+  }));
+  const plan = stoppedPlan(stopped);
+  for (const number of [...plan.clear, ...(plan.resume ? [plan.resume] : [])]) gh(['issue', 'edit', String(number), '--remove-label', STOPPED_LABEL]);
+  return plan;
+};
+
 // ---------- CLI ----------
 
 if (require.main === module) {
@@ -813,11 +880,18 @@ if (require.main === module) {
       console.log(JSON.stringify(result, null, 2));
       if (!result.mergeable) process.exit(1);
     }
+    else if (command === 'reworks') { const at = args.indexOf('--since'); console.log(JSON.stringify(reworks(args[0], at === -1 ? undefined : args[at + 1]))); }
+    else if (command === 'stop') {
+      const reasonAt = args.indexOf('--reason');
+      const urlAt = args.indexOf('--url');
+      console.log(stop(args[0], reasonAt === -1 ? undefined : args[reasonAt + 1], urlAt === -1 ? undefined : args[urlAt + 1]));
+    }
+    else if (command === 'resume') console.log(JSON.stringify(resume(), null, 2));
     else if (command === 'board') console.log(args.includes('--markdown') ? formatBoard(board()) : JSON.stringify(board(), null, 2));
-    else die('Commands: init | resolve | story | design | check-design | comments | pr | tested | queue | check | status | port | board | pointer | summary | merge');
+    else die('Commands: init | resolve | story | design | check-design | comments | pr | tested | queue | check | status | port | board | pointer | summary | merge | reworks | stop | resume');
   } catch (error) {
     die(error.stderr ? String(error.stderr) : error.message);
   }
 }
 
-module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange };
+module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, formatStopComment };

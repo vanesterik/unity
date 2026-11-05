@@ -29,5 +29,8 @@
   "integration": {
     "dir": "tests/integration",
     "runCommand": "<command that runs every integration test>"
+  },
+  "autopilot": {
+    "maxReworks": 2
   }
 }
