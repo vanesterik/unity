@@ -52,31 +52,44 @@ This writes the project, Status field and column IDs into `.claude/pipeline.json
 
 ### 4. Fill in the project specifics
 
-Inspect the repository and propose values for the `test` and `e2e` blocks of `.claude/pipeline.json` and the **E2E testing** section of `CLAUDE.md`. Look at:
+First, the kinds of tests the test role writes: **integration**, **E2E**, or **both**. Propose one from what you find:
+
+- a Playwright config, or an `e2e/` or `tests/e2e/` directory, points to E2E
+- an integration test directory, or a project without a browser UI (a CLI, a library, an MCP server), points to integration
+- both kinds present points to both
+
+Then inspect the repository and propose values for the `test` block of `.claude/pipeline.json`, the block of each chosen kind (`integration`, `e2e`), and the CLAUDE.md section of each chosen kind (**Integration testing**, **E2E testing**). Look at:
 
 - **Package manager**: lockfile (`pnpm-lock.yaml`, `yarn.lock`, `package-lock.json`, `uv.lock`, `poetry.lock`).
 - **How the app starts**: `docker-compose*.yml` / `compose*.yml`, `package.json` scripts (`dev`, `start`, `preview`), `Makefile`. The start command must take its port from `$PORT` and must not collide between issues; use `$ISSUE` for container project names.
 - **Health check**: an existing `/health` or similar route; otherwise the base URL itself.
 - **E2E setup**: `playwright.config.*`, an existing `e2e/` or `tests/e2e/` directory, fixtures.
-- **Integration tests**: their directory and framework (for projects without a UI, such as a CLI or MCP server, these carry the test role).
+- **Integration tests**: their directory, framework and the command that runs them all, and how they start or call the system.
 - **i18n**: a messages or translations file, and the helper the code uses for it.
 - **UI components** and the **API layer** (GraphQL schema/resolvers or REST routes).
 
-For a project with nothing to start (a CLI tool or a library), set `test.start`, `test.stop`, `test.healthUrl` and `test.baseUrl` to empty strings: the test role then runs everything in the PR checkout. For a project without a browser UI, drop the `e2e` block and fill in `integration.dir` and `integration.runCommand`; the command runs every integration test and must not be part of the unit test command.
+For a project with nothing to start (a CLI tool or a library), set `test.start`, `test.stop`, `test.healthUrl` and `test.baseUrl` to empty strings: the test role then runs everything in the PR checkout. `integration.runCommand` runs every integration test and must not be part of the unit test command.
 
 For a project with a browser UI, also create `environments.json` from the plugin's template if it is missing (`cp "${CLAUDE_SKILL_DIR}/../../templates/environments.json" environments.json`) and propose its URLs. `test-user-story` offers these environments when it runs on its own; `/unity:test` doesn't need them.
 
-Also set `test.writablePaths` to the E2E directory, the integration test directory and `artifacts/`.
+Present the proposed kinds and values in one short list and ask the user to confirm or correct them, in a single question round. Mark anything you could not find as missing instead of guessing. Then record the kinds; this keeps only the chosen blocks in `.claude/pipeline.json` and sets `test.writablePaths` to their directories plus `artifacts/`:
 
-Present the proposed values in one short list and ask the user to confirm or correct them, in a single question round. Mark anything you could not find as missing instead of guessing. Then write the confirmed values into `.claude/pipeline.json` and the **E2E testing** section of `CLAUDE.md`. Edit only inside the `unity:workflow` markers.
+```bash
+node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" test-kinds <integration|e2e|both>
+```
+
+Write the confirmed values into the chosen blocks, and into `CLAUDE.md`, inside the `unity:workflow` markers only:
+
+- Keep the section of each chosen kind (**Integration testing**, **E2E testing**) and fill it in. Remove the section of a kind that wasn't chosen, so no role reads a section for tests the project doesn't write.
+- On a re-run, the existing section may carry another heading or a note pointing to the old one; give it the chosen kind's heading and drop such a note.
 
 ### 5. Check the tooling
 
 Report, without installing anything:
 
-- whether Playwright is installed and has a config (web projects)
+- whether Playwright is installed and has a config (E2E)
 - whether the `playwright-cli` skill is available (`test-user-story` drives the browser through it)
-- whether `integration.runCommand` runs (projects with integration tests)
+- whether `integration.runCommand` runs (integration)
 - whether the start command brings the app up: only if the user agrees, run `test.start` and the health check once with a test `ISSUE=0`, then `test.stop`
 
 ### 6. Finish

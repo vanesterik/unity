@@ -40,11 +40,20 @@ The developer's approval of the design is the one human gate. `/unity:design` po
 ### Testing responsibilities
 
 - **Build** owns unit tests, written test-first.
-- **Test** owns integration and end-to-end tests, and never changes application code or unit tests.
+- **Test** owns the integration tests, the E2E tests, or both, as chosen at `/unity:init` (`pipeline.js test-kinds` prints the choice), and never changes application code or unit tests.
+
+### Integration testing
+
+<!-- Kept by /unity:init when the project has integration tests, removed otherwise; adjust as needed. write-system-test reads this section. -->
+
+- Integration test directory: see `integration.dir` in `.claude/pipeline.json`
+- Run every integration test: see `integration.runCommand` in `.claude/pipeline.json`
+- How the tests start or call the system: `<the process, server or client they drive>`
+- Test data: `<where it comes from>`
 
 ### E2E testing
 
-<!-- Filled in by /unity:init; adjust as needed. write-e2e-test reads this section. -->
+<!-- Kept by /unity:init when the project has E2E tests, removed otherwise; adjust as needed. write-system-test reads this section. -->
 
 - E2E directory: `e2e/` (fixtures in `e2e/fixtures/`, API fixture in `e2e/fixtures/api.ts`)
 - Translations: `<path to messages file, or "none">`; helper: `<translation helper name>`
