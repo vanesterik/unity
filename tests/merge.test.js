@@ -121,3 +121,29 @@ test('mergeOutcome keeps a merge that gh reported as failed after it went throug
 test('mergeOutcome passes on GitHub refusing the merge', () => {
   assert.deepEqual(mergeOutcome({ error: 'Required approving review', state: 'OPEN' }), { merged: false, reason: 'GitHub refused the merge: Required approving review' });
 });
+
+const { branchCleanup } = require('../scripts/pipeline.js');
+
+test('branchCleanup keeps a branch with commits that are not on main, without switching', () => {
+  assert.deepEqual(branchCleanup({ branch: 'feature/7-x', missing: 2, checkedOut: true, dirty: false }), {
+    switchToMain: false, deleteBranch: false, warning: 'kept local branch feature/7-x: 2 commit(s) not on main',
+  });
+});
+
+test('branchCleanup keeps a checked-out branch with uncommitted changes, without switching', () => {
+  assert.deepEqual(branchCleanup({ branch: 'feature/7-x', missing: 0, checkedOut: true, dirty: true }), {
+    switchToMain: false, deleteBranch: false, warning: 'kept local branch feature/7-x: it is checked out with uncommitted changes',
+  });
+});
+
+test('branchCleanup switches a clean checkout to main and deletes the branch', () => {
+  assert.deepEqual(branchCleanup({ branch: 'feature/7-x', missing: 0, checkedOut: true, dirty: false }), {
+    switchToMain: true, deleteBranch: true, warning: null,
+  });
+});
+
+test('branchCleanup deletes a branch that is not checked out, without switching', () => {
+  assert.deepEqual(branchCleanup({ branch: 'feature/7-x', missing: 0, checkedOut: false, dirty: true }), {
+    switchToMain: false, deleteBranch: true, warning: null,
+  });
+});
