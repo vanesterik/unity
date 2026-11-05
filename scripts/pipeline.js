@@ -954,12 +954,15 @@ const digest = (since, { stoppedArg, withBlocked } = {}) => {
   if (!since || Number.isNaN(Date.parse(since))) die('Usage: pipeline.js digest --since <ISO time> [--stopped <issue>] [--blocked] [--markdown]');
   const log = (() => { try { return mainCommits(); } catch { return []; } })();
   // Listed rather than searched: GitHub's search index can lag behind a merge seconds ago.
-  const prs = ghJson(['pr', 'list', '--state', 'merged', '--limit', '50', '--json', 'number,body,commits,mergedAt']) || [];
+  // Commits are fetched per merged PR, not listed: gh asks for 100 commits with 100 authors
+  // each, so `commits` on a 50-PR list exceeds GitHub's GraphQL limit of 500,000 nodes.
+  const prs = ghJson(['pr', 'list', '--state', 'merged', '--limit', '50', '--json', 'number,body,mergedAt']) || [];
   const merged = mergedSince(prs, since)
     .map((p) => {
       const number = p.issue;
       const issue = ghJson(['issue', 'view', String(number), '--json', 'title,state']);
-      return { number, title: issue.title, pr: { number: p.number }, range: mergedRange(p.commits.map((c) => c.messageHeadline), log), issueClosed: issue.state === 'CLOSED' };
+      const subjects = ghJson(['pr', 'view', String(p.number), '--json', 'commits']).commits.map((c) => c.messageHeadline);
+      return { number, title: issue.title, pr: { number: p.number }, range: mergedRange(subjects, log), issueClosed: issue.state === 'CLOSED' };
     });
   let stopped = null;
   const stoppedNumber = stoppedArg ? resolveIssue(stoppedArg) : null;
