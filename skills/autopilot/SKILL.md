@@ -106,7 +106,7 @@ Repeat until the story merges or stops:
    pipeline.js merge <n>
    ```
 
-   It waits up to 15 minutes for running CI checks. On exit 0 the story is merged: `Closes #<n>` closes the issue and the board moves it to Done. Go back to step 3 for the next story; the queue is read again, so a story approved during the run is included. On a non-zero exit, stop the story with its `reasons`, joined with `; `. A refusal by GitHub, such as branch protection that requires another reviewer, is one of those reasons.
+   Give this Bash call a timeout of 600000 ms: it waits up to 8 minutes for running CI checks. If the only reason it gives is that CI checks are still running, run it once more, so CI gets about 15 minutes in all. It merges only the head commit it checked, and confirms on GitHub that the pull request merged. On exit 0 the story is merged: `Closes #<n>` closes the issue and the board moves it to Done. Go back to step 3 for the next story; the queue is read again, so a story approved during the run is included. On a non-zero exit, stop the story with its `reasons`, joined with `; `. A refusal by GitHub, such as branch protection that requires another reviewer, is one of those reasons.
 
 ### 5. Stop a story
 
