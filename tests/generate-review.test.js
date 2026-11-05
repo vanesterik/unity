@@ -35,17 +35,13 @@ const baseData = {
   suggestions: [{ title: 'Name the table', where: 'greet.js:3', body: 'A name like GREETINGS says what it holds.' }],
   strengths: 'Small, well-tested change.',
   declined: [{ behaviour: 'Greeting in French', reason: 'out of scope in the design' }],
-  tests: { unit: { passed: 11, total: 11 }, regression: { passed: 9, total: 9 } },
+  tests: { unit: { passed: 11, total: 11 }, integration: { passed: 9, total: 9 } },
 };
 
-test('an approval has the same header shape as the test summary', () => {
+test('an approval is headed by the icon and the role, with Design first and Commit last', () => {
   const review = reviewFor(baseData);
-  assert.match(review, /^<!-- role:review -->\n## ✅ Review APPROVE · #9 · Greet in Dutch\n\n/);
-  assert.match(review, /^\*\*Criteria met:\*\* 2\/2  $/m);
-  assert.match(review, /^\*\*Findings:\*\* 0 blocking, 1 suggestion  $/m);
-  assert.match(review, /^\*\*Tests run:\*\* unit 11\/11, regression 9\/9  $/m);
-  assert.match(review, /^\*\*Design:\*\* v1  $/m);
-  assert.match(review, /^\*\*Commit:\*\* `abc1234` on `feature\/9-greet-in-dutch`$/m);
+  assert.match(review, /^<!-- role:review -->\n## ✅ Review\n\n\*\*Design:\*\* v1  \n\*\*Criteria met:\*\* 2\/2  \n\*\*Findings:\*\* 0 blocking, 1 suggestion  \n\*\*Tests run:\*\* unit 11\/11, integration 9\/9  \n\*\*Commit:\*\* `abc1234`\n\n/);
+  assert.doesNotMatch(review, /APPROVE|#9|Greet in Dutch|feature\/9/);
 });
 
 test('the criteria table holds IDs, references and a status icon', () => {
@@ -64,7 +60,7 @@ test('a blocking finding makes the verdict CHANGES REQUESTED, whatever the input
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stderr, /ignored; computed CHANGES REQUESTED/);
   const review = fs.readFileSync(path.join(dir, 'review.md'), 'utf8');
-  assert.match(review, /^## ❌ Review CHANGES REQUESTED · #9/m);
+  assert.match(review, /^## ❌ Review$/m);
   assert.match(review, /^\*\*Criteria met:\*\* 1\/2  $/m);
   assert.match(review, /^\| AC2 \| — \| ❌ \|$/m);
   assert.match(review, /^1\. \*\*Dutch ignored after --shout\*\* · `greet\.js:18`$/m);
@@ -77,9 +73,9 @@ test('a criterion not met without a blocking finding is refused', () => {
 });
 
 test('a failed test run without a blocking finding is refused', () => {
-  const { result } = generate({ ...baseData, tests: { ...baseData.tests, regression: { passed: 8, total: 9 } } });
+  const { result } = generate({ ...baseData, tests: { ...baseData.tests, integration: { passed: 8, total: 9 } } });
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /regression tests failed/);
+  assert.match(result.stderr, /integration tests failed/);
 });
 
 test('criteria with a gap in their numbering are refused', () => {
@@ -101,9 +97,9 @@ test('empty sections say None and @words are wrapped in backticks', () => {
   assert.match(review, /Tags like `@AC1` are on every test\./);
 });
 
-test('a full commit SHA is shortened to 7 characters, as in the test summary', () => {
+test('a full commit SHA is shortened to 7 characters', () => {
   const review = reviewFor({ ...baseData, commit: '42b713a5f761395ecb6185adeb69b1858ffca1aa' });
-  assert.match(review, /^\*\*Commit:\*\* `42b713a` on `feature\/9-greet-in-dutch`$/m);
+  assert.match(review, /^\*\*Commit:\*\* `42b713a`$/m);
 });
 
 test('a review that leaves out the design\'s last criterion is refused', () => {
