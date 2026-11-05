@@ -23,6 +23,9 @@
 //                                               and next step, as JSON (--markdown: the summary /unity:ship prints)
 //   pipeline.js pointer <issue> <role> [--post] the one-line pointer to the role's latest output, for the issue timeline
 //                                               (--post: post it on the issue)
+//   pipeline.js merge <issue> [--check]         merge the PR with a rebase when tested and approved on its head and CI is green
+//                                               (waits up to 15 minutes for running checks); exit 1 with the reasons otherwise
+//                                               (--check: only report, never merge or wait)
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -665,6 +668,120 @@ const port = (issueArg) => {
   console.log(base + (number % 1000));
 };
 
+// ---------- merge ----------
+
+const CI_WAIT_MINUTES = 15;
+const CI_POLL_SECONDS = 30;
+
+// The state of a PR's CI from `gh pr checks --json bucket`: a failed or cancelled check fails it,
+// one still running keeps it pending, and no checks at all count as passing.
+const checksState = (checks) => {
+  const buckets = (checks || []).map((check) => check.bucket);
+  if (buckets.some((bucket) => bucket === 'fail' || bucket === 'cancel')) return 'fail';
+  if (buckets.includes('pending')) return 'pending';
+  return 'pass';
+};
+
+// Whether autopilot may merge the story, with every reason it may not. Merging needs the story in
+// Review, a test pass that covers the PR head, an approval on that head, green CI and a ready PR.
+const mergeDecision = ({ number, column, pr, coverage, review, checks, draft }) => {
+  if (!pr) return { mergeable: false, reasons: ['no open pull request'] };
+  const reasons = [];
+  if (column !== 'Review') reasons.push(column ? `#${number} is in ${column}, not Review` : `#${number} is not on the board`);
+  if (!coverage || !coverage.covers) reasons.push('the test result does not cover the head commit');
+  if (!review || review.status !== 'APPROVE') reasons.push('the review did not approve');
+  else if (!onHead(review, pr)) reasons.push('the approval is not on the head commit');
+  if (checks === 'fail') reasons.push('a CI check failed');
+  if (checks === 'pending') reasons.push(`CI checks still running after ${CI_WAIT_MINUTES} minutes`);
+  if (draft) reasons.push('the pull request is a draft');
+  return { mergeable: !reasons.length, reasons };
+};
+
+// Where a rebase-merged PR landed on main: its commit subjects as one run in main's log
+// (newest first), oldest to newest. Null when they aren't all there.
+const mergedRange = (prSubjects, mainLog) => {
+  if (!prSubjects.length) return null;
+  const subjects = [...prSubjects].reverse();
+  for (let start = 0; start + subjects.length <= mainLog.length; start += 1) {
+    if (subjects.every((subject, offset) => mainLog[start + offset].subject === subject)) {
+      return { first: mainLog[start + subjects.length - 1].sha, last: mainLog[start].sha, count: subjects.length };
+    }
+  }
+  return null;
+};
+
+const reviewResult = (entry) => {
+  if (!entry) return null;
+  const status = (entry.body.match(/^##\s+\S+\s+Review\s+(APPROVE|CHANGES REQUESTED)\b/m) || [])[1] || null;
+  const commit = (entry.body.match(/\*\*Commit:\*\*\s+`([0-9a-f]{7,40})`/) || [])[1] || null;
+  return { role: 'review', status, commit, url: entry.url };
+};
+
+const sleep = (seconds) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, seconds * 1000);
+
+// `gh pr checks` exits non-zero on failed checks and when none are configured, so read its output either way.
+const prChecks = (prNumber) => {
+  let output;
+  try { output = gh(['pr', 'checks', String(prNumber), '--json', 'bucket']); } catch (error) { output = String(error.stdout || ''); }
+  try { return JSON.parse(output || '[]'); } catch { return []; }
+};
+
+const run = (cmd, args) => execFileSync(cmd, args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+const mainLog = () => run('git', ['log', '--format=%H%x09%s', '-500', 'main'])
+  .split('\n').filter(Boolean).map((line) => { const [sha, ...rest] = line.split('\t'); return { sha, subject: rest.join('\t') }; });
+
+const merge = (issueArg, { checkOnly = false } = {}) => {
+  const config = loadConfig();
+  const number = resolveIssue(issueArg);
+  if (!number) die('Usage: pipeline.js merge <issue> [--check]');
+  const found = findPr(number);
+  const pr = found ? { number: found.number, url: found.url, headSha: found.headRefOid } : null;
+  const { status: column } = issueColumn(number, config);
+  const decide = (checks) => {
+    const entries = found ? roleEntries(number, found) : [];
+    return mergeDecision({
+      number,
+      column,
+      pr,
+      coverage: found ? testCoverage(found, latestRoleComment(entries, 'test')) : null,
+      review: reviewResult(latestRoleComment(entries, 'review')),
+      checks,
+      draft: found ? ghJson(['pr', 'view', String(found.number), '--json', 'isDraft']).isDraft : false,
+    });
+  };
+  let checks = found ? checksState(prChecks(found.number)) : 'pass';
+  // Only wait for CI when nothing else stands in the way of the merge.
+  if (!checkOnly && checks === 'pending' && decide('pass').mergeable) {
+    const deadline = Date.now() + CI_WAIT_MINUTES * 60 * 1000;
+    while (checks === 'pending' && Date.now() < deadline) { sleep(CI_POLL_SECONDS); checks = checksState(prChecks(found.number)); }
+  }
+  const decision = decide(checks);
+  const result = { number, pr, ...decision };
+  if (checkOnly || !decision.mergeable) return result;
+
+  const branch = found.headRefName;
+  const tip = git(['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`]) || null;
+  const subjects = ghJson(['pr', 'view', String(found.number), '--json', 'commits']).commits.map((commit) => commit.messageHeadline);
+  try {
+    gh(['pr', 'merge', String(found.number), '--rebase', '--delete-branch']);
+  } catch (error) {
+    const reason = String(error.stderr || error.message).trim();
+    return { ...result, mergeable: false, merged: false, reasons: [`GitHub refused the merge: ${reason}`] };
+  }
+  result.merged = true;
+  try { run('git', ['checkout', 'main']); run('git', ['pull', '--ff-only']); } catch (error) { result.warning = `could not update local main: ${String(error.stderr || error.message).trim()}`; }
+  const log = mainLog();
+  result.range = mergedRange(subjects, log);
+  if (git(['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`])) {
+    const onMain = new Set(log.map((commit) => commit.subject));
+    const missing = git(['log', '--format=%s', `main..${branch}`]).split('\n').filter(Boolean).filter((subject) => !onMain.has(subject));
+    if (missing.length) result.warning = `kept local branch ${branch}: ${missing.length} commit(s) not on main`;
+    else { run('git', ['branch', '-D', branch]); result.deletedBranch = { name: branch, tip }; }
+  } else if (tip) result.deletedBranch = { name: branch, tip };
+  result.issueClosed = ghJson(['issue', 'view', String(number), '--json', 'state']).state === 'CLOSED';
+  return result;
+};
+
 // ---------- CLI ----------
 
 if (require.main === module) {
@@ -691,11 +808,16 @@ if (require.main === module) {
       const line = pointer(args[0], args[1]);
       console.log(args.includes('--post') ? gh(['issue', 'comment', String(resolveIssue(args[0])), '--body', line]) : line);
     }
+    else if (command === 'merge') {
+      const result = merge(args[0], { checkOnly: args.includes('--check') });
+      console.log(JSON.stringify(result, null, 2));
+      if (!result.mergeable) process.exit(1);
+    }
     else if (command === 'board') console.log(args.includes('--markdown') ? formatBoard(board()) : JSON.stringify(board(), null, 2));
-    else die('Commands: init | resolve | story | design | check-design | comments | pr | tested | queue | check | status | port | board | pointer | summary');
+    else die('Commands: init | resolve | story | design | check-design | comments | pr | tested | queue | check | status | port | board | pointer | summary | merge');
   } catch (error) {
     die(error.stderr ? String(error.stderr) : error.message);
   }
 }
 
-module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs };
+module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange };
