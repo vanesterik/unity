@@ -95,7 +95,22 @@ The repository is its own marketplace.
 
    To run a single role instead, use `/unity:build`, `/unity:test` or `/unity:review`. Each starts its agent the same way, and `/unity:ship` picks up from whatever column the issue is in.
 
-7. **Merge.** Review the pull request commit by commit and merge it with a rebase, so each task stays its own commit on `main`. The `Closes #<issue>` line closes the issue, and the "Item closed" workflow moves it to **Done**. If GitHub doesn't close the issue, close it by hand with a comment on how each criterion was met.
+7. **Or let autopilot ship and merge them all**, from the same session:
+
+   ```
+   /unity:autopilot
+   ```
+
+   When you've approved a few designs, autopilot takes every story in **Build**, top of the column first (drag the cards to set the order), and runs the builder, tester and reviewer on each, as `/unity:ship` does. Then it merges the story. Your design approval stays the one human gate. The merge gate becomes a check a script enforces: `pipeline.js merge` rebase-merges a pull request only when the tester's pass and the reviewer's approval are both on its head commit and CI is green. It waits up to 15 minutes for running checks. When it merges, the issue closes and moves to **Done**, the branch is deleted, and the next story starts from the updated `main`. Leave the session open while it runs.
+
+   - **Rework.** A failed test or blocking findings go back to the builder up to `autopilot.maxReworks` times (in `.claude/pipeline.json`, default 2) before the story counts as stuck.
+   - **The first stuck story ends the run**, because stories designed together usually depend on each other. That covers a story past its rework limit, an untested criterion, a role that stopped, or a merge GitHub refused. The story stays where it is, gets the `autopilot:stopped` label and a comment saying why, and nothing after it starts.
+   - **Coming back.** Deal with the stopped story, then run `/unity:autopilot` again. If you moved the story back to **Build**, it goes first, with a fresh rework budget. If you finished it with `/unity:ship` and merged it, the run carries on with the rest. While it's still in Design, Test or Review, autopilot starts nothing and says so.
+   - **The digest.** The run ends with one summary written by a script: each merged story with its pull request and the commit range it landed on `main` (what you'd revert to undo it), the story it stopped at with every role result of the run, and what still waits in **Build**.
+   - **Stories in Test or Review** when the run starts are left alone. Use `/unity:ship` for those.
+   - **Where a person must merge**, protect `main` on GitHub (for example, require an approving review from someone other than the author). Autopilot then stops at the refused merge instead of going around it.
+
+8. **Merge**, after `/unity:ship` (autopilot merges for you). Review the pull request commit by commit and merge it with a rebase, so each task stays its own commit on `main`. The `Closes #<issue>` line closes the issue, and the "Item closed" workflow moves it to **Done**. If GitHub doesn't close the issue, close it by hand with a comment on how each criterion was met.
 
 The agents can't ask you anything mid-run: where a role needs a decision, it stops and hands back. Each role also checks the board first, so a role started on an issue in the wrong column stops. Along the way the issue collects a one-line pointer to each role's result, written by a script from what the role posted, so it reads as a timeline of the story. To see where every issue stands and what to run next, without opening GitHub, run `/unity:status`.
 
@@ -121,7 +136,7 @@ flowchart TB
     Test -->|"pass"| Review
     Test -.->|"failure"| Build
     Review -.->|"blocking findings"| Build
-    Review -->|"you merge; Item closed workflow"| Done
+    Review -->|"you merge, or /unity:autopilot does; Item closed workflow"| Done
 ```
 
 You add new issues to **Backlog**. A criterion the tester couldn't test leaves the issue in **Test** for you to decide.
@@ -130,13 +145,14 @@ Designs and plans live in the issue, as the latest `role:design` comment, not as
 
 ## Commands
 
-`/unity:init` sets up a project once. `/unity:design` and `/unity:ship` run the workflow, `/unity:status` shows where every issue stands, the three role commands run one role each as its agent, and the last three are the skills the roles build on, which you can also run on their own.
+`/unity:init` sets up a project once. `/unity:design`, `/unity:ship` and `/unity:autopilot` run the workflow, `/unity:status` shows where every issue stands, the three role commands run one role each as its agent, and the last three are the skills the roles build on, which you can also run on their own.
 
 | Command | What it does |
 | --- | --- |
 | `/unity:init <owner> <project>` | Sets up a repository: `.claude/pipeline.json` with the board IDs and the detected start and test commands, the `CLAUDE.md` workflow section, `.gitignore`, plugin settings |
 | `/unity:design <issue>` | Works out the design, acceptance criteria and plan with you, posts them as one issue comment for you to read on GitHub, and moves the issue to Build once you approve the posted version |
 | `/unity:ship <issue>` | Runs the builder, tester and reviewer agents one after the other, from the issue's current column, as long as each one moves it on |
+| `/unity:autopilot` | Builds, tests, reviews and merges every story in Build, top first, through `pipeline.js merge`; stops the run at the first story that can't get to `main` and ends with a digest |
 | `/unity:status` | Shows every issue on the board per column, with its pull request, latest result and next command, and warns about what the columns don't show; changes nothing |
 | `/unity:build <issue>` | Runs the builder agent: implements the approved plan task by task with test-first unit tests, opens a pull request that maps each criterion to code and tests, and moves the issue to Test; also reworks test and review findings |
 | `/unity:test <issue>` | Runs the tester agent: tests against the acceptance criteria as a black box, writes integration or E2E tests, posts the report on the pull request, and moves the issue to Review or back to Build |
