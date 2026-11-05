@@ -726,6 +726,15 @@ const mergedRange = (prSubjects, mainLog) => {
   return null;
 };
 
+// What to do with a merged story's local branch. It is deleted only once every commit's subject is
+// on main (a rebase merge changes the SHAs). A checked-out branch is left for main first, unless
+// uncommitted changes to tracked files would be in the way.
+const branchCleanup = ({ branch, missing, checkedOut, dirty }) => {
+  if (missing) return { switchToMain: false, deleteBranch: false, warning: `kept local branch ${branch}: ${missing} commit(s) not on main` };
+  if (checkedOut && dirty) return { switchToMain: false, deleteBranch: false, warning: `kept local branch ${branch}: it is checked out with uncommitted changes` };
+  return { switchToMain: checkedOut, deleteBranch: true, warning: null };
+};
+
 const reviewResult = (entry) => {
   if (!entry) return null;
   const status = (entry.body.match(/^##\s+\S+\s+Review\s+(APPROVE|CHANGES REQUESTED)\b/m) || [])[1] || null;
@@ -811,14 +820,23 @@ const merge = (issueArg, { checkOnly = false } = {}) => {
   try { run('git', ['push', '--quiet', 'origin', '--delete', branch]); } catch { /* already deleted */ }
   const log = mainCommits();
   result.range = mergedRange(subjects, log);
-  // The local branch, only once every commit's subject is on main (a rebase merge changes the SHAs).
+  // The local branch, and the checkout when it is on that branch.
   const tip = git(['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`]);
   if (tip) {
     const onMain = new Set(log.map((commit) => commit.subject));
-    const missing = git(['log', '--format=%s', `origin/main..${branch}`]).split('\n').filter(Boolean).filter((subject) => !onMain.has(subject));
-    if (missing.length) warnings.push(`kept local branch ${branch}: ${missing.length} commit(s) not on main`);
-    else if (currentBranch() === branch) warnings.push(`kept local branch ${branch}: it is checked out`);
-    else { run('git', ['branch', '-D', branch]); result.deletedBranch = { name: branch, tip }; }
+    const missing = git(['log', '--format=%s', `origin/main..${branch}`]).split('\n').filter(Boolean).filter((subject) => !onMain.has(subject)).length;
+    const checkedOut = currentBranch() === branch;
+    const dirty = checkedOut && Boolean(git(['status', '--porcelain', '--untracked-files=no']));
+    const cleanup = branchCleanup({ branch, missing, checkedOut, dirty });
+    let deleteBranch = cleanup.deleteBranch;
+    if (cleanup.warning) warnings.push(cleanup.warning);
+    if (cleanup.switchToMain) {
+      try { run('git', ['checkout', '--quiet', 'main']); run('git', ['pull', '--quiet', '--ff-only']); result.switchedTo = 'main'; } catch (failure) {
+        deleteBranch = currentBranch() !== branch;
+        warnings.push(`could not update main after switching from ${branch}: ${String(failure.stderr || failure.message).trim()}`);
+      }
+    }
+    if (deleteBranch) { run('git', ['branch', '-D', branch]); result.deletedBranch = { name: branch, tip }; }
   }
   if (warnings.length) result.warning = warnings.join('; ');
   result.issueClosed = ghJson(['issue', 'view', String(number), '--json', 'state']).state === 'CLOSED';
@@ -1041,4 +1059,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { designSpec, parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, stopColumn, formatStopComment, allRunResults, formatDigest, parseChecksOutput, mergeArgs, mergeOutcome, mergedSince };
+module.exports = { designSpec, parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, stopColumn, formatStopComment, allRunResults, formatDigest, parseChecksOutput, mergeArgs, mergeOutcome, mergedSince, branchCleanup };
