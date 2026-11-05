@@ -17,7 +17,7 @@ You run as an agent with a fresh context: nothing of the developer's conversatio
 
 ## Hard rules
 
-1. **Build what the design says.** The latest `role:design` comment is the spec and its implementation plan is your plan. A change to the design goes back to the developer, and possibly to a new design version; you do not decide it alone. Small rulings inside the design are fine, and each one is written down (step 4).
+1. **Build what the design says.** The latest `role:design` comment is the spec. The implementation plan is yours: you write it from the design and the code as it is when you start (step 3). A change to the design goes back to the developer, and possibly to a new design version; you do not decide it alone. Small rulings inside the design are fine, and each one is written down (step 5). A design that leaves a real decision open is not yours to settle: stop and say what needs deciding.
 2. **Unit tests first, always.** Every task follows `superpowers:test-driven-development`: a failing test you watched fail, then the code. You own the unit tests; you do not write integration or E2E tests.
 3. **Never edit or delete the test role's tests.** The paths in `test.writablePaths` of `.claude/pipeline.json` (except `artifacts/`) belong to the test role. A failing test there is your target, not your obstacle. If you believe one is wrong, say so in the PR comment and leave it to the review or the developer.
 4. **No early abstractions.** Don't pull shared fields into a common base or abstraction (e.g. one config class across several model architectures) because a second case is anticipated. Keep each case its own typed structure until a second one is actually being built and the duplication is concrete.
@@ -45,9 +45,9 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" pr <n>
 
 - Stop if `story` has no `design` or no criteria: the issue needs `/unity:design` first.
 - No open PR: this is a **new build**. Continue with step 2.
-- An open PR: this is **rework**. Continue with step 6.
+- An open PR: this is **rework**. Continue with step 7.
 
-### 2. Prepare the branch and the plan
+### 2. Prepare the branch
 
 Name the slug after the issue title (lowercase, hyphens, a few words) and branch from an up-to-date main:
 
@@ -56,28 +56,41 @@ git checkout main && git pull --ff-only
 git checkout -b feature/<n>-<slug>
 ```
 
-Save the design comment as the plan file, so the Superpowers scripts can work from it, and the story, so the PR body generator can check your criteria against the design:
+Save the design comment, which is your spec, and the story, so the plan and PR body generators can check your criteria against the design:
 
 ```bash
 mkdir -p artifacts/<n>-<slug>
-node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" design <n> > artifacts/<n>-<slug>/build-plan.md
+node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" design <n> > artifacts/<n>-<slug>/build-design.md
 node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" story <n> > artifacts/<n>-<slug>/story.json
 ```
 
-The plan file holds the whole comment: the design sections are the spec, the **Implementation plan** section is the plan. It isn't named `plan.md`, because that is the designer's draft of the plan when the design was made on this machine.
+The file isn't named `design.md`, because that is the designer's draft when the design was made on this machine.
 
-### 3. Implement the plan
+### 3. Write the plan
 
-Use the `superpowers:executing-plans` skill on `artifacts/<n>-<slug>/build-plan.md`, with these changes:
+Use the `superpowers:writing-plans` skill on `artifacts/<n>-<slug>/build-design.md`, with these changes:
+
+- **Plan against the code as it is now**, on the branch you just made from an up-to-date main. Earlier stories may have changed it since the design was written.
+- Draft the plan in `artifacts/<n>-<slug>/plan.md`, not under `docs/`, and do not commit it.
+- Each task names the files it touches, the unit tests it adds, and the acceptance criteria it serves (`AC2`). Each task ends in one commit.
+- In the plan header, name `superpowers:executing-plans` as the execution skill.
+- Skip the skill's execution handoff: you carry the plan out yourself (step 4), without asking anyone.
+- Some older design comments still carry an **Implementation plan** section from before the builder planned. Ignore it and plan afresh: it was written against an older main.
+
+Nobody approves the plan. It is posted on the PR (step 5) as a record for the reviewer and the developer.
+
+### 4. Implement the plan
+
+Use the `superpowers:executing-plans` skill on `artifacts/<n>-<slug>/plan.md`, with `build-design.md` as its spec, and these changes:
 
 - **Workspace:** you are on the feature branch from step 2, in the developer's working directory. Do not create a worktree.
 - **Ledger:** keep it where the skill's scripts put it; it is git-ignored scratch.
-- **Commits:** one commit per plan task, as the plan says. After the first task's commit, push and open a **draft** PR (step 4); after every later task, push, so each task is checked on its own.
-- **No final whole-branch review and no `finishing-a-development-branch`.** In this team the test and review roles are that review. Steps 4 and 5 replace them.
+- **Commits:** one commit per plan task, as the plan says. After the first task's commit, push and open a **draft** PR (step 5); after every later task, push, so each task is checked on its own.
+- **No final whole-branch review and no `finishing-a-development-branch`.** In this team the test and review roles are that review. Steps 5 and 6 replace them.
 
 Everything else applies as written, including continuous execution, rulings in the ledger, `superpowers:verification-before-completion` for every claim, and `superpowers:systematic-debugging` when something fails for a reason you don't understand.
 
-### 4. The pull request
+### 5. The pull request
 
 The PR body is written by a script from your data. Write `artifacts/<n>-<slug>/build-data.json`:
 
@@ -115,9 +128,18 @@ git push -u origin feature/<n>-<slug>
 gh pr create --draft --title "<issue title>" --body-file artifacts/<n>-<slug>/pr-body.md
 ```
 
+Then post the plan on it. A script writes the comment from `plan.md`, with a `<!-- role:plan design v<k> -->` marker naming the design version it implements:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/skills/build/references/generate-plan.js" artifacts/<n>-<slug>/plan.md
+gh pr comment <pr> --body-file artifacts/<n>-<slug>/plan-comment.md
+```
+
+It refuses a plan without `Task <n>` headings and a criterion the design doesn't have; fix `plan.md`, not `plan-comment.md`. If you change the plan along the way, the change is a ruling in the ledger, not a new plan comment.
+
 After every later task, update the data, generate the body again and update the PR with it (`gh pr edit <pr> --body-file artifacts/<n>-<slug>/pr-body.md`), so the body stays current.
 
-### 5. Hand over
+### 6. Hand over
 
 When every task is done:
 
@@ -136,9 +158,9 @@ When every task is done:
    node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" pointer <n> build --post
    ```
 
-### 6. Rework
+### 7. Rework
 
-The PR exists, so the test role or the review sent the issue back. Find out why:
+The PR exists, so the test role or the review sent the issue back. Rework works from the findings; don't write a new plan. Find out why:
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" comments <n> test
