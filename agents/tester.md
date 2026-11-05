@@ -81,7 +81,7 @@ For a project without a browser UI, write integration tests in the project's tes
 
 Then run the complete suite once (`e2e.runCommand` for E2E tests, `integration.runCommand` for integration tests) to check that the new tests don't break existing ones. If the command is missing, stop and report it, and suggest adding it to `.claude/pipeline.json`: tests that nothing runs protect nothing.
 
-Add the codified tests to `report-data.json` and regenerate, so they appear in the summary's **Regression tests** table:
+Add the codified tests to `report-data.json` and regenerate, so they appear in the summary's **Tests** table:
 
 ```json
 "regressionStability": "5 isolated and 3 parallel runs",

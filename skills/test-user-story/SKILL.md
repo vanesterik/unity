@@ -101,6 +101,7 @@ Write `artifacts/<run-name>/report-data.json` in this shape:
   "issue": { "number": 42, "title": "Guest checkout", "url": "https://github.com/<owner>/<repo>/issues/42" },
   "branch": "feature/42-guest-checkout",
   "commit": "abc1234",
+  "designVersion": 1,
   "storyName": "Guest checkout",
   "environment": "local",
   "environmentUrl": "http://localhost:4042",
@@ -137,6 +138,7 @@ Write `artifacts/<run-name>/report-data.json` in this shape:
 ```
 
 - `status` is `PASS`, `FAIL` or `SKIPPED`. A FAIL case must have `expected` and `actual`.
+- `designVersion` is the version of the design you tested against (`designVersion` from `pipeline.js story`). Leave it out when testing a story that has no design comment; the summary then has no Design field.
 - Do not supply `overallStatus`, `passedCases` or `totalCases`. The generator computes them: any FAIL is FAILURE; an untested criterion or a skipped case is INCOMPLETE; otherwise PASS.
 - Use relative evidence paths so the directory stays portable. Use an empty array or omit `evidence` when none was captured (for example for CLI or API checks, where the command output goes into `steps` and `actual`).
 
