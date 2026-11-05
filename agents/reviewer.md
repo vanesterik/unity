@@ -39,7 +39,7 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" tested <n>
   - `status` is not `PASS`, or there is no test report: the issue should not be in Review. Say so in your report.
   - The PR changed outside the test paths after testing (`outsideTestPaths` lists the files): the tested build is not what is on the PR now. Move the issue back with `node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" status <n> Test` and say which files changed.
 
-Commits after the tested one that touch only the test paths are the test role's own regression tests. They are part of what you review.
+Commits after the tested one that touch only the test paths are the test role's own integration or E2E tests. They are part of what you review.
 
 ### 2. Read the input
 
@@ -71,7 +71,7 @@ Work through the change as the senior reviewer described in Superpowers' code re
 6. **Naming and consistency** with the surrounding code.
 7. **Maintainability.** No early abstractions: a shared base or abstraction introduced because a second case is anticipated, rather than actually built, is a finding.
 8. **Unit test quality:** tests check behaviour, not implementation. Tests that assert an old state stays gone (`not.toHaveClass('font-bold')` after the bold was dropped) pin history instead of behaviour and are a finding; regression tests for a real bug are not.
-9. **Regression test quality** (the test role's tests): stable locators or commands, real assertions, no sleeps, tagged with their criteria.
+9. **Integration and E2E test quality** (the test role's tests): stable locators or commands, real assertions, no sleeps, tagged with their criteria.
 10. **Performance**, where it matters.
 
 Classify every finding:
