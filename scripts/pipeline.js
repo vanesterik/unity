@@ -31,6 +31,9 @@
 //                                               label the issue autopilot:stopped and comment why the run stopped there
 //   pipeline.js resume                          what an autopilot run does with stories earlier runs stopped at, as JSON:
 //                                               the one to resume, the labels cleared, and the stories that block the run
+//   pipeline.js digest --since <time> [--stopped <issue>] [--blocked] [--markdown]
+//                                               what an autopilot run merged, where it stopped and what waits in Build, as JSON
+//                                               (--markdown: the digest /unity:autopilot prints)
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -836,17 +839,103 @@ const stop = (issueArg, reason, url) => {
 };
 
 // The stories earlier runs stopped at, and what this run does with them. A closed issue counts as Done.
-const resume = () => {
-  const config = loadConfig();
-  const labelled = ghJson(['issue', 'list', '--label', STOPPED_LABEL, '--state', 'all', '--json', 'number,title,state']) || [];
-  const stopped = labelled.map((issue) => ({
+const stoppedStories = (config) => (ghJson(['issue', 'list', '--label', STOPPED_LABEL, '--state', 'all', '--json', 'number,title,state']) || [])
+  .map((issue) => ({
     number: issue.number,
     title: issue.title,
     column: issue.state === 'CLOSED' ? 'Done' : issueColumn(issue.number, config).status,
   }));
-  const plan = stoppedPlan(stopped);
+
+const resume = () => {
+  const plan = stoppedPlan(stoppedStories(loadConfig()));
   for (const number of [...plan.clear, ...(plan.resume ? [plan.resume] : [])]) gh(['issue', 'edit', String(number), '--remove-label', STOPPED_LABEL]);
   return plan;
+};
+
+// ---------- autopilot digest ----------
+
+const ROLE_MARKER = /<!--\s*role:(build|test|review)(?=\s|-->)/;
+
+// Every build, test and review result posted since the run started, oldest first: unlike
+// runResults, reworks and repeated tests in one run each get their own line.
+const allRunResults = (entries, since) => {
+  const start = since ? Date.parse(since) : -Infinity;
+  return entries
+    .map((entry) => ({ entry, role: ((entry.body || '').match(ROLE_MARKER) || [])[1] }))
+    .filter(({ entry, role }) => role && Date.parse(entry.createdAt) >= start)
+    .sort((a, b) => Date.parse(a.entry.createdAt) - Date.parse(b.entry.createdAt))
+    .map(({ entry, role }) => {
+      const result = { role, line: resultLine(role, entry.body || ''), url: entry.url };
+      const report = role === 'test' && ((entry.body || '').match(/kept locally in `([^`]+\.html)`/) || [])[1];
+      return report ? { ...result, report } : result;
+    });
+};
+
+const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
+
+const formatMerged = ({ number, title, pr, range, issueClosed }) => [
+  `- **#${number} ${title}**`,
+  ...(pr ? [`PR #${pr.number}`] : []),
+  range ? `\`${range.first.slice(0, 7)}..${range.last.slice(0, 7)}\` (${plural(range.count, 'commit')})` : 'commits not found on main',
+  ...(issueClosed === false ? ['issue still open'] : []),
+].join(' · ');
+
+const digestHeader = ({ merged, stopped, waiting, blocked }) => {
+  if (blocked.length) {
+    const { number, title, column } = blocked[0];
+    return `**Autopilot · nothing started: #${number} ${title} is still stopped${column ? ` in ${column}` : ', not on the board'}**`;
+  }
+  const parts = [merged.length ? `${merged.length} merged` : 'nothing merged'];
+  if (stopped) parts[0] += `, stopped at #${stopped.number}`;
+  else if (!merged.length) parts[0] += ', Build is empty';
+  if (stopped && waiting.length) parts.push(`${waiting.length} waiting`);
+  return `**Autopilot · ${parts.join(' · ')}**`;
+};
+
+// The digest /unity:autopilot ends with, the same for the same run.
+const formatDigest = ({ merged, stopped, waiting, blocked }) => [
+  digestHeader({ merged, stopped, waiting, blocked }),
+  ...(merged.length ? [`**Merged**\n${merged.map(formatMerged).join('\n')}`] : []),
+  ...(stopped ? [
+    [`**Stopped at #${stopped.number} ${stopped.title}**${stopped.pr ? ` · PR #${stopped.pr.number}` : ''}`,
+      ...stopped.results.map((result) => `- ${result.line} · ${result.url}`)].join('\n'),
+    ...(stopped.report ? [`**Test report:** \`${stopped.report}\``] : []),
+    `**Column:** ${stopped.column || 'not on the board'}${stopped.next ? ` → ${formatNext(stopped.next)}` : ''}`,
+  ] : []),
+  ...(waiting.length ? [`**Still waiting in Build:** ${waiting.map(({ number, title }) => `#${number} ${title}`).join(', ')}`] : []),
+].join('\n\n');
+
+const digest = (since, { stoppedArg, withBlocked } = {}) => {
+  const config = loadConfig();
+  if (!since || Number.isNaN(Date.parse(since))) die('Usage: pipeline.js digest --since <ISO time> [--stopped <issue>] [--blocked] [--markdown]');
+  const log = (() => { try { return mainLog(); } catch { return []; } })();
+  const prs = ghJson(['pr', 'list', '--state', 'merged', '--search', `merged:>=${since}`, '--limit', '100', '--json', 'number,body,commits,mergedAt']) || [];
+  const merged = prs
+    .filter((p) => Date.parse(p.mergedAt) >= Date.parse(since) && closesIssue(p.body))
+    .sort((a, b) => Date.parse(a.mergedAt) - Date.parse(b.mergedAt))
+    .map((p) => {
+      const number = closesIssue(p.body);
+      const issue = ghJson(['issue', 'view', String(number), '--json', 'title,state']);
+      return { number, title: issue.title, pr: { number: p.number }, range: mergedRange(p.commits.map((c) => c.messageHeadline), log), issueClosed: issue.state === 'CLOSED' };
+    });
+  let stopped = null;
+  const stoppedNumber = stoppedArg ? resolveIssue(stoppedArg) : null;
+  if (stoppedNumber) {
+    const { title } = ghJson(['issue', 'view', String(stoppedNumber), '--json', 'title']);
+    const found = findPr(stoppedNumber);
+    const entries = roleEntries(stoppedNumber, found);
+    const pr = found ? { number: found.number, url: found.url, headSha: found.headRefOid } : null;
+    const { status: column } = issueColumn(stoppedNumber, config);
+    const results = allRunResults(entries, since);
+    const tested = [...results].reverse().find((r) => r.report);
+    const report = tested && fs.existsSync(path.join(root, tested.report)) ? path.join(root, tested.report) : null;
+    stopped = { number: stoppedNumber, title, pr, results, report, column, next: nextStep({ number: stoppedNumber, column, pr, latest: latestResult(entries) }) };
+  }
+  const waiting = boardIssues(config)
+    .filter((item) => item.status === 'Build' && item.content.number !== stoppedNumber)
+    .map((item) => ({ number: item.content.number, title: item.content.title }));
+  const blocked = withBlocked ? stoppedPlan(stoppedStories(config)).blocked : [];
+  return { merged, stopped, waiting, blocked };
 };
 
 // ---------- CLI ----------
@@ -887,11 +976,16 @@ if (require.main === module) {
       console.log(stop(args[0], reasonAt === -1 ? undefined : args[reasonAt + 1], urlAt === -1 ? undefined : args[urlAt + 1]));
     }
     else if (command === 'resume') console.log(JSON.stringify(resume(), null, 2));
+    else if (command === 'digest') {
+      const at = (flag) => (args.indexOf(flag) === -1 ? undefined : args[args.indexOf(flag) + 1]);
+      const result = digest(at('--since'), { stoppedArg: at('--stopped'), withBlocked: args.includes('--blocked') });
+      console.log(args.includes('--markdown') ? formatDigest(result) : JSON.stringify(result, null, 2));
+    }
     else if (command === 'board') console.log(args.includes('--markdown') ? formatBoard(board()) : JSON.stringify(board(), null, 2));
-    else die('Commands: init | resolve | story | design | check-design | comments | pr | tested | queue | check | status | port | board | pointer | summary | merge | reworks | stop | resume');
+    else die('Commands: init | resolve | story | design | check-design | comments | pr | tested | queue | check | status | port | board | pointer | summary | merge | reworks | stop | resume | digest');
   } catch (error) {
     die(error.stderr ? String(error.stderr) : error.message);
   }
 }
 
-module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, formatStopComment };
+module.exports = { parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, formatStopComment, allRunResults, formatDigest };
