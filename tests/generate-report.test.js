@@ -160,7 +160,24 @@ test('the criteria and cases tables share the tests table structure', () => {
   assert.match(summary, /^\| Case \| Description \| Criteria \| Status \|$/m);
 });
 
-test('without a design version, as when run on its own, the Design field is left out', () => {
-  const { designVersion, ...standalone } = baseData;
+test('without an issue, as when run on its own, the Design field is left out', () => {
+  const { designVersion, issue, ...standalone } = baseData;
   assert.match(summaryFor(standalone), /^## ✅ Test\n\n\*\*Cases:\*\*/m);
+});
+
+test('the design version comes from story.json next to the report data when the data leaves it out', () => {
+  const { designVersion, ...data } = baseData;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'unity-report-'));
+  fs.writeFileSync(path.join(dir, 'story.json'), JSON.stringify({ number: 4, designVersion: 3 }));
+  fs.writeFileSync(path.join(dir, 'report-data.json'), JSON.stringify(data));
+  const result = spawnSync('node', [generator, path.join(dir, 'report-data.json')], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(fs.readFileSync(path.join(dir, 'summary.md'), 'utf8'), /^\*\*Design:\*\* v3  $/m);
+});
+
+test('a report for an issue without any design version is refused, so its post never lacks the Design field', () => {
+  const { designVersion, ...data } = baseData;
+  const { result } = generate(data);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /design version/);
 });

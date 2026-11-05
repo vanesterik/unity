@@ -3,8 +3,8 @@ const assert = require('node:assert/strict');
 const { runResults, formatSummary } = require('../scripts/pipeline.js');
 
 const prBody = '<!-- role:build -->\n**Design:** v1  \n**Commits:** 3  \n**Unit tests:** 30/30 passed\n\n## Summary\n\nAdds a flag.\n\nCloses #9';
-const testSummary = '<!-- role:test -->\n## ✅ Test\n\n**Cases:** 8/8 passed  \n**Criteria tested:** 6/6  \n**Environment:** local  \n**Commit:** `abc1234` on `feature/9-greet`\n\n_Full evidence report (screenshots/videos) is kept locally in `artifacts/9-greet/index.html`._';
-const review = '<!-- role:review -->\n## ✅ Review\n\n**Criteria met:** 6/6  \n**Findings:** 0 blocking, 2 suggestions  \n**Tests run:** unit 30/30, regression 9/9  \n**Design:** v1  \n**Commit:** `abc1234` on `feature/9-greet`';
+const testSummary = '<!-- role:test -->\n## ✅ Test\n\n**Cases:** 8/8 passed  \n**Criteria tested:** 6/6  \n**Environment:** local  \n**Commit:** `abc1234`\n\n_Full evidence report (screenshots/videos) is kept locally in `artifacts/9-greet/index.html`._';
+const review = '<!-- role:review -->\n## ✅ Review\n\n**Design:** v1  \n**Criteria met:** 6/6  \n**Findings:** 0 blocking, 2 suggestions  \n**Tests run:** unit 30/30, integration 9/9  \n**Commit:** `abc1234`';
 const rework = '<!-- role:build -->\n## Rework\n\n**Findings of:** test  \n**Fixed:** 2  \n**Not fixed:** 1';
 
 const entries = [

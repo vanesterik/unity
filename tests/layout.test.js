@@ -55,3 +55,7 @@ test('the summaries keep their words, read from the new layout', () => {
 test('a rework in the new layout counts toward the rework limit', () => {
   assert.equal(reworksSince([{ body: reworkPost('test'), createdAt: '2026-11-05T10:00:00Z' }], '2026-11-05T09:00:00Z'), 1);
 });
+
+test('a rework post without a known role has no pointer', () => {
+  assert.throws(() => formatPointer('build', { body: '<!-- role:build -->\n## Rework\n\n**Fixed:** 1', url: 'w' }), /Findings of/);
+});

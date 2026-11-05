@@ -41,12 +41,12 @@ test('columnReport reports a column with no close match as missing', () => {
 });
 
 test('parseTestSummary reads the status and the tested commit from a test summary', () => {
-  const body = '<!-- role:test -->\n## ✅ Test\n\n**Cases:** 9/9 passed  \n**Commit:** `dc1ad16` on `feature/4-greeting-cli`\n';
+  const body = '<!-- role:test -->\n## ✅ Test\n\n**Cases:** 9/9 passed  \n**Commit:** `dc1ad16`\n';
   assert.deepEqual(parseTestSummary(body), { status: 'PASS', commit: 'dc1ad16' });
 });
 
 test('parseTestSummary reads a failed run', () => {
-  const body = '<!-- role:test -->\n## ❌ Test\n**Commit:** `abc1234` on `feature/4-x`';
+  const body = '<!-- role:test -->\n## ❌ Test\n**Commit:** `abc1234`';
   assert.deepEqual(parseTestSummary(body), { status: 'FAILURE', commit: 'abc1234' });
 });
 
