@@ -291,16 +291,18 @@ if (remainingPlaceholders) {
 const icon = { PASS: '✅', FAILURE: '❌', INCOMPLETE: '⚠️' }[overallStatus];
 const md = [];
 md.push('<!-- role:test -->');
-md.push(`## ${icon} Test ${overallStatus}${issueLabel ? ` · ${issueLabel}` : ''} · ${cell(data.storyName || issue.title || 'User story')}`);
+// The heading carries the outcome as an icon, as the tables do: ✅ passed, ❌ failed, ⚠️ incomplete.
+md.push(`## ${icon} Test`);
 md.push('');
+if (Number.isInteger(data.designVersion)) md.push(`**Design:** v${data.designVersion}  `);
 md.push(`**Cases:** ${passedCases}/${cases.length} passed${failedCases ? ` · ${failedCases} failed` : ''}${skippedCases ? ` · ${skippedCases} skipped` : ''}  `);
 md.push(`**Criteria tested:** ${coveredCriteria}/${acceptance.length}${exploratoryCases ? ` · ${exploratoryCases} exploratory ${exploratoryCases === 1 ? 'case' : 'cases'}` : ''}  `);
 md.push(`**Environment:** ${cell(data.environment || '—')}${data.environmentUrl ? ` (${cell(data.environmentUrl)})` : ''}  `);
-md.push(`**Commit:** ${code(data.commit || '—')} on ${code(data.branch || '—')}`);
+md.push(`**Commit:** ${code(data.commit || '—')}`);
 md.push('');
 md.push('### Acceptance criteria');
 md.push('');
-md.push('| ID | Criterion | Cases | Status |');
+md.push('| Criterion | Description | Cases | Status |');
 md.push('| --- | --- | --- | --- |');
 for (const criterion of coverage) {
   md.push(`| ${cell(criterion.id)} | ${cell(criterion.text)} | ${criterion.cases.length ? criterion.cases.join(',&nbsp;') : '—'} | ${statusIcon(criterion.status)} |`);
@@ -308,7 +310,7 @@ for (const criterion of coverage) {
 md.push('');
 md.push('### Cases');
 md.push('');
-md.push('| # | Case | Criteria | Status |');
+md.push('| Case | Description | Criteria | Status |');
 md.push('| --- | --- | --- | --- |');
 for (const testCase of cases) {
   md.push(`| ${testCase.number} | ${cell(testCase.name || '')}${testCase.flaky ? ' ⚠️ flaky' : ''} | ${testCase.criteria.join(', ')} | ${statusIcon(testCase.status)} |`);
@@ -346,16 +348,15 @@ if (flaky.length) {
 
 if (regressionTests.length) {
   md.push('');
-  md.push('### Regression tests');
+  md.push('### Tests');
   md.push('');
-  md.push('| Test | Case | Criteria | Status |');
+  md.push('| Test | Description | Case | Status |');
   md.push('| --- | --- | --- | --- |');
-  for (const test of regressionTests) {
+  regressionTests.forEach((test, index) => {
     const title = (test.title || '').replace(/@[\w-]+\s*/g, '').trim();
-    const testCriteria = ((test.title || '').match(/@AC\d+\b/g) || []).map((tag) => tag.slice(1));
     const icon = /^pass/i.test(String(test.status || '')) ? '✅' : '❌';
-    md.push(`| ${cell(title)} | ${test.cases.join(',&nbsp;')} | ${testCriteria.join(', ') || '—'} | ${icon} |`);
-  }
+    md.push(`| ${index + 1} | ${cell(title)} | ${test.cases.join(',&nbsp;')} | ${icon} |`);
+  });
   const files = [...new Set(regressionTests.map((test) => test.file).filter(Boolean))];
   const where = [files.length ? `In ${files.map(code).join(', ')}.` : '', data.regressionStability ? `Stable over ${cell(data.regressionStability)}.` : ''].filter(Boolean).join(' ');
   if (where) md.push('', where);

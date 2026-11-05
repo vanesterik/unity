@@ -25,6 +25,7 @@ const baseData = {
   issue: { number: 4, title: 'Greeting CLI', url: 'https://github.com/o/r/issues/4' },
   branch: 'feature/4-greeting-cli',
   commit: 'dc1ad16',
+  designVersion: 2,
   storyName: 'Greeting CLI',
   environment: 'local checkout',
   environmentUrl: '',
@@ -32,7 +33,7 @@ const baseData = {
   cases: [{ number: 1, name: 'Greets @koen', criteria: ['AC1'], goal: 'g', status: 'PASS', steps: ['run it'] }],
 };
 
-test('regression tests are a table of test, case, criteria and a status icon', () => {
+test('the tests are numbered, with their description, case and a status icon', () => {
   const summary = summaryFor({
     ...baseData,
     cases: [
@@ -45,10 +46,11 @@ test('regression tests are a table of test, case, criteria and a status icon', (
       { file: 'tests/integration/reject.js', title: '@issue-4 @AC1 Should reject an empty name', cases: [1, 2], status: 'failing: application bug, see case 2' },
     ],
   });
-  assert.match(summary, /^### Regression tests$/m);
-  assert.match(summary, /^\| Test \| Case \| Criteria \| Status \|$/m);
-  assert.match(summary, /^\| Should greet a single name \| 1 \| AC1 \| ✅ \|$/m);
-  assert.match(summary, /^\| Should reject an empty name \| 1,&nbsp;2 \| AC1 \| ❌ \|$/m);
+  assert.match(summary, /^### Tests$/m);
+  assert.doesNotMatch(summary, /Regression/);
+  assert.match(summary, /^\| Test \| Description \| Case \| Status \|$/m);
+  assert.match(summary, /^\| 1 \| Should greet a single name \| 1 \| ✅ \|$/m);
+  assert.match(summary, /^\| 2 \| Should reject an empty name \| 1,&nbsp;2 \| ❌ \|$/m);
   assert.match(summary, /^In `tests\/integration\/greet\.js`, `tests\/integration\/reject\.js`\. Stable over 5 isolated and 3 parallel runs\.$/m);
   assert.doesNotMatch(summary, /issue-4/);
 });
@@ -84,7 +86,7 @@ test('case numbers carry no # so GitHub does not link them to issues', () => {
   assert.match(summary, /^\| AC1 \| .* \| 1,&nbsp;2 \| ❌ \|$/m);
   assert.match(summary, /\*\*Case 2: Rejects\*\*/);
   assert.match(summary, /^- Case 1: Greets/m);
-  assert.deepEqual(summary.match(/#\d+/g), ['#4']); // only the issue itself
+  assert.equal(summary.match(/#\d+/g), null); // not even the issue: the sidebar shows it
 });
 
 test('statuses in the criteria and cases tables are icons', () => {
@@ -137,4 +139,28 @@ test('an exploratory criterion is not counted as an acceptance criterion', () =>
 
 test('without exploratory cases the criteria line has only the count', () => {
   assert.match(summaryFor(baseData), /^\*\*Criteria tested:\*\* 1\/1  $/m);
+});
+
+test('the heading is the outcome icon and the role, with Design first and Commit last', () => {
+  const summary = summaryFor(baseData);
+  assert.match(summary, /^<!-- role:test -->\n## ✅ Test\n\n\*\*Design:\*\* v2  \n\*\*Cases:\*\* 1\/1 passed  \n\*\*Criteria tested:\*\* 1\/1  \n\*\*Environment:\*\* local checkout  \n\*\*Commit:\*\* `dc1ad16`\n\n/);
+  assert.doesNotMatch(summary, /PASS|Greeting CLI|feature\/4/);
+});
+
+test('a failed or incomplete run is headed by its own icon', () => {
+  const failed = summaryFor({ ...baseData, cases: [{ ...baseData.cases[0], status: 'FAIL', expected: 'a', actual: 'b' }] });
+  assert.match(failed, /^## ❌ Test$/m);
+  const incomplete = summaryFor({ ...baseData, criteria: [...baseData.criteria, { id: 'AC2', text: 'Untested' }] });
+  assert.match(incomplete, /^## ⚠️ Test$/m);
+});
+
+test('the criteria and cases tables share the tests table structure', () => {
+  const summary = summaryFor(baseData);
+  assert.match(summary, /^\| Criterion \| Description \| Cases \| Status \|$/m);
+  assert.match(summary, /^\| Case \| Description \| Criteria \| Status \|$/m);
+});
+
+test('without a design version, as when run on its own, the Design field is left out', () => {
+  const { designVersion, ...standalone } = baseData;
+  assert.match(summaryFor(standalone), /^## ✅ Test\n\n\*\*Cases:\*\*/m);
 });
