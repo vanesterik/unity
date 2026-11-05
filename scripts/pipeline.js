@@ -218,7 +218,6 @@ const roleEntries = (number, found) => {
 
 // ---------- test result vs. PR head ----------
 
-// Status and tested commit from a summary.md written by the report generator.
 // The outcome a test or review post carries as the icon in its heading (## ✅ Test, ## ❌ Review).
 // ⚠ may come with or without its variation selector.
 const headingIcon = (body, role) => {
@@ -238,6 +237,7 @@ const reworkOf = (body = '') => {
   return { role: /^(test|review)$/.test(role || '') ? role : null, fixed: Number(value('Fixed')) || 0, notFixed: Number(value('Not fixed')) || 0 };
 };
 
+// Status and tested commit from a summary.md written by the report generator.
 const parseTestSummary = (body = '') => ({
   status: TEST_STATUS[headingIcon(body, 'Test')] || null,
   commit: (body.match(/\*\*Commit:\*\*\s+`([0-9a-f]{7,40})`/) || [])[1] || null,
@@ -378,6 +378,7 @@ const formatPointer = (role, entry) => {
   const body = entry.body || '';
   if (role === 'build') {
     const rework = reworkOf(body);
+    if (rework && !rework.role) throw new Error('The rework output has no "Findings of: test" or "review"; post the rework.md that generate-build.js wrote');
     if (rework) return `🔨 Reworked ${rework.role} findings: ${entry.url}`;
     const commits = Number((body.match(/^\*\*Commits:\*\*\s+(\d+)/m) || [])[1]);
     const unit = body.match(/^\*\*Unit tests:\*\*\s+(\d+)\/(\d+)/m);

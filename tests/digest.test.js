@@ -69,10 +69,10 @@ test('formatDigest without a range', () => {
 });
 
 const prBody = '<!-- role:build -->\n**Design:** v1  \n**Commits:** 3  \n**Unit tests:** 30/30 passed\n\nCloses #8';
-const failed = '<!-- role:test -->\n## ❌ Test\n\n**Cases:** 6/8 passed · 2 failed  \n**Criteria tested:** 6/6  \n**Commit:** `c3d4e5f` on `feature/8-t`';
+const failed = '<!-- role:test -->\n## ❌ Test\n\n**Cases:** 6/8 passed · 2 failed  \n**Criteria tested:** 6/6  \n**Commit:** `c3d4e5f`';
 const rework = '<!-- role:build -->\n## Rework\n\n**Findings of:** test  \n**Fixed:** 2  \n**Not fixed:** 0';
-const passed = '<!-- role:test -->\n## ✅ Test\n\n**Cases:** 8/8 passed  \n**Criteria tested:** 6/6  \n**Commit:** `a9b8c7d` on `feature/8-t`';
-const approve = '<!-- role:review -->\n## ✅ Review\n\n**Criteria met:** 6/6  \n**Findings:** 0 blocking, 0 suggestions  \n**Commit:** `a9b8c7d` on `feature/8-t`';
+const passed = '<!-- role:test -->\n## ✅ Test\n\n**Cases:** 8/8 passed  \n**Criteria tested:** 6/6  \n**Commit:** `a9b8c7d`';
+const approve = '<!-- role:review -->\n## ✅ Review\n\n**Criteria met:** 6/6  \n**Findings:** 0 blocking, 0 suggestions  \n**Commit:** `a9b8c7d`';
 
 test('allRunResults lists every result of the run, reworks included', () => {
   const entries = [

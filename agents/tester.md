@@ -35,6 +35,7 @@ Use the `unity:get-user-story` skill with the issue from your task.
 - Stop if there are no acceptance criteria. That is an `/unity:design` gap, not something the test role fills in.
 - Stop if there is no open PR for the issue. Nothing has been handed over for testing yet.
 - Make sure the PR branch is checked out (`gh pr checkout <pr>`) and up to date, and record the commit (`git rev-parse --short HEAD`). The report is only valid for that commit.
+- Save the story next to the report data, so the summary names the design version you tested against: `mkdir -p artifacts/<n>-<slug> && node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" story <n> > artifacts/<n>-<slug>/story.json`. The report generator refuses a report for an issue without it.
 
 Look at the scope of the change with `gh pr diff <pr> --name-only`, to know which parts of the system to exercise. Do not use the diff to set expectations.
 

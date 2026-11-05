@@ -289,12 +289,21 @@ if (remainingPlaceholders) {
 // ---------- Markdown summary for the PR comment ----------
 
 const icon = { PASS: '✅', FAILURE: '❌', INCOMPLETE: '⚠️' }[overallStatus];
+// The design version tested against: from the data, or else from story.json next to it
+// (pipeline.js story). A report for an issue needs one; a standalone run has none.
+const storyPath = path.join(evidenceDir, 'story.json');
+const designVersion = Number.isInteger(data.designVersion)
+  ? data.designVersion
+  : (fs.existsSync(storyPath) ? JSON.parse(fs.readFileSync(storyPath, 'utf8')).designVersion : null);
+if (issue.number && !Number.isInteger(designVersion)) {
+  fail(`no design version for #${issue.number}; save the story next to report-data.json with pipeline.js story ${issue.number} > ${path.relative(process.cwd(), storyPath)}, or set "designVersion"`);
+}
 const md = [];
 md.push('<!-- role:test -->');
 // The heading carries the outcome as an icon, as the tables do: ✅ passed, ❌ failed, ⚠️ incomplete.
 md.push(`## ${icon} Test`);
 md.push('');
-if (Number.isInteger(data.designVersion)) md.push(`**Design:** v${data.designVersion}  `);
+if (Number.isInteger(designVersion)) md.push(`**Design:** v${designVersion}  `);
 md.push(`**Cases:** ${passedCases}/${cases.length} passed${failedCases ? ` · ${failedCases} failed` : ''}${skippedCases ? ` · ${skippedCases} skipped` : ''}  `);
 md.push(`**Criteria tested:** ${coveredCriteria}/${acceptance.length}${exploratoryCases ? ` · ${exploratoryCases} exploratory ${exploratoryCases === 1 ? 'case' : 'cases'}` : ''}  `);
 md.push(`**Environment:** ${cell(data.environment || '—')}${data.environmentUrl ? ` (${cell(data.environmentUrl)})` : ''}  `);
