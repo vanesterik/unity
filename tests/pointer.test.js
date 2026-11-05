@@ -15,7 +15,7 @@ test('the build pointer says commit for a single one', () => {
 });
 
 test('after a rework the build pointer links the rework comment', () => {
-  const entry = { source: 'pr-comment', body: '<!-- role:build -->\n## Rework for review findings\n\n**Fixed:** 2 · **Not fixed:** 0', url: 'c1' };
+  const entry = { source: 'pr-comment', body: '<!-- role:build -->\n## Rework\n\n**Findings of:** review  \n**Fixed:** 2  \n**Not fixed:** 0', url: 'c1' };
   assert.equal(formatPointer('build', entry), '🔨 Reworked review findings: c1');
 });
 
@@ -24,14 +24,16 @@ test('a PR body without the generated counts has no pointer', () => {
 });
 
 test('the test pointer carries the icon, the status and the tested commit', () => {
-  const body = (status) => `<!-- role:test -->\n## x Test ${status} · #9 · Greet\n\n**Commit:** \`abc1234\` on \`feature/9-greet\``;
+  const icon = { PASS: '✅', FAILURE: '❌', INCOMPLETE: '⚠️' };
+  const body = (status) => `<!-- role:test -->\n## ${icon[status]} Test\n\n**Commit:** \`abc1234\``;
   assert.equal(formatPointer('test', { body: body('PASS'), url: 'c2' }), '✅ Test PASS on `abc1234`: c2');
   assert.equal(formatPointer('test', { body: body('FAILURE'), url: 'c2' }), '❌ Test FAILURE on `abc1234`: c2');
   assert.equal(formatPointer('test', { body: body('INCOMPLETE'), url: 'c2' }), '⚠️ Test INCOMPLETE on `abc1234`: c2');
 });
 
 test('the review pointer carries the icon and the verdict', () => {
-  const body = (verdict) => `<!-- role:review -->\n## x Review ${verdict} · #9 · Greet\n\n**Commit:** \`abc1234\` on \`feature/9-greet\``;
+  const icon = { APPROVE: '✅', 'CHANGES REQUESTED': '❌' };
+  const body = (verdict) => `<!-- role:review -->\n## ${icon[verdict]} Review\n\n**Commit:** \`abc1234\``;
   assert.equal(formatPointer('review', { body: body('APPROVE'), url: 'p10' }), '✅ Review APPROVE: p10');
   assert.equal(formatPointer('review', { body: body('CHANGES REQUESTED'), url: 'p10' }), '❌ Review CHANGES REQUESTED: p10');
 });

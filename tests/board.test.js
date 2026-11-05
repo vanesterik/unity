@@ -2,8 +2,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { closesIssue, latestResult, nextStep, boardWarnings } = require('../scripts/pipeline.js');
 
-const testSummary = (status, commit) => `<!-- role:test -->\n## ✅ Test ${status} · #6 · Shout mode\n\n**Commit:** \`${commit}\` on \`feature/6-shout\``;
-const reviewSummary = (verdict, commit) => `<!-- role:review -->\n## ✅ Review ${verdict} · #6 · Shout mode\n\n**Commit:** \`${commit}\` on \`feature/6-shout\``;
+const ICON = { PASS: '✅', FAILURE: '❌', INCOMPLETE: '⚠️', APPROVE: '✅', 'CHANGES REQUESTED': '❌' };
+const testSummary = (status, commit) => `<!-- role:test -->\n## ${ICON[status]} Test\n\n**Commit:** \`${commit}\``;
+const reviewSummary = (verdict, commit) => `<!-- role:review -->\n## ${ICON[verdict]} Review\n\n**Commit:** \`${commit}\``;
 
 test('closesIssue reads the issue number from a closing keyword', () => {
   assert.equal(closesIssue('<!-- role:build -->\nCloses #6\n\n## Summary'), 6);

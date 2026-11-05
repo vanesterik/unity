@@ -219,8 +219,27 @@ const roleEntries = (number, found) => {
 // ---------- test result vs. PR head ----------
 
 // Status and tested commit from a summary.md written by the report generator.
+// The outcome a test or review post carries as the icon in its heading (## ✅ Test, ## ❌ Review).
+// ⚠ may come with or without its variation selector.
+const headingIcon = (body, role) => {
+  const icon = ((body || '').match(new RegExp(`^##\\s+(✅|❌|⚠\uFE0F?)\\s+${role}\\s*$`, 'mu')) || [])[1];
+  return icon ? icon.replace('\uFE0F', '') : null;
+};
+const TEST_STATUS = { '✅': 'PASS', '❌': 'FAILURE', '⚠': 'INCOMPLETE' };
+const REVIEW_VERDICT = { '✅': 'APPROVE', '❌': 'CHANGES REQUESTED' };
+
+const reviewVerdict = (body = '') => REVIEW_VERDICT[headingIcon(body, 'Review')] || null;
+
+// A rework post: whose findings it answers and its counts, or null for any other post.
+const reworkOf = (body = '') => {
+  if (!/^##\s+Rework\s*$/m.test(body)) return null;
+  const value = (name) => (body.match(new RegExp(`^\\*\\*${name}:\\*\\*\\s+(.+?)\\s*$`, 'm')) || [])[1] || null;
+  const role = value('Findings of');
+  return { role: /^(test|review)$/.test(role || '') ? role : null, fixed: Number(value('Fixed')) || 0, notFixed: Number(value('Not fixed')) || 0 };
+};
+
 const parseTestSummary = (body = '') => ({
-  status: (body.match(/^##\s+\S+\s+Test\s+(PASS|FAILURE|INCOMPLETE)\b/m) || [])[1] || null,
+  status: TEST_STATUS[headingIcon(body, 'Test')] || null,
   commit: (body.match(/\*\*Commit:\*\*\s+`([0-9a-f]{7,40})`/) || [])[1] || null,
 });
 
@@ -265,7 +284,7 @@ const latestResult = (entries) => {
     .pop();
   if (newest) {
     const [role, entry] = newest;
-    const status = (entry.body.match(new RegExp(`^##\\s+\\S+\\s+${role === 'test' ? 'Test' : 'Review'}\\s+(PASS|FAILURE|INCOMPLETE|APPROVE|CHANGES REQUESTED)\\b`, 'm')) || [])[1] || null;
+    const status = role === 'test' ? parseTestSummary(entry.body).status : reviewVerdict(entry.body);
     const commit = (entry.body.match(/\*\*Commit:\*\*\s+`([0-9a-f]{7,40})`/) || [])[1] || null;
     return { role, status, commit, url: entry.url };
   }
@@ -358,8 +377,8 @@ const formatBoard = ({ columns, warnings }) => {
 const formatPointer = (role, entry) => {
   const body = entry.body || '';
   if (role === 'build') {
-    const rework = body.match(/^##\s+Rework for (test|review) findings$/m);
-    if (rework) return `🔨 Reworked ${rework[1]} findings: ${entry.url}`;
+    const rework = reworkOf(body);
+    if (rework) return `🔨 Reworked ${rework.role} findings: ${entry.url}`;
     const commits = Number((body.match(/^\*\*Commits:\*\*\s+(\d+)/m) || [])[1]);
     const unit = body.match(/^\*\*Unit tests:\*\*\s+(\d+)\/(\d+)/m);
     if (!commits || !unit) throw new Error('The build output has no commit or unit test counts; write the PR body with generate-build.js');
@@ -371,7 +390,7 @@ const formatPointer = (role, entry) => {
     return `${RESULT_ICONS[status]} Test ${status} on \`${commit}\`: ${entry.url}`;
   }
   if (role === 'review') {
-    const verdict = (body.match(/^##\s+\S+\s+Review\s+(APPROVE|CHANGES REQUESTED)\b/m) || [])[1];
+    const verdict = reviewVerdict(body);
     if (!verdict) throw new Error('The review output has no verdict; post the review.md that generate-review.js wrote');
     return `${RESULT_ICONS[verdict]} Review ${verdict}: ${entry.url}`;
   }
@@ -394,11 +413,8 @@ const field = (body, name) => (body.match(new RegExp(`^\\*\\*${name}:\\*\\*\\s+(
 // One line for a role's output, with the counts its generator wrote.
 const resultLine = (role, body) => {
   if (role === 'build') {
-    const rework = body.match(/^##\s+Rework for (test|review) findings$/m);
-    if (rework) {
-      const counts = body.match(/\*\*Fixed:\*\*\s+(\d+)\s+·\s+\*\*Not fixed:\*\*\s+(\d+)/);
-      return `🔨 Rework of ${rework[1]} findings${counts ? `: ${counts[1]} fixed, ${counts[2]} not fixed` : ''}`;
-    }
+    const rework = reworkOf(body);
+    if (rework) return `🔨 Rework of ${rework.role} findings: ${rework.fixed} fixed, ${rework.notFixed} not fixed`;
     const commits = Number((field(body, 'Commits') || '').match(/^\d+/));
     const unit = (field(body, 'Unit tests') || '').match(/^(\d+\/\d+)/);
     return `🔨 Build${commits && unit ? `: ${commits} ${commits === 1 ? 'commit' : 'commits'}, unit tests ${unit[1]}` : ''}`;
@@ -412,7 +428,7 @@ const resultLine = (role, body) => {
     const counts = [criteria && `${criteria[0]} criteria tested`, cases && `${cases[0].replace(' passed', '')} cases passed`].filter(Boolean);
     return `${RESULT_ICONS[status] || '❔'} Test ${status || 'unknown'}${on}${counts.length ? `: ${counts.join(', ')}` : ''}`;
   }
-  const verdict = (body.match(/^##\s+\S+\s+Review\s+(APPROVE|CHANGES REQUESTED)\b/m) || [])[1];
+  const verdict = reviewVerdict(body);
   const criteria = (field(body, 'Criteria met') || '').match(/^\d+\/\d+/);
   const findings = field(body, 'Findings');
   const counts = [criteria && `${criteria[0]} criteria met`, findings].filter(Boolean);
@@ -445,7 +461,7 @@ const signOffs = (entries) => entries
     if (!commit) return null;
     if (/<!--\s*role:build(?=\s|-->)/.test(body)) return { role: 'build', commit, createdAt: entry.createdAt };
     if (/<!--\s*role:test(?=\s|-->)/.test(body) && parseTestSummary(body).status === 'PASS') return { role: 'test', commit, createdAt: entry.createdAt };
-    if (/<!--\s*role:review(?=\s|-->)/.test(body) && /^##\s+\S+\s+Review\s+APPROVE\b/m.test(body)) return { role: 'review', commit, createdAt: entry.createdAt };
+    if (/<!--\s*role:review(?=\s|-->)/.test(body) && reviewVerdict(body) === 'APPROVE') return { role: 'review', commit, createdAt: entry.createdAt };
     return null;
   })
   .filter(Boolean)
@@ -479,7 +495,7 @@ const stopCommit = (entries, since) => {
     .pop();
   if (!newest) return null;
   const body = newest.body || '';
-  const passed = parseTestSummary(body).status === 'PASS' || /^##\s+\S+\s+Review\s+APPROVE\b/m.test(body);
+  const passed = parseTestSummary(body).status === 'PASS' || reviewVerdict(body) === 'APPROVE';
   return passed ? null : parseTestSummary(body).commit;
 };
 
@@ -737,7 +753,7 @@ const branchCleanup = ({ branch, missing, checkedOut, dirty }) => {
 
 const reviewResult = (entry) => {
   if (!entry) return null;
-  const status = (entry.body.match(/^##\s+\S+\s+Review\s+(APPROVE|CHANGES REQUESTED)\b/m) || [])[1] || null;
+  const status = reviewVerdict(entry.body);
   const commit = (entry.body.match(/\*\*Commit:\*\*\s+`([0-9a-f]{7,40})`/) || [])[1] || null;
   return { role: 'review', status, commit, url: entry.url };
 };
@@ -851,7 +867,7 @@ const STOPPED_LABEL = 'autopilot:stopped';
 const reworksSince = (entries, since) => {
   const start = Date.parse(since);
   return entries.filter((entry) => /<!--\s*role:build(?=\s|-->)/.test(entry.body || '')
-    && /^##\s+Rework for\b/m.test(entry.body || '')
+    && Boolean(reworkOf(entry.body || ''))
     && Date.parse(entry.createdAt) >= start).length;
 };
 
@@ -1059,4 +1075,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { designSpec, parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, stopColumn, formatStopComment, allRunResults, formatDigest, parseChecksOutput, mergeArgs, mergeOutcome, mergedSince, branchCleanup };
+module.exports = { designSpec, reviewVerdict, reworkOf, parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, stopColumn, formatStopComment, allRunResults, formatDigest, parseChecksOutput, mergeArgs, mergeOutcome, mergedSince, branchCleanup };
