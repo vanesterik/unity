@@ -31,6 +31,9 @@
 //                                               label the issue autopilot:stopped, move it from Build to Design, and comment why
 //   pipeline.js resume                          what an autopilot run does with stories earlier runs stopped at, as JSON:
 //                                               the one to resume, the labels cleared, and the stories that block the run
+//   pipeline.js test-kinds [integration|e2e|both]
+//                                               the kinds of tests the test role writes, from the blocks in .claude/pipeline.json;
+//                                               with a choice, keep only those blocks and set test.writablePaths to match
 //   pipeline.js digest --since <time> [--stopped <issue>] [--blocked] [--markdown]
 //                                               what an autopilot run merged, where it stopped and what waits in Build, as JSON
 //                                               (--markdown: the digest /unity:autopilot prints)
@@ -1026,6 +1029,37 @@ const digest = (since, { stoppedArg, withBlocked } = {}) => {
   return { merged, stopped, waiting, blocked };
 };
 
+// ---------- test kinds ----------
+
+// The kinds of tests the test role writes. The blocks in .claude/pipeline.json are the record
+// of the choice /unity:init made: an "integration" block, an "e2e" block, or both.
+const TEST_KINDS = ['integration', 'e2e'];
+const testKindsOf = (config) => TEST_KINDS.filter((kind) => config && config[kind]);
+
+// The config with only the chosen kinds' blocks (a missing one comes from the template), and the
+// test role's writable paths set to their directories plus artifacts/.
+const withTestKinds = (config, choice, template) => {
+  const kinds = choice === 'both' ? TEST_KINDS : [choice];
+  if (!kinds.every((kind) => TEST_KINDS.includes(kind))) throw new Error(`Choose integration, e2e or both; got "${choice}"`);
+  const next = { ...config };
+  for (const kind of TEST_KINDS) {
+    if (kinds.includes(kind)) next[kind] = config[kind] || template[kind];
+    else delete next[kind];
+  }
+  const dirs = TEST_KINDS.filter((kind) => next[kind]).map((kind) => `${String(next[kind].dir).replace(/\/+$/, '')}/`);
+  next.test = { ...(config.test || template.test), writablePaths: [...dirs, 'artifacts/'] };
+  return next;
+};
+
+const testKinds = (choice) => {
+  const config = loadConfig();
+  if (!choice) return testKindsOf(config);
+  const template = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'templates', 'pipeline.json'), 'utf8'));
+  const next = withTestKinds(config, choice, template);
+  fs.writeFileSync(configPath, `${JSON.stringify(next, null, 2)}\n`);
+  return testKindsOf(next);
+};
+
 // ---------- CLI ----------
 
 if (require.main === module) {
@@ -1069,11 +1103,12 @@ if (require.main === module) {
       const result = digest(at('--since'), { stoppedArg: at('--stopped'), withBlocked: args.includes('--blocked') });
       console.log(args.includes('--markdown') ? formatDigest(result) : JSON.stringify(result, null, 2));
     }
+    else if (command === 'test-kinds') console.log(JSON.stringify(testKinds(args[0])));
     else if (command === 'board') console.log(args.includes('--markdown') ? formatBoard(board()) : JSON.stringify(board(), null, 2));
-    else die('Commands: init | resolve | story | design | check-design | comments | pr | tested | queue | check | status | port | board | pointer | summary | merge | reworks | stop | resume | digest');
+    else die('Commands: init | resolve | story | design | check-design | comments | pr | tested | queue | check | status | port | board | pointer | summary | merge | reworks | stop | resume | digest | test-kinds');
   } catch (error) {
     die(error.stderr ? String(error.stderr) : error.message);
   }
 }
 
-module.exports = { designSpec, reviewVerdict, reworkOf, parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, stopColumn, formatStopComment, allRunResults, formatDigest, parseChecksOutput, mergeArgs, mergeOutcome, mergedSince, branchCleanup };
+module.exports = { withTestKinds, testKindsOf, designSpec, reviewVerdict, reworkOf, parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, stopColumn, formatStopComment, allRunResults, formatDigest, parseChecksOutput, mergeArgs, mergeOutcome, mergedSince, branchCleanup };
