@@ -2,7 +2,7 @@
 // Turns the builder's plan (plan.md) into plan-comment.md, the plan comment on the pull request.
 // - the design version it implements comes from story.json (pipeline.js story)
 // - every AC<n> the plan mentions is a criterion of that design
-// - the plan's headings are demoted below ##, and it goes in a collapsed block with its task count
+// - the plan follows its task count, with its headings demoted below ##
 // - a comment over GitHub's size limit is refused, never trimmed
 // - with --handover, the tasks must match the branch's commits since main, one commit per task
 const fs = require('fs');
@@ -65,12 +65,10 @@ const version = story.designVersion || 1;
 const comment = [
   `<!-- role:plan design v${version} -->`,
   `## Implementation plan · design v${version}`,
-  '<details>',
-  `<summary>${tasks} ${tasks === 1 ? 'task' : 'tasks'}</summary>`,
+  '',
+  `**Tasks:** ${tasks}`,
   '',
   plan,
-  '',
-  '</details>',
 ].join('\n') + '\n';
 if (comment.length > LIMIT) fail(`the comment is ${comment.length} characters, over GitHub's limit of ${LIMIT}; split the story with the developer`);
 

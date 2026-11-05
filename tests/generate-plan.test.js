@@ -49,17 +49,18 @@ test('the comment names the design version it implements', () => {
   assert.match(commentFor(), /^<!-- role:plan design v2 -->\n## Implementation plan · design v2\n/);
 });
 
-test('the plan sits in a collapsed block with its task count and headings demoted below ##', () => {
+test('the plan follows its task count in the open, with headings demoted below ##', () => {
   const comment = commentFor();
-  assert.match(comment, /<details>\n<summary>2 tasks<\/summary>\n\n### Greet in Dutch Implementation Plan\n/);
+  assert.match(comment, /^<!-- role:plan design v2 -->\n## Implementation plan · design v2\n\n\*\*Tasks:\*\* 2\n\n### Greet in Dutch Implementation Plan\n/);
+  assert.doesNotMatch(comment, /<details>|<summary>/);
   assert.match(comment, /\n#### Task 1: Add the Dutch word \(AC1\)\n/);
   assert.match(comment, /\n##### Step 1\n/);
   assert.match(comment, /\/\/ ## Task 9: not a heading inside a code block\n/);
-  assert.match(comment, /\n#### Task 2: Add the flag \(AC2\)\n\n<\/details>\n$/);
+  assert.match(comment, /\n#### Task 2: Add the flag \(AC2\)\n$/);
 });
 
-test('one task reads as 1 task', () => {
-  assert.match(commentFor({ planText: '## Task 1: Everything (AC1, AC2)\n' }), /<summary>1 task<\/summary>/);
+test('one task reads as 1', () => {
+  assert.match(commentFor({ planText: '## Task 1: Everything (AC1, AC2)\n' }), /\*\*Tasks:\*\* 1\n/);
 });
 
 test('it refuses a plan without Task headings', () => {
