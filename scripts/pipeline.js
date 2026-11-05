@@ -738,7 +738,9 @@ const parseChecksOutput = ({ stdout = '', stderr = '', failed = false }) => {
 };
 
 const prChecks = (prNumber) => {
-  try { return parseChecksOutput({ stdout: gh(['pr', 'checks', String(prNumber), '--json', 'bucket']) }); }
+  // stderr is captured, not shown: gh writes "no checks reported" there on every repository without CI.
+  const args = ['pr', 'checks', String(prNumber), '--json', 'bucket'];
+  try { return parseChecksOutput({ stdout: execFileSync('gh', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim() }); }
   catch (error) {
     if (error.message && error.message.startsWith('could not read the CI checks')) throw error;
     return parseChecksOutput({ stdout: String(error.stdout || ''), stderr: String(error.stderr || error.message), failed: true });
