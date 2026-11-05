@@ -1,7 +1,7 @@
 <!-- unity:workflow:start -->
 ## Team workflow (unity)
 
-This project is built by one developer and Claude in four roles: design -> build -> test -> review. Design is a conversation with the developer (`/unity:design`). Build, test and review each run as their own agent with a **fresh context** (`unity:builder`, `unity:tester`, `unity:reviewer`), started one after the other by `/unity:ship`, or one at a time by `/unity:build`, `/unity:test` and `/unity:review`. Each role is named after the board column it works in. GitHub is the only handoff between roles.
+This project is built by one developer and Claude in four roles: design -> build -> test -> review. Design is a conversation with the developer (`/unity:design`). Build, test and review each run as their own agent with a **fresh context** (`unity:builder`, `unity:tester`, `unity:reviewer`), started one after the other by `/unity:ship`, or one at a time by `/unity:build`, `/unity:test` and `/unity:review`. `/unity:autopilot` does the same for every story in Build, top first, and also merges each one, but only through `pipeline.js merge`, which requires a test pass and an approval on the pull request's head and green CI. The first story that can't get there ends the run. Each role is named after the board column it works in. GitHub is the only handoff between roles.
 
 ### Board
 
