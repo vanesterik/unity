@@ -23,14 +23,6 @@ test('a PR body without the generated counts has no pointer', () => {
   assert.throws(() => formatPointer('build', { source: 'pr-body', body: '<!-- role:build -->\nCloses #9', url: 'p10' }), /generate-build\.js/);
 });
 
-test('the test pointer carries the icon, the status and the tested commit', () => {
-  const icon = { PASS: '✅', FAILURE: '❌', INCOMPLETE: '⚠️' };
-  const body = (status) => `<!-- role:test -->\n## ${icon[status]} Test\n\n**Commit:** \`abc1234\``;
-  assert.equal(formatPointer('test', { body: body('PASS'), url: 'c2' }), '✅ Test PASS on `abc1234`: c2');
-  assert.equal(formatPointer('test', { body: body('FAILURE'), url: 'c2' }), '❌ Test FAILURE on `abc1234`: c2');
-  assert.equal(formatPointer('test', { body: body('INCOMPLETE'), url: 'c2' }), '⚠️ Test INCOMPLETE on `abc1234`: c2');
-});
-
 test('the review pointer carries the icon and the verdict', () => {
   const icon = { APPROVE: '✅', 'CHANGES REQUESTED': '❌' };
   const body = (verdict) => `<!-- role:review -->\n## ${icon[verdict]} Review\n\n**Commit:** \`abc1234\``;
@@ -39,10 +31,10 @@ test('the review pointer carries the icon and the verdict', () => {
 });
 
 test('a result the generators did not write has no pointer', () => {
-  assert.throws(() => formatPointer('test', { body: '<!-- role:test -->\nAll good', url: 'c2' }), /generate-report\.js/);
   assert.throws(() => formatPointer('review', { body: '<!-- role:review -->\nLGTM', url: 'p10' }), /generate-review\.js/);
 });
 
-test('there is no pointer for another role', () => {
-  assert.throws(() => formatPointer('design', { body: '<!-- role:design v1 -->', url: 'x' }), /build, test or review/);
+test('there is no pointer for another role, the old test role included', () => {
+  assert.throws(() => formatPointer('design', { body: '<!-- role:design v1 -->', url: 'x' }), /use build or review/);
+  assert.throws(() => formatPointer('test', { body: '<!-- role:test -->\n## ✅ Test\n\n**Commit:** `abc1234`', url: 'c2' }), /use build or review/);
 });

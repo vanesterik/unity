@@ -25,21 +25,13 @@ const ready = {
   number: 7,
   column: 'Review',
   pr: { number: 31, headSha: 'abc1234ff00' },
-  coverage: { covers: true },
   review: { role: 'review', status: 'APPROVE', commit: 'abc1234' },
   checks: 'pass',
   draft: false,
 };
 
-test('mergeDecision merges a story tested and approved on its head', () => {
+test('mergeDecision merges a story approved on its head, without any test result', () => {
   assert.deepEqual(mergeDecision(ready), { mergeable: true, reasons: [] });
-});
-
-test('mergeDecision refuses a pass on an older commit', () => {
-  assert.deepEqual(mergeDecision({ ...ready, coverage: { covers: false } }), {
-    mergeable: false,
-    reasons: ['the test result does not cover the head commit'],
-  });
 });
 
 test('mergeDecision refuses an approval on another commit', () => {
@@ -68,9 +60,9 @@ test('mergeDecision refuses on failed or still-running CI, and a draft', () => {
 });
 
 test('mergeDecision lists every reason at once', () => {
-  const result = mergeDecision({ ...ready, coverage: { covers: false }, checks: 'fail', draft: true });
+  const result = mergeDecision({ ...ready, review: null, checks: 'fail', draft: true });
   assert.equal(result.mergeable, false);
-  assert.deepEqual(result.reasons, ['the test result does not cover the head commit', 'a CI check failed', 'the pull request is a draft']);
+  assert.deepEqual(result.reasons, ['the review did not approve', 'a CI check failed', 'the pull request is a draft']);
 });
 
 const log = [

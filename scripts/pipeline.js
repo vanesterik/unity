@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Pipeline helper for the design -> build -> test -> review flow.
+// Pipeline helper for the design -> build -> review flow, and the manual /unity:test.
 // All GitHub access goes through the gh CLI (needs: gh auth refresh -s project).
 // Lives in the unity plugin; per-project settings are read from <project>/.claude/pipeline.json.
 // Skills call it as: node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" <command>
@@ -11,7 +11,6 @@
 //   pipeline.js check-design <issue> <file>     exit 1 unless the latest design comment is the generated comment.md
 //   pipeline.js comments <issue> <role>         latest <!-- role:<role> --> comment on the issue or its PR, as JSON
 //   pipeline.js pr <issue>                      the open PR for the issue (number, url, branch, head SHA), as JSON
-//   pipeline.js tested <issue>                  latest test result and whether it still covers the PR head, as JSON
 //   pipeline.js queue <Column>                  issues of this repo in a board column, as JSON
 //   pipeline.js check <issue> <Column>          exit 1 unless the issue is in this column; prints its column as JSON
 //   pipeline.js status <issue> <Column>         move the issue's project item to a column
@@ -19,11 +18,11 @@
 //   pipeline.js board [--markdown]              every board issue per column, with PR, latest result, next step and warnings, as JSON
 //                                               (--markdown: the overview /unity:status prints)
 //   pipeline.js summary <issue> [--since <ISO time>] [--markdown]
-//                                               the build, test and review results posted since the time, with the column
+//                                               the build and review results posted since the time, with the column
 //                                               and next step, as JSON (--markdown: the summary /unity:ship prints)
 //   pipeline.js pointer <issue> <role> [--post] the one-line pointer to the role's latest output, for the issue timeline
 //                                               (--post: post it on the issue)
-//   pipeline.js merge <issue> [--check]         merge the PR with a rebase when tested and approved on its head and CI is green
+//   pipeline.js merge <issue> [--check]         merge the PR with a rebase when approved on its head and CI is green
 //                                               (waits up to 8 minutes for running checks); exit 1 with the reasons otherwise
 //                                               (--check: only report, never merge or wait)
 //   pipeline.js reworks <issue> --since <time>  the builder's reworks on the issue since the time, and the limit, as JSON
@@ -32,7 +31,7 @@
 //   pipeline.js resume                          what an autopilot run does with stories earlier runs stopped at, as JSON:
 //                                               the one to resume, the labels cleared, and the stories that block the run
 //   pipeline.js test-kinds [integration|e2e|both]
-//                                               the kinds of tests the test role writes, from the blocks in .claude/pipeline.json;
+//                                               the kinds of tests /unity:test writes, from the blocks in .claude/pipeline.json;
 //                                               with a choice, keep only those blocks and set test.writablePaths to match
 //   pipeline.js digest --since <time> [--stopped <issue>] [--blocked] [--markdown]
 //                                               what an autopilot run merged, where it stopped and what waits in Build, as JSON
@@ -233,15 +232,14 @@ const roleEntries = (number, found) => {
   return entries;
 };
 
-// ---------- test result vs. PR head ----------
+// ---------- role results ----------
 
-// The outcome a test or review post carries as the icon in its heading (## ✅ Test, ## ❌ Review).
+// The outcome a review post carries as the icon in its heading (## ✅ Review, ## ❌ Review).
 // ⚠ may come with or without its variation selector.
 const headingIcon = (body, role) => {
   const icon = ((body || '').match(new RegExp(`^##\\s+(✅|❌|⚠\uFE0F?)\\s+${role}\\s*$`, 'mu')) || [])[1];
   return icon ? icon.replace('\uFE0F', '') : null;
 };
-const TEST_STATUS = { '✅': 'PASS', '❌': 'FAILURE', '⚠': 'INCOMPLETE' };
 const REVIEW_VERDICT = { '✅': 'APPROVE', '❌': 'CHANGES REQUESTED' };
 
 const reviewVerdict = (body = '') => REVIEW_VERDICT[headingIcon(body, 'Review')] || null;
@@ -251,14 +249,11 @@ const reworkOf = (body = '') => {
   if (!/^##\s+Rework\s*$/m.test(body)) return null;
   const value = (name) => (body.match(new RegExp(`^\\*\\*${name}:\\*\\*\\s+(.+?)\\s*$`, 'm')) || [])[1] || null;
   const role = value('Findings of');
-  return { role: /^(test|review)$/.test(role || '') ? role : null, fixed: Number(value('Fixed')) || 0, notFixed: Number(value('Not fixed')) || 0 };
+  return { role: role === 'review' ? role : null, fixed: Number(value('Fixed')) || 0, notFixed: Number(value('Not fixed')) || 0 };
 };
 
-// Status and tested commit from a summary.md written by the report generator.
-const parseTestSummary = (body = '') => ({
-  status: TEST_STATUS[headingIcon(body, 'Test')] || null,
-  commit: (body.match(/\*\*Commit:\*\*\s+`([0-9a-f]{7,40})`/) || [])[1] || null,
-});
+// The commit a role post names in its **Commit:** field, or null.
+const commitOf = (body = '') => (body.match(/\*\*Commit:\*\*\s+`([0-9a-f]{7,40})`/) || [])[1] || null;
 
 // Files that are not under any of the path prefixes.
 const outsidePaths = (files, prefixes) => files.filter((file) => !prefixes.some((prefix) => {
@@ -266,45 +261,14 @@ const outsidePaths = (files, prefixes) => files.filter((file) => !prefixes.some(
   return file === clean || file.startsWith(`${clean}/`);
 }));
 
-// Whether the latest test result still covers the PR: commits after the tested one may only
-// touch the test role's own paths (the tests it committed after testing).
-const tested = (issueArg) => {
-  const number = resolveIssue(issueArg);
-  if (!number) die('Usage: pipeline.js tested <issue>');
-  const found = findPr(number);
-  if (!found) die(`#${number} has no open PR`);
-  return testCoverage(found, comments(number, 'test', found));
-};
-
-const testCoverage = (found, report) => {
-  const { status, commit } = parseTestSummary(report ? report.body : '');
-  const result = { status, testedCommit: commit, headSha: found.headRefOid, reportUrl: report ? report.url : null, changedSince: [], outsideTestPaths: [] };
-  if (!commit) return { ...result, covers: false };
-  const compare = ghJson(['api', `repos/{owner}/{repo}/compare/${commit}...${found.headRefOid}`]);
-  const config = readConfig();
-  const testPaths = ((config.test && config.test.writablePaths) || []).filter((p) => !/^artifacts\/?$/.test(p));
-  result.changedSince = (compare.files || []).map((file) => file.filename);
-  result.outsideTestPaths = outsidePaths(result.changedSince, testPaths);
-  const contained = compare.status === 'ahead' || compare.status === 'identical';
-  return { ...result, covers: status === 'PASS' && contained && !result.outsideTestPaths.length };
-};
-
 // ---------- board overview ----------
 
-// The newest role result among the entries, with its status and commit: a test or review
-// summary, or else the build's PR body or rework comment.
+// The newest role result among the entries, with its status and commit: the review, or else
+// the build's PR body or rework comment. Test results from before unity dropped the per-story
+// test are ignored.
 const latestResult = (entries) => {
-  const newest = ['test', 'review']
-    .map((role) => [role, latestRoleComment(entries, role)])
-    .filter(([, entry]) => entry)
-    .sort(([, a], [, b]) => String(a.createdAt).localeCompare(String(b.createdAt)))
-    .pop();
-  if (newest) {
-    const [role, entry] = newest;
-    const status = role === 'test' ? parseTestSummary(entry.body).status : reviewVerdict(entry.body);
-    const commit = (entry.body.match(/\*\*Commit:\*\*\s+`([0-9a-f]{7,40})`/) || [])[1] || null;
-    return { role, status, commit, url: entry.url };
-  }
+  const review = latestRoleComment(entries, 'review');
+  if (review) return { role: 'review', status: reviewVerdict(review.body), commit: commitOf(review.body), url: review.url };
   const build = latestRoleComment(entries, 'build');
   return build ? { role: 'build', status: null, commit: null, url: build.url } : null;
 };
@@ -316,9 +280,8 @@ const onHead = (latest, pr) => Boolean(latest && latest.commit && pr && pr.headS
 const nextStep = (issue) => {
   const { number, column, pr, latest } = issue;
   if (column === 'Backlog' || column === 'Design') return `/unity:design ${number}`;
-  if (column === 'Test' && latest && latest.role === 'test' && latest.status === 'INCOMPLETE' && onHead(latest, pr)) return 'decide on the untested criteria';
   if (column === 'Review' && latest && latest.role === 'review' && latest.status === 'APPROVE' && onHead(latest, pr)) return 'ready to merge';
-  if (column === 'Build' || column === 'Test' || column === 'Review') return `/unity:ship ${number}`;
+  if (column === 'Build' || column === 'Review') return `/unity:ship ${number}`;
   return null;
 };
 
@@ -328,14 +291,6 @@ const TEST_RUN_BRANCH = /^test\//;
 // What needs the developer's attention beyond the columns.
 const boardWarnings = ({ issues, openPrs, mergedPrs, openIssues }) => {
   const warnings = [];
-  for (const issue of issues) {
-    if (issue.column !== 'Review' || !issue.coverage || issue.coverage.covers) continue;
-    const { testedCommit, outsideTestPaths } = issue.coverage;
-    const message = testedCommit
-      ? `#${issue.number} is in Review, but its test result on \`${testedCommit}\` no longer covers the PR head${outsideTestPaths.length ? `: ${outsideTestPaths.join(', ')} changed` : ''}`
-      : `#${issue.number} is in Review with no passing test result on its PR`;
-    warnings.push({ type: 'stale-test', issue: issue.number, message });
-  }
   const onBoard = new Set(issues.map((issue) => issue.number));
   for (const p of openPrs) {
     if (TEST_RUN_BRANCH.test(p.headRefName || '')) continue;
@@ -353,13 +308,12 @@ const boardWarnings = ({ issues, openPrs, mergedPrs, openIssues }) => {
   return warnings;
 };
 
-const RESULT_ICONS = { PASS: '✅', APPROVE: '✅', FAILURE: '❌', 'CHANGES REQUESTED': '❌', INCOMPLETE: '⚠️' };
+const RESULT_ICONS = { APPROVE: '✅', 'CHANGES REQUESTED': '❌' };
 
 const formatResult = (latest) => {
   if (!latest) return 'no result yet';
   if (latest.role === 'build') return '🔨 Built';
-  const role = latest.role === 'test' ? 'Test' : 'Review';
-  return `${RESULT_ICONS[latest.status] || '❔'} ${role} ${latest.status || 'unknown'}${latest.commit ? ` on \`${latest.commit}\`` : ''}`;
+  return `${RESULT_ICONS[latest.status] || '❔'} Review ${latest.status || 'unknown'}${latest.commit ? ` on \`${latest.commit}\`` : ''}`;
 };
 
 const formatNext = (next) => (next && next.startsWith('/') ? `\`${next}\`` : next);
@@ -393,36 +347,31 @@ const formatBoard = ({ columns, warnings }) => {
 // ---------- issue pointers ----------
 
 // The one-line pointer a role leaves on the issue, from the role output it posted: the
-// generated PR body or rework comment, test summary or review. Throws on output the
+// generated PR body or rework comment, or the review. Throws on output the
 // generators didn't write, so a pointer never guesses.
 const formatPointer = (role, entry) => {
   const body = entry.body || '';
   if (role === 'build') {
     const rework = reworkOf(body);
-    if (rework && !rework.role) throw new Error('The rework output has no "Findings of: test" or "review"; post the rework.md that generate-build.js wrote');
+    if (rework && !rework.role) throw new Error('The rework output has no "Findings of: review"; post the rework.md that generate-build.js wrote');
     if (rework) return `🔨 Reworked ${rework.role} findings: ${entry.url}`;
     const commits = Number((body.match(/^\*\*Commits:\*\*\s+(\d+)/m) || [])[1]);
     const unit = body.match(/^\*\*Unit tests:\*\*\s+(\d+)\/(\d+)/m);
     if (!commits || !unit) throw new Error('The build output has no commit or unit test counts; write the PR body with generate-build.js');
     return `🔨 Built: ${entry.url} (${commits} ${commits === 1 ? 'commit' : 'commits'}, unit tests ${unit[1]}/${unit[2]})`;
   }
-  if (role === 'test') {
-    const { status, commit } = parseTestSummary(body);
-    if (!status || !commit) throw new Error('The test output has no status or commit; post the summary.md that generate-report.js wrote');
-    return `${RESULT_ICONS[status]} Test ${status} on \`${commit}\`: ${entry.url}`;
-  }
   if (role === 'review') {
     const verdict = reviewVerdict(body);
     if (!verdict) throw new Error('The review output has no verdict; post the review.md that generate-review.js wrote');
     return `${RESULT_ICONS[verdict]} Review ${verdict}: ${entry.url}`;
   }
-  throw new Error(`No pointer for role "${role}"; use build, test or review`);
+  throw new Error(`No pointer for role "${role}"; use build or review`);
 };
 
 // The pointer for the role's latest output on the issue or its PR.
 const pointer = (issueArg, role) => {
   const number = resolveIssue(issueArg);
-  if (!number || !role) die('Usage: pipeline.js pointer <issue> <build|test|review>');
+  if (!number || !role) die('Usage: pipeline.js pointer <issue> <build|review>');
   const entry = comments(number, role);
   if (!entry) die(`#${number} has no ${role} output on the issue or its PR`);
   return formatPointer(role, entry);
@@ -441,15 +390,8 @@ const resultLine = (role, body) => {
     const unit = (field(body, 'Unit tests') || '').match(/^(\d+\/\d+)/);
     return `🔨 Build${commits && unit ? `: ${commits} ${commits === 1 ? 'commit' : 'commits'}, unit tests ${unit[1]}` : ''}`;
   }
-  const { commit } = parseTestSummary(body);
+  const commit = commitOf(body);
   const on = commit ? ` on \`${commit}\`` : '';
-  if (role === 'test') {
-    const { status } = parseTestSummary(body);
-    const criteria = (field(body, 'Criteria tested') || '').match(/^\d+\/\d+/);
-    const cases = (field(body, 'Cases') || '').match(/^\d+\/\d+ passed/);
-    const counts = [criteria && `${criteria[0]} criteria tested`, cases && `${cases[0].replace(' passed', '')} cases passed`].filter(Boolean);
-    return `${RESULT_ICONS[status] || '❔'} Test ${status || 'unknown'}${on}${counts.length ? `: ${counts.join(', ')}` : ''}`;
-  }
   const verdict = reviewVerdict(body);
   const criteria = (field(body, 'Criteria met') || '').match(/^\d+\/\d+/);
   const findings = field(body, 'Findings');
@@ -457,32 +399,26 @@ const resultLine = (role, body) => {
   return `${RESULT_ICONS[verdict] || '❔'} Review ${verdict || 'unknown'}${on}${counts.length ? `: ${counts.join(', ')}` : ''}`;
 };
 
-// The latest build, test and review output posted since the run started (an ISO time; all
+// The latest build and review output posted since the run started (an ISO time; all
 // when omitted), oldest first.
 const runResults = (entries, since) => {
   const start = since ? Date.parse(since) : -Infinity;
   const inRun = entries.filter((entry) => Date.parse(entry.createdAt) >= start);
-  return ['build', 'test', 'review']
+  return ['build', 'review']
     .map((role) => [role, latestRoleComment(inRun, role)])
     .filter(([, entry]) => entry)
     .sort(([, a], [, b]) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
-    .map(([role, entry]) => {
-      const result = { role, line: resultLine(role, entry.body || ''), url: entry.url };
-      // The test summary names the local evidence report, which never leaves the tester's machine.
-      const report = role === 'test' && ((entry.body || '').match(/kept locally in `([^`]+\.html)`/) || [])[1];
-      return report ? { ...result, report } : result;
-    });
+    .map(([role, entry]) => ({ role, line: resultLine(role, entry.body || ''), url: entry.url }));
 };
 
 // The commits a role vouched for, in the order they were posted: a build handover (the PR body
-// or a rework comment), a passing test, an approval.
+// or a rework comment), an approval.
 const signOffs = (entries) => entries
   .map((entry) => {
     const body = entry.body || '';
-    const commit = (body.match(/\*\*Commit:\*\*\s+`([0-9a-f]{7,40})`/) || [])[1];
+    const commit = commitOf(body);
     if (!commit) return null;
     if (/<!--\s*role:build(?=\s|-->)/.test(body)) return { role: 'build', commit, createdAt: entry.createdAt };
-    if (/<!--\s*role:test(?=\s|-->)/.test(body) && parseTestSummary(body).status === 'PASS') return { role: 'test', commit, createdAt: entry.createdAt };
     if (/<!--\s*role:review(?=\s|-->)/.test(body) && reviewVerdict(body) === 'APPROVE') return { role: 'review', commit, createdAt: entry.createdAt };
     return null;
   })
@@ -507,18 +443,12 @@ const changesSince = ({ commits, signOffs: offs, stopAt }) => {
   };
 };
 
-// The commit a failing test or a review with changes requested judged in this run, or null.
+// The commit a review with changes requested judged in this run, or null.
 const stopCommit = (entries, since) => {
   const start = since ? Date.parse(since) : -Infinity;
-  const newest = ['test', 'review']
-    .map((role) => latestRoleComment(entries.filter((entry) => Date.parse(entry.createdAt) >= start), role))
-    .filter(Boolean)
-    .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
-    .pop();
-  if (!newest) return null;
-  const body = newest.body || '';
-  const passed = parseTestSummary(body).status === 'PASS' || reviewVerdict(body) === 'APPROVE';
-  return passed ? null : parseTestSummary(body).commit;
+  const review = latestRoleComment(entries.filter((entry) => Date.parse(entry.createdAt) >= start), 'review');
+  if (!review || reviewVerdict(review.body || '') === 'APPROVE') return null;
+  return commitOf(review.body || '');
 };
 
 const formatFiles = (files) => (files.length > 3 ? `${files.slice(0, 3).join(', ')} and ${files.length - 3} more` : files.join(', '));
@@ -528,22 +458,21 @@ const formatChanges = ({ since, commits }) => {
   if (!commits.length) return `**No commits ${label || 'on the PR'}.**`;
   return [
     label ? `**Commits ${label}:**` : '**Commits, none signed off by a role:**',
-    ...commits.map((commit) => `- \`${commit.sha}\` ${commit.subject}${commit.files && commit.files.length ? ` · ${formatFiles(commit.files)}` : ''}${commit.testOnly ? ' (test paths only)' : ''}`),
+    ...commits.map((commit) => `- \`${commit.sha}\` ${commit.subject}${commit.files && commit.files.length ? ` · ${formatFiles(commit.files)}` : ''}`),
   ].join('\n');
 };
 
 // The summary /unity:ship ends with, the same for the same results.
-const formatSummary = ({ number, title, pr, column, next, results, report, changes }) => [
+const formatSummary = ({ number, title, pr, column, next, results, changes }) => [
   `**#${number} ${title}**${pr ? ` · PR #${pr.number}` : ''}`,
   results.length ? results.map((result) => `- ${result.line} · ${result.url}`).join('\n') : 'No role posted a result in this run.',
-  ...(report ? [`**Test report:** \`${report}\``] : []),
   ...(changes ? [formatChanges(changes)] : []),
   `**Column:** ${column || 'not on the board'}${next ? ` → ${formatNext(next)}` : ''}`,
 ].join('\n\n');
 
 // ---------- GitHub Projects ----------
 
-const COLUMNS = ['Backlog', 'Design', 'Build', 'Test', 'Review', 'Done'];
+const COLUMNS = ['Backlog', 'Design', 'Build', 'Review', 'Done'];
 
 // Compares the board's Status options with the expected columns. A column that matches
 // only after ignoring case and spacing is "misnamed", so the user can rename it.
@@ -676,21 +605,26 @@ const board = () => {
   const openIssues = ghJson(['issue', 'list', '--state', 'open', '--limit', '500', '--json', 'number,title']) || [];
   const issues = items.map((item) => {
     const issue = { number: item.content.number, title: item.content.title, url: item.content.url, column: item.status || null };
-    if (['Build', 'Test', 'Review'].includes(issue.column)) {
+    if (['Build', 'Review'].includes(issue.column)) {
       const found = prForIssue(openPrs, issue.number);
       if (found) {
         issue.pr = { number: found.number, url: found.url, headSha: found.headRefOid, draft: found.isDraft };
         issue.latest = latestResult(roleEntries(issue.number, found));
-        if (issue.column === 'Review') issue.coverage = testCoverage(found, latestRoleComment(roleEntries(issue.number, found), 'test'));
       }
     }
     issue.next = nextStep(issue);
     return issue;
   });
-  const columns = [...COLUMNS, null]
-    .map((name) => ({ name: name || 'No column', issues: issues.filter((issue) => issue.column === name).map(({ column, coverage, ...rest }) => rest) }))
-    .filter((column) => column.name !== 'No column' || column.issues.length);
-  return { columns, warnings: boardWarnings({ issues, openPrs, mergedPrs, openIssues }) };
+  return { columns: boardColumns(issues), warnings: boardWarnings({ issues, openPrs, mergedPrs, openIssues }) };
+};
+
+// The issues per column in board order. A column unity doesn't use (such as a Test column
+// left from before) and issues without a column follow, only when they hold issues.
+const boardColumns = (issues) => {
+  const others = [...new Set(issues.map((issue) => issue.column).filter((name) => name && !COLUMNS.includes(name)))];
+  return [...COLUMNS, ...others, null]
+    .map((name) => ({ name: name || 'No column', issues: issues.filter((issue) => issue.column === name).map(({ column, ...rest }) => rest) }))
+    .filter((column) => COLUMNS.includes(column.name) || column.issues.length);
 };
 
 // One issue's results since the run started, its column and next step. Read-only.
@@ -706,18 +640,13 @@ const summary = (issueArg, since) => {
   const { status: column } = issueColumn(number, config);
   const next = nextStep({ number, column, pr, latest: latestResult(entries) });
   const result = { number, title, pr, column, next, results: runResults(entries, since) };
-  const tested = result.results.find((r) => r.report);
-  if (tested && fs.existsSync(path.join(root, tested.report))) result.report = path.join(root, tested.report);
   // A run that stopped short of an approval shows what landed since a role last vouched for the code.
   if (found && next !== 'ready to merge') {
     const commits = ghJson(['pr', 'view', String(found.number), '--json', 'commits']).commits
       .map((commit) => ({ sha: commit.oid, subject: commit.messageHeadline }));
     const changes = changesSince({ commits, signOffs: signOffs(entries), stopAt: stopCommit(entries, since) });
-    const config = readConfig();
-    const testPaths = ((config.test && config.test.writablePaths) || []).filter((p) => !/^artifacts\/?$/.test(p));
     for (const commit of changes.commits) {
       commit.files = (ghJson(['api', `repos/{owner}/{repo}/commits/${commit.sha}`]).files || []).map((file) => file.filename);
-      commit.testOnly = Boolean(testPaths.length && commit.files.length && !outsidePaths(commit.files, testPaths).length);
     }
     result.changes = changes;
   }
@@ -748,12 +677,11 @@ const checksState = (checks) => {
 };
 
 // Whether autopilot may merge the story, with every reason it may not. Merging needs the story in
-// Review, a test pass that covers the PR head, an approval on that head, green CI and a ready PR.
-const mergeDecision = ({ number, column, pr, coverage, review, checks, draft }) => {
+// Review, an approval on the PR head, green CI and a ready PR.
+const mergeDecision = ({ number, column, pr, review, checks, draft }) => {
   if (!pr) return { mergeable: false, reasons: ['no open pull request'] };
   const reasons = [];
   if (column !== 'Review') reasons.push(column ? `#${number} is in ${column}, not Review` : `#${number} is not on the board`);
-  if (!coverage || !coverage.covers) reasons.push('the test result does not cover the head commit');
   if (!review || review.status !== 'APPROVE') reasons.push('the review did not approve');
   else if (!onHead(review, pr)) reasons.push('the approval is not on the head commit');
   if (checks === 'fail') reasons.push('a CI check failed');
@@ -787,8 +715,7 @@ const branchCleanup = ({ branch, missing, checkedOut, dirty }) => {
 const reviewResult = (entry) => {
   if (!entry) return null;
   const status = reviewVerdict(entry.body);
-  const commit = (entry.body.match(/\*\*Commit:\*\*\s+`([0-9a-f]{7,40})`/) || [])[1] || null;
-  return { role: 'review', status, commit, url: entry.url };
+  return { role: 'review', status, commit: commitOf(entry.body), url: entry.url };
 };
 
 const sleep = (seconds) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, seconds * 1000);
@@ -841,7 +768,6 @@ const merge = (issueArg, { checkOnly = false } = {}) => {
       number,
       column,
       pr,
-      coverage: found ? testCoverage(found, latestRoleComment(entries, 'test')) : null,
       review: reviewResult(latestRoleComment(entries, 'review')),
       checks,
       draft: found ? ghJson(['pr', 'view', String(found.number), '--json', 'isDraft']).isDraft : false,
@@ -966,21 +892,17 @@ const resume = () => {
 
 // ---------- autopilot digest ----------
 
-const ROLE_MARKER = /<!--\s*role:(build|test|review)(?=\s|-->)/;
+const ROLE_MARKER = /<!--\s*role:(build|review)(?=\s|-->)/;
 
-// Every build, test and review result posted since the run started, oldest first: unlike
-// runResults, reworks and repeated tests in one run each get their own line.
+// Every build and review result posted since the run started, oldest first: unlike
+// runResults, reworks and repeated reviews in one run each get their own line.
 const allRunResults = (entries, since) => {
   const start = since ? Date.parse(since) : -Infinity;
   return entries
     .map((entry) => ({ entry, role: ((entry.body || '').match(ROLE_MARKER) || [])[1] }))
     .filter(({ entry, role }) => role && Date.parse(entry.createdAt) >= start)
     .sort((a, b) => Date.parse(a.entry.createdAt) - Date.parse(b.entry.createdAt))
-    .map(({ entry, role }) => {
-      const result = { role, line: resultLine(role, entry.body || ''), url: entry.url };
-      const report = role === 'test' && ((entry.body || '').match(/kept locally in `([^`]+\.html)`/) || [])[1];
-      return report ? { ...result, report } : result;
-    });
+    .map(({ entry, role }) => ({ role, line: resultLine(role, entry.body || ''), url: entry.url }));
 };
 
 const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
@@ -1011,7 +933,6 @@ const formatDigest = ({ merged, stopped, waiting, blocked }) => [
   ...(stopped ? [
     [`**Stopped at #${stopped.number} ${stopped.title}**${stopped.pr ? ` · PR #${stopped.pr.number}` : ''}`,
       ...stopped.results.map((result) => `- ${result.line} · ${result.url}`)].join('\n'),
-    ...(stopped.report ? [`**Test report:** \`${stopped.report}\``] : []),
     `**Column:** ${stopped.column || 'not on the board'}${stopped.next ? ` → ${formatNext(stopped.next)}` : ''}`,
   ] : []),
   ...(waiting.length ? [`**Still waiting in Build:** ${waiting.map(({ number, title }) => `#${number} ${title}`).join(', ')}`] : []),
@@ -1047,9 +968,7 @@ const digest = (since, { stoppedArg, withBlocked } = {}) => {
     const pr = found ? { number: found.number, url: found.url, headSha: found.headRefOid } : null;
     const { status: column } = issueColumn(stoppedNumber, config);
     const results = allRunResults(entries, since);
-    const tested = [...results].reverse().find((r) => r.report);
-    const report = tested && fs.existsSync(path.join(root, tested.report)) ? path.join(root, tested.report) : null;
-    stopped = { number: stoppedNumber, title, pr, results, report, column, next: nextStep({ number: stoppedNumber, column, pr, latest: latestResult(entries) }) };
+    stopped = { number: stoppedNumber, title, pr, results, column, next: nextStep({ number: stoppedNumber, column, pr, latest: latestResult(entries) }) };
   }
   const waiting = boardIssues(config)
     .filter((item) => item.status === 'Build' && item.content.number !== stoppedNumber)
@@ -1060,13 +979,13 @@ const digest = (since, { stoppedArg, withBlocked } = {}) => {
 
 // ---------- test kinds ----------
 
-// The kinds of tests the test role writes. The blocks in .claude/pipeline.json are the record
+// The kinds of tests /unity:test writes. The blocks in .claude/pipeline.json are the record
 // of the choice /unity:init made: an "integration" block, an "e2e" block, or both.
 const TEST_KINDS = ['integration', 'e2e'];
 const testKindsOf = (config) => TEST_KINDS.filter((kind) => config && config[kind]);
 
 // The config with only the chosen kinds' blocks (a missing one comes from the template), and the
-// test role's writable paths set to their directories plus artifacts/.
+// writable paths of /unity:test set to their directories plus artifacts/.
 const withTestKinds = (config, choice, template) => {
   const kinds = choice === 'both' ? TEST_KINDS : [choice];
   if (!kinds.every((kind) => TEST_KINDS.includes(kind))) throw new Error(`Choose integration, e2e or both; got "${choice}"`);
@@ -1101,7 +1020,6 @@ if (require.main === module) {
     else if (command === 'check-design') console.log(JSON.stringify(checkDesign(args[0], args[1])));
     else if (command === 'comments') console.log(JSON.stringify(comments(args[0], args[1]), null, 2));
     else if (command === 'pr') console.log(JSON.stringify(pr(args[0]), null, 2));
-    else if (command === 'tested') console.log(JSON.stringify(tested(args[0]), null, 2));
     else if (command === 'queue') queue(args.join(' '));
     else if (command === 'check') check(args[0], args.slice(1).join(' '));
     else if (command === 'status') setStatus(args[0], args.slice(1).join(' '));
@@ -1139,10 +1057,10 @@ if (require.main === module) {
     }
     else if (command === 'test-kinds') console.log(JSON.stringify(testKinds(args[0])));
     else if (command === 'board') console.log(args.includes('--markdown') ? formatBoard(board()) : JSON.stringify(board(), null, 2));
-    else die('Commands: init | resolve | story | design | check-design | comments | pr | tested | queue | check | status | port | board | pointer | summary | merge | reworks | stop | resume | digest | test-kinds | designs | new-story');
+    else die('Commands: init | resolve | story | design | check-design | comments | pr | queue | check | status | port | board | pointer | summary | merge | reworks | stop | resume | digest | test-kinds | designs | new-story');
   } catch (error) {
     die(error.stderr ? String(error.stderr) : error.message);
   }
 }
 
-module.exports = { shippedDesigns, withTestKinds, testKindsOf, designSpec, reviewVerdict, reworkOf, parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, stopColumn, formatStopComment, allRunResults, formatDigest, parseChecksOutput, mergeArgs, mergeOutcome, mergedSince, branchCleanup };
+module.exports = { shippedDesigns, withTestKinds, testKindsOf, designSpec, reviewVerdict, reworkOf, parseCriteria, resolveIssue, latestRoleComment, columnReport, commitOf, outsidePaths, COLUMNS, boardColumns, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, stopColumn, formatStopComment, allRunResults, formatDigest, parseChecksOutput, mergeArgs, mergeOutcome, mergedSince, branchCleanup };
