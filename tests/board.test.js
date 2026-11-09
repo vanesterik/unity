@@ -100,6 +100,11 @@ test('boardWarnings flags an open PR that closes no issue on the board', () => {
   assert.match(warnings[1].message, /#40/);
 });
 
+test('boardWarnings does not flag the open PR of a test run', () => {
+  const openPrs = [{ number: 30, url: 'p30', headRefName: 'test/20261109-1400', body: 'Suite trimmed, no closing keyword' }];
+  assert.deepEqual(boardWarnings({ issues: [], openPrs, mergedPrs: [], openIssues: [] }), []);
+});
+
 test('boardWarnings flags an open issue whose closing PR is merged, naming the PR', () => {
   const mergedPrs = [{ number: 10, url: 'https://github.com/o/r/pull/10', body: 'Closes #9' }, { number: 11, url: 'p11', body: 'Closes #5' }];
   const openIssues = [{ number: 9, title: 'Greet in Dutch' }];
