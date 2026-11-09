@@ -58,7 +58,7 @@ const branchCommits = () => {
 // ---------- rework comment ----------
 
 const writeRework = () => {
-  if (!['test', 'review'].includes(data.rework)) fail('"rework" must be "test" or "review": the role whose findings were reworked');
+  if (data.rework !== 'review') fail('"rework" must be "review": only the review sends a story back to Build');
   const findings = list(data.findings);
   if (!findings.length) fail('"findings" needs a row for every finding of the latest test or review result');
   const commits = branchCommits();
@@ -152,7 +152,7 @@ const writeBody = () => {
   md.push('| --- | --- | --- |');
   for (const criterion of criteria) {
     const tests = list(criterion.unitTests).filter(nonEmpty);
-    md.push(`| ${criterion.id} | ${criterion.implemented.filter(nonEmpty).map(code).join(', ')} | ${tests.length ? tests.map(code).join(', ') : 'verified by the test role'} |`);
+    md.push(`| ${criterion.id} | ${criterion.implemented.filter(nonEmpty).map(code).join(', ')} | ${tests.length ? tests.map(code).join(', ') : 'covered by the next /unity:test'} |`);
   }
   md.push('');
   if (deviations.length) {

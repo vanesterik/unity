@@ -35,12 +35,12 @@ const baseData = {
   suggestions: [{ title: 'Name the table', where: 'greet.js:3', body: 'A name like GREETINGS says what it holds.' }],
   strengths: 'Small, well-tested change.',
   declined: [{ behaviour: 'Greeting in French', reason: 'out of scope in the design' }],
-  tests: { unit: { passed: 11, total: 11 }, integration: { passed: 9, total: 9 } },
+  tests: { unit: { passed: 11, total: 11 } },
 };
 
 test('an approval is headed by the icon and the role, with Design first and Commit last', () => {
   const review = reviewFor(baseData);
-  assert.match(review, /^<!-- role:review -->\n## ✅ Review\n\n\*\*Design:\*\* v1  \n\*\*Criteria met:\*\* 2\/2  \n\*\*Findings:\*\* 0 blocking, 1 suggestion  \n\*\*Tests run:\*\* unit 11\/11, integration 9\/9  \n\*\*Commit:\*\* `abc1234`\n\n/);
+  assert.match(review, /^<!-- role:review -->\n## ✅ Review\n\n\*\*Design:\*\* v1  \n\*\*Criteria met:\*\* 2\/2  \n\*\*Findings:\*\* 0 blocking, 1 suggestion  \n\*\*Tests run:\*\* unit 11\/11  \n\*\*Commit:\*\* `abc1234`\n\n/);
   assert.doesNotMatch(review, /APPROVE|#9|Greet in Dutch|feature\/9/);
 });
 
@@ -73,9 +73,15 @@ test('a criterion not met without a blocking finding is refused', () => {
 });
 
 test('a failed test run without a blocking finding is refused', () => {
-  const { result } = generate({ ...baseData, tests: { ...baseData.tests, integration: { passed: 8, total: 9 } } });
+  const { result } = generate({ ...baseData, tests: { unit: { passed: 10, total: 11 } } });
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /integration tests failed/);
+  assert.match(result.stderr, /unit tests failed/);
+});
+
+test('an integration count is refused: the reviewer does not run integration or E2E tests', () => {
+  const { result } = generate({ ...baseData, tests: { unit: { passed: 11, total: 11 }, integration: { passed: 9, total: 9 } } });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /tests\.integration/);
 });
 
 test('criteria with a gap in their numbering are refused', () => {

@@ -82,11 +82,11 @@ test('the commit count comes from git, whatever the data says, and the commits a
   assert.doesNotMatch(body, /Review commit by commit|Add the flag/);
 });
 
-test('the criteria table puts each place and test in backticks, and hands an untested criterion to the test role', () => {
+test('the criteria table puts each place and test in backticks, and leaves an untested criterion to the next /unity:test', () => {
   const body = bodyFor(baseData);
   assert.match(body, /^\| Criterion \| Implemented in \| Unit tests \|$/m);
   assert.match(body, /^\| AC1 \| `greet\.js greet\(\)` \| `test\/greet\.test\.js greets in Dutch` \|$/m);
-  assert.match(body, /^\| AC2 \| `greet\.js flag\(\)` \| verified by the test role \|$/m);
+  assert.match(body, /^\| AC2 \| `greet\.js flag\(\)` \| covered by the next \/unity:test \|$/m);
 });
 
 test('the deviations and the run commands each get their section, which end the body', () => {
@@ -99,7 +99,7 @@ test('the deviations and the run commands each get their section, which end the 
 test('without deviations the section is left out', () => {
   const body = bodyFor({ ...baseData, deviations: [] });
   assert.doesNotMatch(body, /Deviations from the design/);
-  assert.match(body, /\| AC2 \| `greet\.js flag\(\)` \| verified by the test role \|\n\n## How to run it\n/);
+  assert.match(body, /\| AC2 \| `greet\.js flag\(\)` \| covered by the next \/unity:test \|\n\n## How to run it\n/);
 });
 
 test('an @word in the prose is wrapped in backticks, so GitHub mentions nobody', () => {
@@ -147,7 +147,7 @@ test('it prints the counts and the path it wrote as JSON', () => {
 
 const reworkRepo = () => repoWith(['Add the Dutch greeting', 'Validate the name before greeting']);
 
-const reworkFor = (repo, findings, rework = 'test', storyData = story) => {
+const reworkFor = (repo, findings, rework = 'review', storyData = story) => {
   const { dir, result } = generate({ rework, findings }, { repo, name: 'rework-data.json', storyData });
   return { dir, result, comment: result.status === 0 ? fs.readFileSync(path.join(dir, 'rework.md'), 'utf8') : null };
 };
@@ -159,7 +159,7 @@ test('a rework comment is headed Rework, with Design first, whose findings it re
 });
 
 test('a rework needs story.json for the design version', () => {
-  const { result } = reworkFor(reworkRepo(), [{ finding: 'Case 2', disagree: 'no' }], 'test', null);
+  const { result } = reworkFor(reworkRepo(), [{ finding: 'Case 2', disagree: 'no' }], 'review', null);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /story\.json/);
 });
@@ -189,15 +189,17 @@ test('it refuses a finding with neither a fix nor a disagreement', () => {
   assert.match(result.stderr, /findings 1 needs "fix", "commit" and "proof", or "disagree"/);
 });
 
-test('it refuses a rework that names neither test nor review findings', () => {
-  const { result } = reworkFor(reworkRepo(), [{ finding: 'Case 2', disagree: 'no' }], 'design');
-  assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /"rework" must be "test" or "review"/);
+test('it refuses a rework that is not of review findings', () => {
+  for (const role of ['design', 'test']) {
+    const { result } = reworkFor(reworkRepo(), [{ finding: 'Case 2', disagree: 'no' }], role);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /"rework" must be "review"/);
+  }
 });
 
 test('a rework prints its counts and the path it wrote as JSON', () => {
   const repo = reworkRepo();
   const { dir, result } = reworkFor(repo, [{ finding: 'Case 2', fix: 'Validate', commit: headSha(repo), proof: 'unit test' }]);
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(JSON.parse(result.stdout), { comment: path.join(dir, 'rework.md'), rework: 'test', fixed: 1, notFixed: 0 });
+  assert.deepEqual(JSON.parse(result.stdout), { comment: path.join(dir, 'rework.md'), rework: 'review', fixed: 1, notFixed: 0 });
 });
