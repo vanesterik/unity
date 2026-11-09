@@ -37,6 +37,9 @@
 //   pipeline.js digest --since <time> [--stopped <issue>] [--blocked] [--markdown]
 //                                               what an autopilot run merged, where it stopped and what waits in Build, as JSON
 //                                               (--markdown: the digest /unity:autopilot prints)
+//   pipeline.js designs                         the latest design and criteria of every closed issue, as JSON (for /unity:test)
+//   pipeline.js new-story --title <t> --body-file <f>
+//                                               create an issue and put it in Backlog; prints its number and URL as JSON
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -148,6 +151,17 @@ const story = (arg) => {
     pr,
   };
 };
+
+// What the shipped stories promise: the latest design of every closed issue that has one,
+// with its version and acceptance criteria, by issue number. /unity:test tests against these.
+const shippedDesigns = (issues) => issues
+  .filter((issue) => issue.state === 'CLOSED')
+  .map((issue) => ({ issue, design: latestRoleComment(issue.comments || [], 'design') }))
+  .filter(({ design }) => design)
+  .sort((a, b) => a.issue.number - b.issue.number)
+  .map(({ issue, design }) => ({ number: issue.number, title: issue.title, version: designVersion(design.body), criteria: parseCriteria(design.body) }));
+
+const designs = () => shippedDesigns(ghJson(['issue', 'list', '--state', 'closed', '--limit', '1000', '--json', 'number,title,state,comments']) || []);
 
 // Null when the posted design comment is the generated comment.md, otherwise the first line
 // that differs. Line endings and trailing whitespace don't count: GitHub may change them.
@@ -308,6 +322,9 @@ const nextStep = (issue) => {
   return null;
 };
 
+// The branch of a /unity:test run, whose PR closes no issue on purpose.
+const TEST_RUN_BRANCH = /^test\//;
+
 // What needs the developer's attention beyond the columns.
 const boardWarnings = ({ issues, openPrs, mergedPrs, openIssues }) => {
   const warnings = [];
@@ -321,6 +338,7 @@ const boardWarnings = ({ issues, openPrs, mergedPrs, openIssues }) => {
   }
   const onBoard = new Set(issues.map((issue) => issue.number));
   for (const p of openPrs) {
+    if (TEST_RUN_BRANCH.test(p.headRefName || '')) continue;
     const closes = closesIssue(p.body);
     if (closes && onBoard.has(closes)) continue;
     const message = closes ? `PR #${p.number} closes #${closes}, which is not on the board: ${p.url}` : `PR #${p.number} closes no issue: ${p.url}`;
@@ -592,6 +610,17 @@ const setStatus = (issueArg, column) => {
   const item = ghJson(['project', 'item-add', String(config.project.number), '--owner', config.project.owner, '--url', issueUrl(number), '--format', 'json']);
   gh(['project', 'item-edit', '--id', item.id, '--project-id', config.project.id, '--field-id', config.project.statusFieldId, '--single-select-option-id', optionId]);
   console.log(`#${number} -> ${column}`);
+};
+
+// A new story in Backlog, for what /unity:test found: the issue, then its place on the board.
+const newStory = (title, bodyFile) => {
+  if (!title || !bodyFile) die('Usage: pipeline.js new-story --title <title> --body-file <file>');
+  if (!fs.existsSync(bodyFile)) die(`No such file: ${bodyFile}`);
+  const url = gh(['issue', 'create', '--title', title, '--body-file', bodyFile]).split('\n').pop().trim();
+  const number = Number((url.match(/\/issues\/(\d+)$/) || [])[1]);
+  if (!number) die(`gh issue create printed no issue URL: ${url}`);
+  setStatus(number, 'Backlog');
+  return { number, url };
 };
 
 // Issue items of this repo on the board.
@@ -1103,12 +1132,17 @@ if (require.main === module) {
       const result = digest(at('--since'), { stoppedArg: at('--stopped'), withBlocked: args.includes('--blocked') });
       console.log(args.includes('--markdown') ? formatDigest(result) : JSON.stringify(result, null, 2));
     }
+    else if (command === 'designs') console.log(JSON.stringify(designs(), null, 2));
+    else if (command === 'new-story') {
+      const at = (flag) => (args.indexOf(flag) === -1 ? undefined : args[args.indexOf(flag) + 1]);
+      console.log(JSON.stringify(newStory(at('--title'), at('--body-file'))));
+    }
     else if (command === 'test-kinds') console.log(JSON.stringify(testKinds(args[0])));
     else if (command === 'board') console.log(args.includes('--markdown') ? formatBoard(board()) : JSON.stringify(board(), null, 2));
-    else die('Commands: init | resolve | story | design | check-design | comments | pr | tested | queue | check | status | port | board | pointer | summary | merge | reworks | stop | resume | digest | test-kinds');
+    else die('Commands: init | resolve | story | design | check-design | comments | pr | tested | queue | check | status | port | board | pointer | summary | merge | reworks | stop | resume | digest | test-kinds | designs | new-story');
   } catch (error) {
     die(error.stderr ? String(error.stderr) : error.message);
   }
 }
 
-module.exports = { withTestKinds, testKindsOf, designSpec, reviewVerdict, reworkOf, parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, stopColumn, formatStopComment, allRunResults, formatDigest, parseChecksOutput, mergeArgs, mergeOutcome, mergedSince, branchCleanup };
+module.exports = { shippedDesigns, withTestKinds, testKindsOf, designSpec, reviewVerdict, reworkOf, parseCriteria, resolveIssue, latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, stopColumn, formatStopComment, allRunResults, formatDigest, parseChecksOutput, mergeArgs, mergeOutcome, mergedSince, branchCleanup };
