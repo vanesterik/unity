@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { latestRoleComment, columnReport, parseTestSummary, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion } = require('../scripts/pipeline.js');
+const { latestRoleComment, columnReport, commitOf, outsidePaths, closedWorkflowWarning, prForIssue, boardStatus, designVersion } = require('../scripts/pipeline.js');
 
 test('latestRoleComment returns the newest comment carrying the role marker', () => {
   const entries = [
@@ -40,18 +40,12 @@ test('columnReport reports a column with no close match as missing', () => {
   assert.deepEqual(report.misnamed, []);
 });
 
-test('parseTestSummary reads the status and the tested commit from a test summary', () => {
-  const body = '<!-- role:test -->\n## ✅ Test\n\n**Cases:** 9/9 passed  \n**Commit:** `dc1ad16`\n';
-  assert.deepEqual(parseTestSummary(body), { status: 'PASS', commit: 'dc1ad16' });
+test('commitOf reads the commit a role post names', () => {
+  assert.equal(commitOf('<!-- role:review -->\n## ❌ Review\n**Commit:** `abc1234`'), 'abc1234');
 });
 
-test('parseTestSummary reads a failed run', () => {
-  const body = '<!-- role:test -->\n## ❌ Test\n**Commit:** `abc1234`';
-  assert.deepEqual(parseTestSummary(body), { status: 'FAILURE', commit: 'abc1234' });
-});
-
-test('parseTestSummary returns nulls for a body that is not a test summary', () => {
-  assert.deepEqual(parseTestSummary('Looks good'), { status: null, commit: null });
+test('commitOf returns null for a post without a commit', () => {
+  assert.equal(commitOf('Looks good'), null);
 });
 
 test('outsidePaths lists the files that are not under any of the prefixes', () => {
