@@ -25,3 +25,11 @@ test('shippedDesigns sorts by issue number', () => {
   const issues = [12, 3, 8].map((number) => ({ number, title: `#${number}`, state: 'CLOSED', comments: [design(1, ['Rule'])] }));
   assert.deepEqual(shippedDesigns(issues).map((d) => d.number), [3, 8, 12]);
 });
+
+test('shippedDesigns leaves out issues closed as not planned', () => {
+  const issues = [
+    { number: 3, title: 'Shipped', state: 'CLOSED', stateReason: 'COMPLETED', comments: [design(1, ['Rule'])] },
+    { number: 4, title: 'Abandoned', state: 'CLOSED', stateReason: 'NOT_PLANNED', comments: [design(1, ['Rule'])] },
+  ];
+  assert.deepEqual(shippedDesigns(issues).map((d) => d.number), [3]);
+});

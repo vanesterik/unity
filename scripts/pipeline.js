@@ -151,16 +151,17 @@ const story = (arg) => {
   };
 };
 
-// What the shipped stories promise: the latest design of every closed issue that has one,
-// with its version and acceptance criteria, by issue number. /unity:test tests against these.
+// What the shipped stories promise: the latest design of every issue closed as completed that has
+// one (not one closed as not planned or a duplicate), with its version and acceptance criteria, by
+// issue number. /unity:test tests against these.
 const shippedDesigns = (issues) => issues
-  .filter((issue) => issue.state === 'CLOSED')
+  .filter((issue) => issue.state === 'CLOSED' && (!issue.stateReason || issue.stateReason === 'COMPLETED'))
   .map((issue) => ({ issue, design: latestRoleComment(issue.comments || [], 'design') }))
   .filter(({ design }) => design)
   .sort((a, b) => a.issue.number - b.issue.number)
   .map(({ issue, design }) => ({ number: issue.number, title: issue.title, version: designVersion(design.body), criteria: parseCriteria(design.body) }));
 
-const designs = () => shippedDesigns(ghJson(['issue', 'list', '--state', 'closed', '--limit', '1000', '--json', 'number,title,state,comments']) || []);
+const designs = () => shippedDesigns(ghJson(['issue', 'list', '--state', 'closed', '--limit', '1000', '--json', 'number,title,state,stateReason,comments']) || []);
 
 // Null when the posted design comment is the generated comment.md, otherwise the first line
 // that differs. Line endings and trailing whitespace don't count: GitHub may change them.
