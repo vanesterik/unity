@@ -146,3 +146,13 @@ test('a closing keyword in the prose is defused, so merging the test run closes 
   assert.match(body, /resolves `#7`/);
   assert.match(body, /fixes `#12` wrongly/);
 });
+
+test('the kinds of tests the run covered are a field', () => {
+  assert.match(bodyFor(passing), /^\*\*Kinds:\*\* integration  $/m);
+  assert.match(bodyFor({ ...passing, kinds: ['integration', 'e2e'] }), /^\*\*Kinds:\*\* integration, E2E  $/m);
+});
+
+test('it refuses a run without kinds, or with an unknown kind', () => {
+  assert.match(refusal({ ...passing, kinds: [] }), /kinds/);
+  assert.match(refusal({ ...passing, kinds: ['unit'] }), /kinds/);
+});
