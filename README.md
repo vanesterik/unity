@@ -2,13 +2,13 @@
 
 # Unity
 
-**Unity** is a [Claude Code](https://claude.com/claude-code) plugin for a role-based development flow on GitHub: **design → build → test → review**. Design is a conversation with you; build, test and review each run as their own agent with a fresh context, one after the other, from a single command. The GitHub issue, its pull request and a Project board are the only handoff between them.
+**Unity** is a [Claude Code](https://claude.com/claude-code) plugin for a role-based development flow on GitHub: **design → build → review**, plus **`/unity:test`**, which tests the whole project when you choose. Design is a conversation with you; build and review each run as their own agent with a fresh context, one after the other, from a single command. The GitHub issue, its pull request and a Project board are the only handoff between them.
 
 ## Motivation
 
-One agent that designs, builds, tests and reviews its own work in a single conversation grades its own homework. Its context fills up with its own reasoning, and the further a session runs, the less that reasoning is questioned. Unity splits the work into four agents that don't share a context and don't take each other's word for it: the designer agrees the design and testable acceptance criteria with you, the builder implements them test-first, the tester checks the running system against the criteria as a black box, and the reviewer reads the result as someone who has to maintain it next year.
+One agent that designs, builds, tests and reviews its own work in a single conversation grades its own homework. Its context fills up with its own reasoning, and the further a session runs, the less that reasoning is questioned. Unity splits the work into agents that don't share a context and don't take each other's word for it: the designer agrees the design and testable acceptance criteria with you, the builder implements them test-first, and the reviewer reads the result as someone who has to maintain it next year. When you choose, for example at the end of an epic, the tester checks the running system as a whole against every shipped story's criteria and turns what it finds into new stories.
 
-The workflow around them is deterministic. Every role reads the same inputs from GitHub, checks the board before it starts, and hands over through a fixed format: verdicts, coverage and counts are computed by scripts, not written by the agent. That is what makes the output scale. Each story arrives as one pull request with one commit per task, mapped to its acceptance criteria, tested from the outside and reviewed line by line, whether it is the first story in a project or the hundredth.
+The workflow around them is deterministic. Every role reads the same inputs from GitHub, checks the board before it starts, and hands over through a fixed format: verdicts, coverage and counts are computed by scripts, not written by the agent. That is what makes the output scale. Each story arrives as one pull request with one commit per task, mapped to its acceptance criteria, unit-tested and reviewed line by line, whether it is the first story in a project or the hundredth.
 
 ## Name
 
@@ -45,13 +45,13 @@ The repository is its own marketplace.
 
 ## Usage
 
-1. **Set up the project.** Create a GitHub Project with a **Status** field whose options are exactly `Backlog`, `Design`, `Build`, `Test`, `Review` and `Done`. Then, in Claude Code in the repository:
+1. **Set up the project.** Create a GitHub Project with a **Status** field whose options are exactly `Backlog`, `Design`, `Build`, `Review` and `Done`. A `Test` column left from an older unity does no harm. Then, in Claude Code in the repository:
 
    ```
    /unity:init <owner> <project-number>
    ```
 
-   It writes `.claude/pipeline.json` with the board's IDs and the project's start and test commands, adds a workflow section to `CLAUDE.md` and `artifacts/` to `.gitignore`, and enables the plugin. It also asks which tests the test role writes: **integration** tests, **E2E** tests through the browser, or **both**. It proposes an answer from what it finds, and records it as the blocks in `.claude/pipeline.json` and the matching sections in `CLAUDE.md`. It asks you to confirm what it detected, and suggests the commit to make. Run it again to change the choice.
+   It writes `.claude/pipeline.json` with the board's IDs and the project's start and test commands, adds a workflow section to `CLAUDE.md` and `artifacts/` to `.gitignore`, and enables the plugin. It also asks which tests `/unity:test` writes: **integration** tests, **E2E** tests through the browser, or **both**. It proposes an answer from what it finds, and records it as the blocks in `.claude/pipeline.json` and the matching sections in `CLAUDE.md`. It asks you to confirm what it detected, and suggests the commit to make. Run it again to change the choice.
 
 2. **Let the board move merged issues to Done.** This is the only move no role makes, and GitHub's API can't configure it, so you set it once by hand. It works in two links: the pull request that the builder opens has `Closes #<issue>` in its body, so merging it into `main` closes the issue; the board's **Item closed** workflow then sets a closed issue's Status to **Done**. To turn the workflow on:
 
@@ -79,21 +79,17 @@ The repository is its own marketplace.
    /unity:ship <issue>
    ```
 
-   This runs the other three roles one after the other, each as its own agent with a fresh context, so none of them sees your design conversation or another role's reasoning. After each agent, it reads the board and goes on only if the issue moved to the next column. You watch nothing in between. At the end it prints one line per role with its result and link, the path to the tester's local evidence report, then the column and the next step, written by a script from what the roles posted on GitHub. When it stopped early, it also lists the commits that landed since a role last signed off, so you can see where a failure may come from.
+   This runs the builder and the reviewer one after the other, each as its own agent with a fresh context, so none of them sees your design conversation or another role's reasoning. After each agent, it reads the board and goes on only if the issue moved to the next column. You watch nothing in between. At the end it prints one line per role with its result and link, then the column and the next step, written by a script from what the roles posted on GitHub. When it stopped early, it also lists the commits that landed since a role last signed off, so you can see where a failure may come from.
 
-   - **The builder** (`unity:builder`) creates `feature/<issue>-<slug>` from the latest `main` and writes the implementation plan against that code, one commit per task. It implements the plan task by task with unit tests written first, and pushes each task as its own commit to a draft pull request, where it posts the plan as a record. Nobody approves the plan; at handover a script checks it still matches the commits. A script writes the pull request body from the builder's data, with a table that maps every criterion of the design to its code and unit tests. When every task is done, it marks the pull request ready and moves the issue to **Test**.
-   - **The tester** (`unity:tester`) tests the running system against the acceptance criteria as a black box, codifies the cases as the integration or E2E tests the project chose, on the branch, and posts a report on the pull request. On a pass it moves the issue to **Review**; on a failure, back to **Build**. A criterion it couldn't test leaves the issue in **Test**.
-
-     The tester may only write tests, never application code or unit tests, so a failure goes back to the builder instead of being fixed in place. A hook enforces this: the tester writes `artifacts/.test-active` when a run starts and removes it at the end, and while that file exists, edits outside `test.writablePaths` in `.claude/pipeline.json` are blocked. Outside a test run the hook does nothing. If a run is interrupted, the file stays behind and the builder stops until you delete it.
-   - **The reviewer** (`unity:reviewer`) reviews the whole pull request against the design, runs the tests itself, and posts a verdict. Blocking findings send the issue back to **Build**. An approval leaves it in **Review**, ready for you.
+   - **The builder** (`unity:builder`) creates `feature/<issue>-<slug>` from the latest `main` and writes the implementation plan against that code, one commit per task. It implements the plan task by task with unit tests written first, and pushes each task as its own commit to a draft pull request, where it posts the plan as a record. Nobody approves the plan; at handover a script checks it still matches the commits. A script writes the pull request body from the builder's data, with a table that maps every criterion of the design to its code and unit tests. When every task is done, it marks the pull request ready and moves the issue to **Review**. It writes no integration or E2E tests and doesn't run them: a story never waits for them.
+   - **The reviewer** (`unity:reviewer`) reviews the whole pull request against the design, runs the unit tests itself, and posts a verdict. It doesn't test the running system. Blocking findings send the issue back to **Build**. An approval leaves it in **Review**, ready for you.
 
 6. **If it stops early**, its report says why, with the stopping role's report below it:
 
-   - **A failed test or blocking findings** put the issue back in **Build**. Run `/unity:ship <issue>` again: the builder reworks the findings, and test and review run again. Each role runs at most once per `/unity:ship`, so a rework never loops on its own.
-   - **An untested criterion** leaves the issue in **Test** for you to decide: test it another way, accept the gap, or send it back to `/unity:design`.
+   - **Blocking findings** put the issue back in **Build**. Run `/unity:ship <issue>` again: the builder reworks the findings, and review runs again. Each role runs at most once per `/unity:ship`, so a rework never loops on its own.
    - **A role that stopped** before its work (a leftover test marker, a design without criteria) says what it needs.
 
-   To run a single role instead, use `/unity:build`, `/unity:test` or `/unity:review`. Each starts its agent the same way, and `/unity:ship` picks up from whatever column the issue is in.
+   To run a single role instead, use `/unity:build` or `/unity:review`. Each starts its agent the same way, and `/unity:ship` picks up from whatever column the issue is in.
 
 7. **Or let autopilot ship and merge them all**, from the same session:
 
@@ -101,22 +97,32 @@ The repository is its own marketplace.
    /unity:autopilot
    ```
 
-   When you've approved a few designs, autopilot takes every story in **Build**, top of the column first (drag the cards to set the order), and runs the builder, tester and reviewer on each, as `/unity:ship` does. Then it merges the story. Your design approval stays the one human gate. The merge gate becomes a check a script enforces: `pipeline.js merge` rebase-merges a pull request only when the tester's pass and the reviewer's approval are both on its head commit and CI is green. It waits up to 8 minutes for running checks, and autopilot tries a second time while they still run. When it merges, the issue closes and moves to **Done**, the branch is deleted, and the next story starts from the updated `main`. Leave the session open while it runs.
+   When you've approved a few designs, autopilot takes every story in **Build**, top of the column first (drag the cards to set the order), and runs the builder and reviewer on each, as `/unity:ship` does. Then it merges the story. Your design approval stays the one human gate. The merge gate becomes a check a script enforces: `pipeline.js merge` rebase-merges a pull request only when the reviewer's approval is on its head commit and CI is green. Keep integration and E2E tests out of the checks a story's pull request must pass: they belong to `/unity:test`. It waits up to 8 minutes for running checks, and autopilot tries a second time while they still run. When it merges, the issue closes and moves to **Done**, the branch is deleted, and the next story starts from the updated `main`. Leave the session open while it runs.
 
-   - **Rework.** A failed test or blocking findings go back to the builder up to `autopilot.maxReworks` times (in `.claude/pipeline.json`, default 2) before the story counts as stuck.
-   - **The first stuck story ends the run**, because stories designed together usually depend on each other. That covers a story past its rework limit, an untested criterion, a role that stopped, or a merge GitHub refused. The story gets the `autopilot:stopped` label and a comment saying why, and nothing after it starts. A story that stopped in **Build** (past its rework limit, or the builder stopped) moves to **Design**, since that usually means the design didn't hold up; one that stopped in Test or Review stays there.
-   - **Coming back.** Deal with the stopped story, then run `/unity:autopilot` again. Revise it with `/unity:design`, or move it back to **Build** to try it again as it is: either way it goes first, with a fresh rework budget. If you finished it with `/unity:ship` and merged it, the run carries on with the rest. While it's still in Design, Test or Review, autopilot starts nothing and says so.
+   - **Rework.** Blocking findings go back to the builder up to `autopilot.maxReworks` times (in `.claude/pipeline.json`, default 2) before the story counts as stuck.
+   - **The first stuck story ends the run**, because stories designed together usually depend on each other. That covers a story past its rework limit, a role that stopped, or a merge GitHub refused. The story gets the `autopilot:stopped` label and a comment saying why, and nothing after it starts. A story that stopped in **Build** (past its rework limit, or the builder stopped) moves to **Design**, since that usually means the design didn't hold up; one that stopped in Review stays there.
+   - **Coming back.** Deal with the stopped story, then run `/unity:autopilot` again. Revise it with `/unity:design`, or move it back to **Build** to try it again as it is: either way it goes first, with a fresh rework budget. If you finished it with `/unity:ship` and merged it, the run carries on with the rest. While it's still in Design or Review, autopilot starts nothing and says so.
    - **The digest.** The run ends with one summary written by a script: each merged story with its pull request and the commit range it landed on `main` (what you'd revert to undo it), the story it stopped at with every role result of the run, and what still waits in **Build**.
-   - **Stories in Test or Review** when the run starts are left alone. Use `/unity:ship` for those.
+   - **Stories in Review** when the run starts are left alone. Use `/unity:ship` for those.
    - **Where a person must merge**, protect `main` on GitHub (for example, require an approving review from someone other than the author). Autopilot then stops at the refused merge instead of going around it.
 
 8. **Merge**, after `/unity:ship` (autopilot merges for you). Review the pull request commit by commit and merge it with a rebase, so each task stays its own commit on `main`. The `Closes #<issue>` line closes the issue, and the "Item closed" workflow moves it to **Done**. If GitHub doesn't close the issue, close it by hand with a comment on how each criterion was met.
+
+9. **Test the whole project**, when you choose, for example at the end of an epic:
+
+   ```
+   /unity:test
+   ```
+
+   The tester (`unity:tester`) starts the system and reads the latest design of every closed story. It explores the main flows across stories, plus a smoke set (the system starts, its data loads, each entry point answers), and looks for contradictions between stories' rules. Then it revisits the integration or E2E suite the project chose: it adds what those flows need, rewrites what no longer matches a design, and deletes what only repeats unit tests, so the suite stays small. The changes go on a `test/<date>` branch and pull request, for you to review and merge. Every defect it finds becomes a new story in **Backlog**, with how to reproduce it; the failing test stays in the suite until that story fixes it. It never changes application code.
+
+   The tester may only write tests. A hook enforces this: it writes `artifacts/.test-active` when a run starts and removes it at the end, and while that file exists, edits outside `test.writablePaths` in `.claude/pipeline.json` are blocked. If a run is interrupted, the file stays behind and the builder stops until you delete it.
 
 The agents can't ask you anything mid-run: where a role needs a decision, it stops and hands back. Each role also checks the board first, so a role started on an issue in the wrong column stops. Along the way the issue collects a one-line pointer to each role's result, written by a script from what the role posted, so it reads as a timeline of the story. To see where every issue stands and what to run next, without opening GitHub, run `/unity:status`.
 
 ## Board
 
-The board's **Status** field is the workflow state, and each role is named after the column it works in. Design runs in your session; the three roles inside the box run as agents, started by `/unity:ship`. It follows the solid arrows and stops at a dashed one:
+The board's **Status** field is the workflow state, and each role is named after the column it works in. Design runs in your session; the two roles inside the box run as agents, started by `/unity:ship`. It follows the solid arrows and stops at a dashed one:
 
 ```mermaid
 flowchart TB
@@ -126,22 +132,19 @@ flowchart TB
 
     subgraph ship ["/unity:ship: one agent per role, each with a fresh context"]
         Build["<b>Build</b><br/>implementation or rework"]
-        Test["<b>Test</b><br/>black-box testing"]
         Review["<b>Review</b><br/>final code review"]
     end
 
     Backlog -->|"/unity:design picks it up"| Design
     Design -->|"/unity:design on your approval"| Build
-    Build -->|"every task done"| Test
-    Test -->|"pass"| Review
-    Test -.->|"failure"| Build
+    Build -->|"every task done"| Review
     Review -.->|"blocking findings"| Build
     Review -->|"you merge, or /unity:autopilot does; Item closed workflow"| Done
 ```
 
-You add new issues to **Backlog**. A criterion the tester couldn't test leaves the issue in **Test** for you to decide.
+You add new issues to **Backlog**, and so does `/unity:test`, for every defect it finds.
 
-Designs live in the issue, as the latest `role:design` comment, and the builder's plan on the pull request, as a `role:plan` comment; neither is a file in the repository. Build, test and review post on the pull request. Each role output starts with a hidden marker (`<!-- role:test -->`), so the next role finds the latest one.
+Designs live in the issue, as the latest `role:design` comment, and the builder's plan on the pull request, as a `role:plan` comment; neither is a file in the repository. Build and review post on the pull request. Each role output starts with a hidden marker (`<!-- role:review -->`), so the next role finds the latest one.
 
 ## Commands
 
@@ -151,13 +154,13 @@ Designs live in the issue, as the latest `role:design` comment, and the builder'
 | --- | --- |
 | `/unity:init <owner> <project>` | Sets up a repository: `.claude/pipeline.json` with the board IDs and the detected start and test commands and the chosen kinds of tests (integration, E2E or both), the `CLAUDE.md` workflow section, `.gitignore`, plugin settings |
 | `/unity:design <issue>` | Works out the design and acceptance criteria with you, posts them as one issue comment for you to read on GitHub, and moves the issue to Build once you approve the posted version |
-| `/unity:ship <issue>` | Runs the builder, tester and reviewer agents one after the other, from the issue's current column, as long as each one moves it on |
-| `/unity:autopilot` | Builds, tests, reviews and merges every story in Build, top first, through `pipeline.js merge`; stops the run at the first story that can't get to `main` and ends with a digest |
+| `/unity:ship <issue>` | Runs the builder and reviewer agents one after the other, from the issue's current column, as long as each one moves it on |
+| `/unity:autopilot` | Builds, reviews and merges every story in Build, top first, through `pipeline.js merge`; stops the run at the first story that can't get to `main` and ends with a digest |
 | `/unity:status` | Shows every issue on the board per column, with its pull request, latest result and next command, and warns about what the columns don't show; changes nothing |
-| `/unity:build <issue>` | Runs the builder agent: plans the approved design against the current code, implements it task by task with test-first unit tests, opens a pull request that maps each criterion to code and tests, and moves the issue to Test; also reworks test and review findings |
-| `/unity:test <issue>` | Runs the tester agent: tests against the acceptance criteria as a black box, writes the integration or E2E tests the project chose, posts the report on the pull request, and moves the issue to Review or back to Build |
+| `/unity:build <issue>` | Runs the builder agent: plans the approved design against the current code, implements it task by task with test-first unit tests, opens a pull request that maps each criterion to code and tests, and moves the issue to Review; also reworks review findings |
+| `/unity:test` | Runs the tester agent on the whole project, when you choose: explores the flows across shipped stories, revisits the integration or E2E suite in a pull request, and files every defect as a story in Backlog |
 | `/unity:review <issue or PR>` | Runs the reviewer agent: reviews the whole pull request against the design and criteria, posts a verdict with blocking findings and suggestions, and sends the issue back to Build or leaves it ready to merge |
-| `/unity:test-user-story <issue or story>` | Exploratory testing with an evidence report, used by the tester; also usable on its own |
+| `/unity:test-user-story <issue or story>` | Exploratory testing of one story with an evidence report, run by hand |
 | `/unity:write-system-test` | Writes and stabilizes scripted integration or E2E tests of the system as a whole, used by the tester; also usable on its own |
 | `/unity:get-user-story <issue>` | The issue, its latest design and its acceptance criteria, as the other skills use them |
 
@@ -167,9 +170,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Credits
 
-The test role stands on the work of [Tim Lolkema](https://github.com/tlolkema), who built and wrote about agentic testing with agent skills. Unity builds on his code and texts with his consent. Thanks, Tim, for sharing them so generously. ❤️
+The tester and `test-user-story` stand on the work of [Tim Lolkema](https://github.com/tlolkema), who built and wrote about agentic testing with agent skills. Unity builds on his code and texts with his consent. Thanks, Tim, for sharing them so generously. ❤️
 
-- `test-user-story`, from [tlolkema/demo-webshop](https://github.com/tlolkema/demo-webshop): deriving test cases from a user story, executing them with `playwright-cli`, and the rules for framing screenshot and video evidence. Unity adds criterion IDs on every case, retrying a failure before recording it, a pipeline mode without questions, and command-line checks.
+- `test-user-story`, from [tlolkema/demo-webshop](https://github.com/tlolkema/demo-webshop): deriving test cases from a user story, executing them with `playwright-cli`, and the rules for framing screenshot and video evidence. Unity adds criterion IDs on every case, retrying a failure before recording it, and command-line checks.
 - The test report, from the same repository: the HTML template and the generator that fills it from the run's data. Unity adds the acceptance-criteria coverage table, a verdict computed by the generator instead of supplied by the agent, and the markdown summary posted on the pull request. The review, build and design generators follow the same pattern.
 - `write-system-test`, from his `write-e2e-test` in [tlolkema/skills-explained](https://github.com/tlolkema/skills-explained): turning an executed case into a scripted Playwright test and repeating it until it is stable. Unity moves the project-specific paths into `CLAUDE.md` and `.claude/pipeline.json`, so it works across repositories, adds integration tests as a kind the project can choose instead of or next to E2E, and reports a test that stays flaky instead of hiding it.
 - `get-user-story`, from demo-webshop, rewritten to read the issue, its design comment and its acceptance criteria from GitHub.

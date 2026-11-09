@@ -29,7 +29,7 @@ ISSUE: $ARGUMENTS (an issue number, `#42`, an issue or PR URL, or empty for "the
 3. Check the criteria:
    - `criteriaSource: "design-comment"`: use them as they are.
    - `criteriaSource: "issue-body"`: use them, but say the design comment has no acceptance criteria.
-   - `criteria` is empty: stop and report that the issue has no numbered acceptance criteria. The fix belongs in `/unity:design`. Do not invent criteria from the description, because the test role would then be testing its own interpretation instead of what was agreed.
+   - `criteria` is empty: stop and report that the issue has no numbered acceptance criteria. The fix belongs in `/unity:design`. Do not invent criteria from the description, because every role after design would then work from its own interpretation instead of what was agreed.
 
 ## Output
 

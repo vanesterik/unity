@@ -1,6 +1,6 @@
 ---
 name: status
-description: Read-only overview of the unity board - every issue per column, its pull request, its latest role result and the next command to run, plus warnings for what the columns don't show (a test result that no longer covers the PR, a PR without an issue, a merged PR whose issue is still open). Use when the developer asks where things stand or what to run next. Run as /unity:status.
+description: Read-only overview of the unity board - every issue per column, its pull request, its latest role result and the next command to run, plus warnings for what the columns don't show (a PR without an issue, a merged PR whose issue is still open). Use when the developer asks where things stand or what to run next. Run as /unity:status.
 allowed-tools: Bash
 ---
 

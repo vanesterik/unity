@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Runs build, test and review on an issue one after the other, each as its own agent in a fresh context, for as long as each one moves the issue on. Starts from the issue's current column and stops at the first role that doesn't. Run manually as /unity:ship <issue>.
+description: Runs build and review on an issue one after the other, each as its own agent in a fresh context, for as long as each one moves the issue on. Starts from the issue's current column and stops at the first role that doesn't. Run manually as /unity:ship <issue>.
 disable-model-invocation: true
 allowed-tools: Agent, Bash
 ---
@@ -36,14 +36,13 @@ Then repeat until a step says stop:
    | Column | Action |
    | --- | --- |
    | **Build** | Start the `unity:builder` agent. |
-   | **Test** | Start the `unity:tester` agent. |
    | **Review** | Start the `unity:reviewer` agent. |
    | **Backlog** or **Design** | Stop: the design isn't approved yet. The next step is `/unity:design <n>`. |
    | **Done** | Stop: there is nothing left to do. |
 
    Start each agent with the prompt `Issue: <n>`, and wait for it to finish before you read the column again. Run one agent at a time.
 
-3. Stop after the reviewer, whatever its verdict, and when a role ran but the issue didn't move on to the next column (from Build to Test, or from Test to Review). Every role runs at most once per `/unity:ship`, so a failed test or a review with blocking findings never starts a rework loop by itself.
+3. Stop after the reviewer, whatever its verdict, and when a role ran but the issue didn't move on to the next column (from Build to Review). Every role runs at most once per `/unity:ship`, so a review with blocking findings never starts a rework loop by itself.
 
 Don't do any of a role's work yourself, and don't run a role again when it stopped: a stop is for the developer to look at.
 
@@ -59,4 +58,4 @@ Print its output exactly as it is, without adding to it, rewording it or putting
 
 Unless the run ended in **Review** with an approval, add the report of the role that stopped the run below the summary, as it is, so the developer doesn't have to look it up. Its report says why it stopped and what the developer has to decide.
 
-When the run stopped short of an approval, the summary also lists the commits that landed since a role last signed off (a build handover, a passing test or an approval), so the developer sees where a failure may come from. That is the whole output: the summary, and the stopping role's report when there is one. Don't add anything before, between or after them, and don't look into the branch, the commits or the code yourself: what the developer needs from them is in the summary.
+When the run stopped short of an approval, the summary also lists the commits that landed since a role last signed off (a build handover or an approval), so the developer sees where a failure may come from. That is the whole output: the summary, and the stopping role's report when there is one. Don't add anything before, between or after them, and don't look into the branch, the commits or the code yourself: what the developer needs from them is in the summary.

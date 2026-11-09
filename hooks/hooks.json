@@ -1,5 +1,5 @@
 {
-  "description": "unity guardrails: the test role may only edit test paths while a test run is active.",
+  "description": "unity guardrails: /unity:test may only edit test paths while a test run is active.",
   "hooks": {
     "PreToolUse": [
       {

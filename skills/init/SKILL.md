@@ -7,7 +7,7 @@ allowed-tools: Bash, Read, Grep, Glob, Edit, Write
 
 # Init unity
 
-Prepare this repository for the design -> build -> test -> review flow. The plugin holds the shared skills; this skill creates the per-project parts and fills them in from what the repository already contains.
+Prepare this repository for the design -> build -> review flow. The plugin holds the shared skills; this skill creates the per-project parts and fills them in from what the repository already contains.
 
 ## Input
 
@@ -48,11 +48,11 @@ It creates or updates:
 node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" init <owner> <project-number>
 ```
 
-This writes the project, Status field and column IDs into `.claude/pipeline.json`. If it warns about missing or misnamed columns, tell the user exactly which ones to add or rename in the board's **Status** field (Backlog, Design, Build, Test, Review, Done), then run this step again. If it warns that the "Item closed" workflow is off, pass on its steps: without that workflow a merged issue never reaches **Done**. GitHub's API cannot switch it on, so the user does this once on the board. Do not continue until all columns exist.
+This writes the project, Status field and column IDs into `.claude/pipeline.json`. If it warns about missing or misnamed columns, tell the user exactly which ones to add or rename in the board's **Status** field (Backlog, Design, Build, Review, Done), then run this step again. A Test column left from an older unity is fine: nothing uses it, and the user may delete it. If it warns that the "Item closed" workflow is off, pass on its steps: without that workflow a merged issue never reaches **Done**. GitHub's API cannot switch it on, so the user does this once on the board. Do not continue until all columns exist.
 
 ### 4. Fill in the project specifics
 
-First, the kinds of tests the test role writes: **integration**, **E2E**, or **both**. Propose one from what you find:
+First, the kinds of tests `/unity:test` writes: **integration**, **E2E**, or **both**. Propose one from what you find:
 
 - a Playwright config, or an `e2e/` or `tests/e2e/` directory, points to E2E
 - an integration test directory, or a project without a browser UI (a CLI, a library, an MCP server), points to integration
@@ -68,7 +68,7 @@ Then inspect the repository and propose values for the `test` block of `.claude/
 - **i18n**: a messages or translations file, and the helper the code uses for it.
 - **UI components** and the **API layer** (GraphQL schema/resolvers or REST routes).
 
-For a project with nothing to start (a CLI tool or a library), set `test.start`, `test.stop`, `test.healthUrl` and `test.baseUrl` to empty strings: the test role then runs everything in the PR checkout. `integration.runCommand` runs every integration test and must not be part of the unit test command.
+For a project with nothing to start (a CLI tool or a library), set `test.start`, `test.stop`, `test.healthUrl` and `test.baseUrl` to empty strings: `/unity:test` then runs everything in the checkout. `integration.runCommand` runs every integration test and must not be part of the unit test command.
 
 For a project with a browser UI, also create `environments.json` from the plugin's template if it is missing (`cp "${CLAUDE_SKILL_DIR}/../../templates/environments.json" environments.json`) and propose its URLs. `test-user-story` offers these environments when it runs on its own; `/unity:test` doesn't need them.
 

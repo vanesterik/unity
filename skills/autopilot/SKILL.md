@@ -1,13 +1,13 @@
 ---
 name: autopilot
-description: Builds, tests, reviews and merges every approved story in the Build column, one story at a time and top first, each role as its own agent in a fresh context. Merges only through pipeline.js merge, stops the whole run at the first story that can't get there, and ends with a digest written by a script. Run manually as /unity:autopilot.
+description: Builds, reviews and merges every approved story in the Build column, one story at a time and top first, each role as its own agent in a fresh context. Merges only through pipeline.js merge, stops the whole run at the first story that can't get there, and ends with a digest written by a script. Run manually as /unity:autopilot.
 disable-model-invocation: true
 allowed-tools: Agent, Bash
 ---
 
 # Autopilot
 
-Take every story whose design the developer approved, in **Build**, all the way to `main` without the developer: build, test, review and merge, one story after another. The developer's approval of the design is the one human gate. Autopilot replaces the merge gate with `pipeline.js merge`, which merges only when the tester and the reviewer signed off on the commit being merged and CI is green.
+Take every story whose design the developer approved, in **Build**, all the way to `main` without the developer: build, review and merge, one story after another. The developer's approval of the design is the one human gate. Autopilot replaces the merge gate with `pipeline.js merge`, which merges only when the reviewer approved the commit being merged and CI is green.
 
 This session only starts the agents, reads the board between them, and calls `pipeline.js`. The board and the scripts decide whether to go on, not a reading of the reports. The developer has left the session running and is not watching: never ask them anything during the run.
 
@@ -18,7 +18,7 @@ This skill takes no arguments. Running it is the opt-in.
 - **Never do a role's work yourself**, before, between or after the agents. Don't fix code, tests, the branch or the pull request.
 - **Merge only with `pipeline.js merge`.** Never run `gh pr merge` or push to `main` yourself.
 - **One agent at a time**, one story at a time.
-- **Only take stories from Build.** Never take an issue from Backlog or Design (only `pipeline.js stop` moves a stuck story into Design), and never start a story that is in Test or Review when the run starts: the developer may be handling it.
+- **Only take stories from Build.** Never take an issue from Backlog or Design (only `pipeline.js stop` moves a stuck story into Design), and never start a story that is in Review when the run starts: the developer may be handling it.
 - **The first story that can't get to `main` ends the run.** Later stories may depend on it.
 - Script output is printed exactly as the script writes it: no rewording, no code block, nothing added.
 
@@ -73,7 +73,6 @@ Repeat until the story merges or stops:
    | Column | Action |
    | --- | --- |
    | **Build** | Start the `unity:builder` agent. |
-   | **Test** | Start the `unity:tester` agent. |
    | **Review** | Start the `unity:reviewer` agent. |
    | **Backlog**, **Design** or **Done** | Stop the story: `#<n> moved to <column> during the run`. |
 
@@ -83,11 +82,8 @@ Repeat until the story merges or stops:
 
    | Agent | Column after it | Next |
    | --- | --- | --- |
-   | builder | Test | Start the tester. |
+   | builder | Review | Start the reviewer. |
    | builder | anything else | Stop the story. The reason is the builder's own stop, in one line. |
-   | tester | Review | Start the reviewer. |
-   | tester | Build | A failed test: check the rework budget (below). |
-   | tester | Test | Stop the story: `criteria left untested`. |
    | reviewer | Review | Merge (below). `pipeline.js merge` checks the approval itself. |
    | reviewer | Build | Blocking findings: check the rework budget (below). |
    | any | another column | Stop the story. The reason is the role's own stop, in one line. |
@@ -98,7 +94,7 @@ Repeat until the story merges or stops:
    pipeline.js reworks <n> --since <start>
    ```
 
-   If `reworks` is less than `max`, start the builder again: it reworks the findings, then the tester and reviewer run again. Otherwise stop the story: `failed <test|review> after <max> reworks`.
+   If `reworks` is less than `max`, start the builder again: it reworks the findings, then the reviewer runs again. Otherwise stop the story: `failed review after <max> reworks`.
 
    **Merge.** Run:
 

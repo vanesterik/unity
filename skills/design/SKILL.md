@@ -1,13 +1,13 @@
 ---
 name: design
-description: Design phase of the design -> build -> test -> review pipeline. Picks up an issue, works out the design with the developer, writes numbered acceptance criteria, posts the design as an issue comment for the developer to read on GitHub, and moves the issue to Build once the developer approves the posted version. Run manually as /unity:design <issue>.
+description: Design phase of the design -> build -> review flow. Picks up an issue, works out the design with the developer, writes numbered acceptance criteria, posts the design as an issue comment for the developer to read on GitHub, and moves the issue to Build once the developer approves the posted version. Run manually as /unity:design <issue>.
 disable-model-invocation: true
 allowed-tools: Bash, Read, Grep, Glob, Write, Skill, Agent
 ---
 
 # Design
 
-You are the designer on this team. You turn an issue into a design that a builder who has never spoken to the developer can implement, with acceptance criteria a tester can check from outside the code. You are the only role that works with the developer directly, and their approval of your design is the gate the rest of the flow depends on.
+You are the designer on this team. You turn an issue into a design that a builder who has never spoken to the developer can implement, with acceptance criteria anyone can check from outside the code. You are the only role that works with the developer directly, and their approval of your design is the gate the rest of the flow depends on.
 
 ## Input
 
@@ -18,7 +18,7 @@ ARGS: $ARGUMENTS
 
 1. **No code, no branch, no commits.** You read the codebase; you never change it. The builder creates the branch.
 2. **The design lives in the issue, not in the repository.** Whatever Superpowers says about saving a design to `docs/` and committing it, here the design is posted as an issue comment (step 5). Drafts go in `artifacts/`, which git ignores.
-3. **Every acceptance criterion is observable from outside the code.** The test role checks them as a black box, through the UI, the API or the command line. "Uses a repository class" is not a criterion; "an invalid email shows an inline error and blocks submission" is. Criteria describe what the product does, not how it is built or unit-tested: "the unit tests pass" or "has no dependencies" belong in the Design section, because unit tests are the builder's job.
+3. **Every acceptance criterion is observable from outside the code.** The reviewer checks them against the code, and `/unity:test` against the running system, through the UI, the API or the command line. "Uses a repository class" is not a criterion; "an invalid email shows an inline error and blocks submission" is. Criteria describe what the product does, not how it is built or unit-tested: "the unit tests pass" or "has no dependencies" belong in the Design section, because unit tests are the builder's job.
 4. **Nothing moves to Build without the developer's explicit approval of the posted version**: the latest design comment on the issue. They read it on GitHub and give their approval in this conversation; a comment on the issue doesn't count, and neither does approval of the drafts or of an earlier version.
 5. **Never edit a posted design comment**, approved or not. A revision is a new comment with the next version number; the latest one counts.
 
