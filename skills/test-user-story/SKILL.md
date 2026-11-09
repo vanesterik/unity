@@ -1,6 +1,6 @@
 ---
 name: test-user-story
-description: Exploratory, agentic testing of a user story or GitHub issue in a real browser using the 'playwright-cli' skill. Derives test cases from the acceptance criteria, executes them, and produces an evidence report with criteria coverage. Trigger when the user asks to test a user story or issue, or to verify local development changes. Also used by the unity:tester agent.
+description: Exploratory, agentic testing of a user story or GitHub issue in a real browser using the 'playwright-cli' skill. Derives test cases from the acceptance criteria, executes them, and produces an evidence report with criteria coverage. Trigger when the user asks to test a user story or issue, or to verify local development changes. Run by hand: unity's flow has no per-story test.
 allowed-tools: Bash
 ---
 
@@ -8,12 +8,11 @@ allowed-tools: Bash
 
 Validate a user story by deriving test cases from its acceptance criteria and executing each one with the `playwright-cli` skill. Produce evidence of what was actually done, not just a verdict.
 
-Based on Tim Lolkema's test-user-story skill, adapted for the design -> build -> test -> review pipeline.
+Based on Tim Lolkema's test-user-story skill, adapted for unity, where the developer runs it by hand on one story.
 
 ## Variables
 
 INPUT: the full text of $ARGUMENTS
-PIPELINE_MODE: true when this skill is called by the `unity:tester` agent (the caller passes `pipeline` plus the issue number, environment URL and evidence type). In pipeline mode, ask no questions and use the values passed in.
 
 - If INPUT is an issue number, issue URL, or "this branch", use the `unity:get-user-story` skill to retrieve the story and its acceptance criteria.
 - If INPUT is free text, treat it as the story. Extract or ask for numbered acceptance criteria (AC1, AC2, ...) before continuing.
@@ -42,7 +41,6 @@ Do not proceed to Step 2 until this list is complete.
 
 ### Step 2 - Selection
 
-In PIPELINE_MODE, skip the questions: execute all cases, use the environment URL and evidence type passed in, and continue.
 
 Otherwise, ask in one multiple-choice round:
 
@@ -159,7 +157,7 @@ Before reporting completion, verify:
 - Each screenshot, or complementary set for one checkpoint, visibly includes everything relevant to its labeled step. Reject top-of-page-only or clipped captures.
 - Every acceptance criterion is either covered by an executed case or deliberately left UNTESTED with the reason stated.
 
-Open `index.html` in the default browser only when not in PIPELINE_MODE:
+Open `index.html` in the default browser:
 
 ```bash
 node -e "const{execSync}=require('child_process');const c=process.platform;const r='artifacts/<run-name>/index.html';execSync(c==='win32'?'start \"\" \"'+r+'\"':c==='darwin'?'open '+r:'xdg-open '+r,{cwd:process.cwd()})"
@@ -168,5 +166,3 @@ node -e "const{execSync}=require('child_process');const c=process.platform;const
 ### Step 5 - Report
 
 Print the contents of `summary.md`, followed by the absolute `file://` path to `index.html`. Do not write a separate summary by hand, so the result is identical in every run.
-
-In PIPELINE_MODE, also return the generator's JSON line (`overallStatus` and the paths) to the caller.

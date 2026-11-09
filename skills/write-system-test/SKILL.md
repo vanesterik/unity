@@ -1,13 +1,13 @@
 ---
 name: write-system-test
-description: Systematically write scripted tests of the system as a whole (integration tests, Playwright E2E tests, or both, as the project chose), from planning through implementation and stability validation, following the project's conventions. Use when the user asks to "write an integration test", "write an e2e test", "add tests for [feature]", or to codify scenarios found by test-user-story. Used by the unity:tester agent to turn explored scenarios into tests.
+description: Systematically write scripted tests of the system as a whole (integration tests, Playwright E2E tests, or both, as the project chose), from planning through implementation and stability validation, following the project's conventions. Use when the user asks to "write an integration test", "write an e2e test", "add tests for [feature]", or to codify scenarios found by test-user-story. Used by the unity:tester agent when /unity:test revisits the project's whole suite.
 ---
 
 # Write System Test
 
 Create scripted tests of the system as a whole, following the project's conventions: **integration tests** in the project's own test framework, **E2E tests** with Playwright through the browser, or both. Unit tests are not this skill's: they belong to the builder.
 
-Based on Tim Lolkema's write-e2e-test skill, adapted for the design -> build -> test -> review pipeline. Project-specific paths now live in `CLAUDE.md` and `.claude/pipeline.json`, so this skill works across repositories.
+Based on Tim Lolkema's write-e2e-test skill, adapted for unity's design -> build -> review flow and its manual `/unity:test`. Project-specific paths now live in `CLAUDE.md` and `.claude/pipeline.json`, so this skill works across repositories.
 
 During a test run, a unity plugin hook blocks edits outside the test paths.
 
@@ -30,13 +30,13 @@ If the section is missing, ask the user for these locations and suggest adding t
 
 ### 1. Define test requirements
 
-**Inside the `unity:tester` agent**, the requirements already exist: the cases executed by `test-user-story` and the acceptance criteria. Select the ones worth codifying:
+**Inside the `unity:tester` agent** (project mode, for `/unity:test`), the requirements already exist: the designs of the shipped stories (`pipeline.js designs`) and the flows and smoke set the agent chose. Keep the suite small:
 
-- every case that verifies an acceptance criterion
-- every FAIL caused by the application (the test becomes the builder's target)
-- exploratory cases only if they protect against a realistic regression
+- one test per main flow across stories, checking each story's rule where the flow passes it
+- a smoke set: the system starts with its real command and configuration, its real data loads, each entry point answers once
+- every failure caused by the application stays as a failing test; the agent files a story for it
 
-Skip cases that are slow, inherently visual, or already covered by the builder's unit tests.
+Skip anything slow, inherently visual, or already reachable by the builder's unit tests.
 
 **Used on its own**, ask clarifying questions about scope first, for example:
 
@@ -60,7 +60,7 @@ You read the implementation to learn how to drive and observe the system. Never 
 - Identify UI elements, form fields and interactive elements.
 - Check for proper accessibility attributes (labels, roles, ARIA).
 
-**Accessibility check**: if the implementation lacks proper labels, roles or ARIA attributes, do not fix the component and do not fall back to a poor locator. Record it as a finding (a FAIL or a note in the test report) with the suggested fix, so it goes back to the builder.
+**Accessibility check**: if the implementation lacks proper labels, roles or ARIA attributes, do not fix the component and do not fall back to a poor locator. Record it as a finding with the suggested fix: on its own, in your report; inside `/unity:test`, as a new story.
 
 **API calls**: identify the GraphQL operations or REST endpoints the feature uses and what data flows through them. Note the requests the test must wait on with `page.waitForResponse`.
 
@@ -68,7 +68,7 @@ You read the implementation to learn how to drive and observe the system. Never 
 
 ### 3. Approval
 
-Inside the `unity:tester` agent, in pipeline mode, skip this step; the selection rules in step 1 apply.
+Inside the `unity:tester` agent, in project mode, skip this step; the selection rules in step 1 apply.
 
 Otherwise, present the plan: the tests you will write, what each covers and which criterion it verifies. Wait for approval.
 
@@ -77,7 +77,7 @@ Otherwise, present the plan: the tests you will write, what each covers and whic
 **For every kind:**
 
 - Title every test starting with "Should", and group tests in descriptive blocks (`describe`, a test class, a module), as the framework does.
-- Tag every test with the issue and its criteria, for traceability: `@issue-42 @AC2` in the title, or the framework's own tag or marker.
+- Tag every test with the issues and criteria it covers, for traceability: `@issue-42 @AC2` in the title, or the framework's own tag or marker. A flow across stories carries every issue it passes: `@issue-143 @issue-148 @AC2`.
 - Keep tests parallelizable: no shared mutable state, unique test data.
 
 **Integration tests**: in `integration.dir`, in the project's own test framework, grouped by feature.
@@ -123,7 +123,7 @@ Before completing, verify for every test:
 
 - [ ] Only the kinds `test-kinds` lists, each in its own directory
 - [ ] Inside a descriptive block, title starts with "Should"
-- [ ] Tagged with `@issue-<n>` and its criterion IDs
+- [ ] Tagged with every `@issue-<n>` and criterion ID it covers
 - [ ] Runs in isolation, repeatedly, and in parallel with other tests
 - [ ] Passing tests pass every repetition; failing tests fail on the criterion assertion, for an application reason that is documented
 - [ ] No application code or unit tests were modified
