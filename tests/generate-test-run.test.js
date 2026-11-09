@@ -126,3 +126,23 @@ test('it prints the path, the run and the stories as JSON', () => {
   const { dir, result } = generate(failing);
   assert.deepEqual(JSON.parse(result.stdout), { path: path.join(dir, 'pr-body.md'), passed: 17, total: 18, stories: [160] });
 });
+
+test('it refuses a failing test without a story number, and a story without a number', () => {
+  assert.match(refusal({ ...failing, failing: [{ test: 'x' }], stories: [{ title: 'No number' }] }), /story/);
+  assert.match(refusal({ ...passing, stories: [{ title: 'No number' }] }), /number/);
+});
+
+test('it refuses a change without a file', () => {
+  assert.match(refusal({ ...passing, changes: [{ action: 'added', reason: 'x' }] }), /file/);
+});
+
+test('a closing keyword in the prose is defused, so merging the test run closes no issue', () => {
+  const body = bodyFor({
+    ...failing,
+    changes: [{ action: 'rewritten', file: 'a.test.ts', reason: 'resolves #7 check' }],
+    stories: [{ number: 160, title: 'Rounding fixes #12 wrongly' }],
+  });
+  assert.doesNotMatch(body, /(closes|fixes|resolves) #\d/i);
+  assert.match(body, /resolves `#7`/);
+  assert.match(body, /fixes `#12` wrongly/);
+});

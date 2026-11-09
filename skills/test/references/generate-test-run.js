@@ -3,7 +3,8 @@
 // - the heading is ✅ Test when every test passed, ❌ Test otherwise
 // - every failing test names the new story it was filed as, and the failing count matches the run
 // - the commits and the head commit come from git (main..HEAD), never from the data
-// - @words in prose are wrapped in backticks, so GitHub mentions nobody
+// - @words in prose are wrapped in backticks, so GitHub mentions nobody, and so is the #n after a closing
+//   keyword, so merging the test run closes no issue
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -25,7 +26,9 @@ const data = JSON.parse(fs.readFileSync(absoluteDataPath, 'utf8'));
 
 // Markdown table cells: no pipes or line breaks.
 const flat = (value = '') => String(value).replace(/\|/g, '\\|').replace(/\s*\n\s*/g, ' ').trim();
-const mentions = (value = '') => String(value).replace(/(^|[^\w`])@([A-Za-z0-9][\w-]*)/g, '$1`@$2`');
+const mentions = (value = '') => String(value)
+  .replace(/(^|[^\w`])@([A-Za-z0-9][\w-]*)/g, '$1`@$2`')
+  .replace(/\b((?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+)#(\d+)/gi, '$1`#$2`');
 const code = (value = '') => `\`${flat(value)}\``;
 const list = (value) => (Array.isArray(value) ? value : []);
 const count = (value) => Number.isInteger(value) && value >= 0;
@@ -53,13 +56,18 @@ const flows = list(data.flows);
 const changes = list(data.changes);
 const failing = list(data.failing);
 const stories = list(data.stories);
+const positive = (value) => Number.isInteger(value) && value > 0;
+for (const story of stories) {
+  if (!positive(story.number)) fail(`story "${story.title}" needs the issue "number" that pipeline.js new-story printed`);
+}
 for (const change of changes) {
+  if (typeof change.file !== 'string' || !change.file.trim()) fail(`a change with action "${change.action}" needs a "file"`);
   if (!ACTIONS.includes(change.action)) fail(`change "${change.file}" has action "${change.action}"; use ${ACTIONS.join(', ')}`);
 }
 if (failing.length !== run.total - run.passed) fail(`"failing" lists ${failing.length} tests, but the run has ${run.total - run.passed} failing`);
 const storyOf = new Map(stories.map((story) => [story.number, story]));
 for (const entry of failing) {
-  if (!storyOf.has(entry.story)) fail(`failing test "${entry.test}" names story #${entry.story}, which is not among "stories": file a story for every failure`);
+  if (!positive(entry.story) || !storyOf.has(entry.story)) fail(`failing test "${entry.test}" names story #${entry.story}, which is not among "stories": file a story for every failure`);
 }
 const commits = branchCommits();
 if (!commits.length) fail('the branch has no commits since main');
