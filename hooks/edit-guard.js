@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// PreToolUse guard for the test role. Active only while a test run is in progress,
+// PreToolUse guard for /unity:test. Active only while a test run is in progress,
 // which the tester agent signals by writing artifacts/.test-active in the project.
 // While active, Edit/Write/MultiEdit outside test.writablePaths (.claude/pipeline.json) is blocked (exit 2).
 // This is a guardrail, not a sandbox: shell commands are not intercepted.
@@ -35,11 +35,10 @@ process.stdin.on('end', () => {
   const relative = path.relative(root, path.resolve(root, filePath)).split(path.sep).join('/');
   if (!outsidePaths([relative], allowed).length) process.exit(0);
 
-  const issue = fs.readFileSync(marker, 'utf8').trim();
   console.error(
-    `Test run${issue ? ` for #${issue}` : ''} is active: the test role may not modify ${relative}.\n` +
-    `The test role writes only to: ${allowed.join(', ')}.\n` +
-    'If the application is wrong, keep the failing test, record the failure in report-data.json, and send the issue back to Build.\n' +
+    `A /unity:test run is active: it may not modify ${relative}.\n` +
+    `/unity:test writes only to: ${allowed.join(', ')}.\n` +
+    'If the application is wrong, keep the failing test and file a new story for it with pipeline.js new-story.\n' +
     '(No test run in progress? A previous run did not clean up: delete artifacts/.test-active.)'
   );
   process.exit(2);
