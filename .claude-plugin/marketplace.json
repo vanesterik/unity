@@ -3,12 +3,12 @@
   "owner": {
     "name": "Koen van Esterik"
   },
-  "description": "Marketplace for unity: a role-based development flow (design -> build -> test -> review) for Claude Code on GitHub issues and Projects.",
+  "description": "Marketplace for unity: a role-based development flow (design -> build -> review, plus a manual /unity:test) for Claude Code on GitHub issues and Projects.",
   "plugins": [
     {
       "name": "unity",
       "source": "./",
-      "description": "Role-based development flow (design -> build -> test -> review) on GitHub issues and Projects."
+      "description": "Role-based development flow (design -> build -> review, plus a manual /unity:test) on GitHub issues and Projects."
     }
   ]
 }

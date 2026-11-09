@@ -106,7 +106,7 @@ Run the test on its own several times to verify stability:
 When it fails, first decide **whose fault it is**:
 
 - **The test is wrong** (wrong locator, missing wait, wrong translation key, timing, bad test data): fix the test and rerun. Repeat until it passes all repetitions.
-- **The application is wrong** (it behaves contrary to the acceptance criterion): do not change the application and do not weaken the assertion. Keep the test as written, confirm it fails for the right reason (the assertion on the criterion, not a setup error), and report it as an application failure. This failing test is the builder's target.
+- **The application is wrong** (it behaves contrary to the acceptance criterion): do not change the application and do not weaken the assertion. Keep the test as written, confirm it fails for the right reason (the assertion on the criterion, not a setup error), and report it as an application failure. Inside `/unity:test`, the agent files a story for it.
 - **It passes only some of the time** after the test itself is sound: report it as a flakiness finding with the failure output. Do not add retries or sleeps to hide it.
 
 Common test-side issues:

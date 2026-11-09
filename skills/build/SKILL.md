@@ -1,13 +1,13 @@
 ---
 name: build
-description: Build phase of the design -> build -> test -> review pipeline. Runs the builder agent on one issue in a fresh context. Run manually as /unity:build <issue>.
+description: Build phase of the design -> build -> review flow. Runs the builder agent on one issue in a fresh context. Run manually as /unity:build <issue>.
 disable-model-invocation: true
 allowed-tools: Agent, Bash
 ---
 
 # Build
 
-Run the build role on one issue. The role itself is the `unity:builder` agent, which runs in a fresh context: nothing of this conversation reaches it, and GitHub is its only input. To run build, test and review one after the other, use `/unity:ship` instead.
+Run the build role on one issue. The role itself is the `unity:builder` agent, which runs in a fresh context: nothing of this conversation reaches it, and GitHub is its only input. To run build and review one after the other, use `/unity:ship` instead.
 
 ISSUE: $ARGUMENTS (a number, `#42`, an issue or PR URL, or empty)
 
@@ -16,7 +16,7 @@ ISSUE: $ARGUMENTS (a number, `#42`, an issue or PR URL, or empty)
 3. Read the issue's column (the number from ISSUE, or from the report):
 
    ```bash
-   node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" check <n> Test
+   node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" check <n> Review
    ```
 
    It prints the column as JSON, and exits non-zero when the issue is in another one. That is not an error here.
@@ -25,6 +25,6 @@ ISSUE: $ARGUMENTS (a number, `#42`, an issue or PR URL, or empty)
 
    | Column | Next step |
    | --- | --- |
-   | **Test** | `/unity:test <n>`, or `/unity:ship <n>` to test and review it in one go |
+   | **Review** | `/unity:review <n>`, or `/unity:ship <n>` to review it |
    | **Build** | The builder stopped; its report says why. |
    | Any other | The agent stopped before its work; its report says why. |

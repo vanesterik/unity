@@ -1,13 +1,13 @@
 ---
 name: review
-description: Review phase of the design -> build -> test -> review pipeline. Runs the reviewer agent on one issue in a fresh context. Run manually as /unity:review <issue>.
+description: Review phase of the design -> build -> review flow. Runs the reviewer agent on one issue in a fresh context. Run manually as /unity:review <issue>.
 disable-model-invocation: true
 allowed-tools: Agent, Bash
 ---
 
 # Review
 
-Run the review role on one issue. The role itself is the `unity:reviewer` agent, which runs in a fresh context: nothing of this conversation reaches it, and GitHub is its only input. To run build, test and review one after the other, use `/unity:ship` instead.
+Run the review role on one issue. The role itself is the `unity:reviewer` agent, which runs in a fresh context: nothing of this conversation reaches it, and GitHub is its only input. To run build and review one after the other, use `/unity:ship` instead.
 
 ISSUE: $ARGUMENTS (a number, `#42`, an issue or PR URL, or empty)
 
@@ -27,5 +27,4 @@ ISSUE: $ARGUMENTS (a number, `#42`, an issue or PR URL, or empty)
    | --- | --- |
    | **Review** | Ready to merge: read the pull request commit by commit and merge it with a rebase. |
    | **Build** | Changes requested: `/unity:build <n>` reworks them, or `/unity:ship <n>` reworks them and runs the rest. |
-   | **Test** | The pull request changed after testing: `/unity:test <n>`. |
    | Any other | The agent stopped before its work; its report says why. |
