@@ -33,7 +33,7 @@ Stop, and say which, when:
 
 - the checkout isn't a clean `main`, up to date with `origin/main` (`git status --porcelain`, `git fetch`, `git status -sb`)
 - `pipeline.js test-kinds` prints `[]`: the project hasn't chosen integration or E2E tests; run `/unity:init`
-- a chosen kind has no `runCommand` in `.claude/pipeline.json`
+- a chosen kind has no `runCommand` in `.claude/pipeline.json`, or it is still the template's placeholder (a value in angle brackets, such as `<command that runs every integration test>`): fill it in with `/unity:init`
 - a test run's PR is still open: `gh pr list --state open --json headRefName,url` lists a branch that starts with `test/`; the developer merges or closes it first
 
 ### 2. Start
@@ -97,6 +97,7 @@ Write `artifacts/test-run-$STAMP/test-run.json`:
 }
 ```
 
+- `kinds` is what `pipeline.js test-kinds` printed.
 - `action` is `added`, `rewritten`, `kept` or `deleted`. List kept tests too, so the next run sees why they stayed.
 - Every failing test names the story you filed for it; contradictions without a failing test go in `stories` only.
 

@@ -17,8 +17,11 @@ test('reworkOf reads whose findings a rework answers, and its counts', () => {
   assert.equal(reworkOf(testPost('✅')), null);
 });
 
-test('reworkOf no longer accepts test findings', () => {
-  assert.deepEqual(reworkOf(reworkPost('test')), { role: null, fixed: 2, notFixed: 1 });
+test('an old rework of test findings still reads as one, in the summaries and the pointer', () => {
+  assert.deepEqual(reworkOf(reworkPost('test')), { role: 'test', fixed: 2, notFixed: 1 });
+  const [result] = runResults([{ body: reworkPost('test'), createdAt: '2026-11-05T09:00:00Z', url: 'w' }], '2026-11-05T08:00:00Z');
+  assert.equal(result.line, '🔨 Rework of test findings: 2 fixed, 1 not fixed');
+  assert.equal(formatPointer('build', { body: reworkPost('test'), url: 'w' }), '🔨 Reworked test findings: w');
 });
 
 test('latestResult and signOffs read the new headings, and skip old test posts', () => {

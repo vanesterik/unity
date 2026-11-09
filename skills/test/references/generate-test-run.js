@@ -47,7 +47,10 @@ const branchCommits = () => {
 };
 
 const ACTIONS = ['added', 'rewritten', 'kept', 'deleted'];
+const KINDS = { integration: 'integration', e2e: 'E2E' };
 
+const kinds = list(data.kinds);
+if (!kinds.length || !kinds.every((kind) => Object.hasOwn(KINDS, kind))) fail('"kinds" lists the kinds of tests the run covered: integration, e2e or both, as pipeline.js test-kinds prints them');
 const run = data.run || {};
 if (!count(run.passed) || !count(run.total) || run.passed > run.total) fail('"run" needs whole numbers "passed" and "total", with passed <= total');
 const suite = data.suite || {};
@@ -76,6 +79,7 @@ const md = [];
 md.push('<!-- unity:test-run -->');
 md.push(`## ${run.passed === run.total ? '✅' : '❌'} Test`);
 md.push('');
+md.push(`**Kinds:** ${kinds.map((kind) => KINDS[kind]).join(', ')}  `);
 md.push(`**Suite:** ${suite.before} → ${suite.after} tests  `);
 md.push(`**Run:** ${run.passed}/${run.total} passed  `);
 md.push(`**New stories:** ${stories.length ? stories.map((story) => `#${story.number}`).join(', ') : 'none'}  `);

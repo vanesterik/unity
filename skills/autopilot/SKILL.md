@@ -106,7 +106,7 @@ Repeat until the story merges or stops:
 
 ### 5. Stop a story
 
-When a story stops, record why on the issue and take it out of the queue, with the URL of the result that stopped it (the failing test, the review, or none):
+When a story stops, record why on the issue and take it out of the queue, with the URL of the result that stopped it (the review, or none):
 
 ```bash
 pipeline.js stop <n> --reason "<reason>" [--url <url>]

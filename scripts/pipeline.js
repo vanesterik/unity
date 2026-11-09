@@ -245,12 +245,13 @@ const REVIEW_VERDICT = { '✅': 'APPROVE', '❌': 'CHANGES REQUESTED' };
 
 const reviewVerdict = (body = '') => REVIEW_VERDICT[headingIcon(body, 'Review')] || null;
 
-// A rework post: whose findings it answers and its counts, or null for any other post.
+// A rework post: whose findings it answers and its counts, or null for any other post. A rework
+// of test findings is from before unity dropped the per-story test; it still reads as one.
 const reworkOf = (body = '') => {
   if (!/^##\s+Rework\s*$/m.test(body)) return null;
   const value = (name) => (body.match(new RegExp(`^\\*\\*${name}:\\*\\*\\s+(.+?)\\s*$`, 'm')) || [])[1] || null;
   const role = value('Findings of');
-  return { role: role === 'review' ? role : null, fixed: Number(value('Fixed')) || 0, notFixed: Number(value('Not fixed')) || 0 };
+  return { role: /^(test|review)$/.test(role || '') ? role : null, fixed: Number(value('Fixed')) || 0, notFixed: Number(value('Not fixed')) || 0 };
 };
 
 // The commit a role post names in its **Commit:** field, or null.
