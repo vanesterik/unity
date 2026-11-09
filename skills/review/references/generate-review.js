@@ -66,7 +66,9 @@ const blocking = findings('blocking');
 const suggestions = findings('suggestions');
 
 const tests = data.tests || {};
-const runs = ['unit', 'integration'].map((kind) => {
+const extra = Object.keys(tests).filter((kind) => kind !== 'unit');
+if (extra.length) fail(`${extra.map((kind) => `"tests.${kind}"`).join(', ')} not allowed: the reviewer runs the unit tests only; /unity:test owns integration and E2E tests`);
+const runs = ['unit'].map((kind) => {
   const run = tests[kind] || {};
   if (!Number.isInteger(run.passed) || !Number.isInteger(run.total) || run.passed > run.total) {
     fail(`"tests.${kind}" needs whole numbers "passed" and "total", with passed <= total`);
