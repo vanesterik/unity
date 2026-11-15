@@ -26,3 +26,9 @@ test('the README names the model of every role', () => {
     assert.ok(row.includes(modelOf(name)), `the README row for ${name} doesn't name ${modelOf(name)}`);
   }
 });
+
+test('the reviewer fetches the diff once', () => {
+  const text = agent('reviewer');
+  assert.equal((text.match(/^gh pr diff <pr>$/gm) || []).length, 1);
+  assert.doesNotMatch(text, /The full diff, commit by commit/);
+});
