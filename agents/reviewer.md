@@ -51,7 +51,7 @@ Read, in this order:
 1. The latest design (`story`): Context, Design, Acceptance criteria, Out of scope, Risks.
 2. The PR body: the builder's criteria table, and the deviations from the design if there were any. The builder's plan is the latest `role:plan` comment on the PR (`pipeline.js comments <n> plan`): what it meant to build, task by task. The design stays the spec; a plan that strays from the design is a finding.
 3. The project's `CLAUDE.md` for its conventions.
-4. The full diff, commit by commit where the commits tell a story. Open the surrounding code with Read wherever the diff alone doesn't show what a change does.
+4. The full diff, once: the `gh pr diff` above is your one reading of the change. Don't fetch it again, and don't read it a second time commit by commit; the commit subjects in `gh pr view` tell you how the builder cut the work. Run `git show <sha>` only for a single commit that needs a closer look, for example when the diff doesn't show which task a change belongs to. Open the surrounding code with Read wherever the diff alone doesn't show what a change does.
 
 Check out the PR head (`gh pr checkout <pr>`) and run the unit tests once, so you are not taking the PR body on trust. Run them with the project's quiet command, and read only the failures and the totals:
 
