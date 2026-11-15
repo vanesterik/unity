@@ -38,7 +38,8 @@
 //   pipeline.js digest --since <time> [--stopped <issue>] [--blocked] [--markdown]
 //                                               what an autopilot run merged, where it stopped and what waits in Build, as JSON
 //                                               (--markdown: the digest /unity:autopilot prints)
-//   pipeline.js designs                         the latest design and criteria of every closed issue, as JSON (for /unity:test)
+//   pipeline.js designs [--all]                 the latest design and criteria of the issues closed since the last /unity:test run
+//                                               (its merged test/<stamp> PR), with that time, as JSON; --all: of every closed issue
 //   pipeline.js new-story --title <t> --body-file <f>
 //                                               create an issue and put it in Backlog; prints its number and URL as JSON
 const fs = require('fs');
@@ -153,17 +154,38 @@ const story = (arg) => {
   };
 };
 
+// When the last /unity:test run whose PR merged started, as an ISO time: the UTC stamp in its branch
+// name (test/20261105-1432), or the time its PR was opened when the branch is named otherwise. A story
+// closed while that run was going on is read by the next one. Null before the first merged run.
+const lastTestRun = (prs) => {
+  const starts = (prs || [])
+    .filter((p) => p.mergedAt && /^test\//.test(p.headRefName || ''))
+    .map((p) => {
+      const stamp = p.headRefName.match(/^test\/(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})$/);
+      const start = stamp ? Date.parse(`${stamp[1]}-${stamp[2]}-${stamp[3]}T${stamp[4]}:${stamp[5]}:00Z`) : NaN;
+      return Number.isNaN(start) ? Date.parse(p.createdAt) : start;
+    })
+    .filter((start) => !Number.isNaN(start));
+  return starts.length ? new Date(Math.max(...starts)).toISOString().replace('.000Z', 'Z') : null;
+};
+
 // What the shipped stories promise: the latest design of every issue closed as completed that has
 // one (not one closed as not planned or a duplicate), with its version and acceptance criteria, by
-// issue number. /unity:test tests against these.
-const shippedDesigns = (issues) => issues
+// issue number. /unity:test tests against these. With a time, only the issues closed since then, so
+// a run reads what shipped since the last one and not the whole project's history again.
+const shippedDesigns = (issues, since) => issues
   .filter((issue) => issue.state === 'CLOSED' && (!issue.stateReason || issue.stateReason === 'COMPLETED'))
+  .filter((issue) => !since || !issue.closedAt || Date.parse(issue.closedAt) >= Date.parse(since))
   .map((issue) => ({ issue, design: latestRoleComment(issue.comments || [], 'design') }))
   .filter(({ design }) => design)
   .sort((a, b) => a.issue.number - b.issue.number)
   .map(({ issue, design }) => ({ number: issue.number, title: issue.title, version: designVersion(design.body), criteria: parseCriteria(design.body) }));
 
-const designs = () => shippedDesigns(ghJson(['issue', 'list', '--state', 'closed', '--limit', '1000', '--json', 'number,title,state,stateReason,comments']) || []);
+const designs = ({ all = false } = {}) => {
+  const since = all ? null : lastTestRun(ghJson(['pr', 'list', '--state', 'merged', '--limit', '1000', '--json', 'headRefName,createdAt,mergedAt']));
+  const issues = ghJson(['issue', 'list', '--state', 'closed', '--limit', '1000', '--json', 'number,title,state,stateReason,closedAt,comments']) || [];
+  return { since, designs: shippedDesigns(issues, since) };
+};
 
 // Null when the posted design comment is the generated comment.md, otherwise the first line
 // that differs. Line endings and trailing whitespace don't count: GitHub may change them.
@@ -1068,7 +1090,7 @@ if (require.main === module) {
       const result = digest(at('--since'), { stoppedArg: at('--stopped'), withBlocked: args.includes('--blocked') });
       console.log(args.includes('--markdown') ? formatDigest(result) : JSON.stringify(result, null, 2));
     }
-    else if (command === 'designs') console.log(JSON.stringify(designs(), null, 2));
+    else if (command === 'designs') console.log(JSON.stringify(designs({ all: args.includes('--all') }), null, 2));
     else if (command === 'new-story') {
       const at = (flag) => (args.indexOf(flag) === -1 ? undefined : args[args.indexOf(flag) + 1]);
       console.log(JSON.stringify(newStory(at('--title'), at('--body-file'))));
@@ -1082,4 +1104,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { unitCommand, shippedDesigns, withTestKinds, testKindsOf, designSpec, reviewVerdict, reworkOf, parseCriteria, resolveIssue, latestRoleComment, columnReport, commitOf, outsidePaths, COLUMNS, boardColumns, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, stopColumn, formatStopComment, allRunResults, formatDigest, parseChecksOutput, mergeArgs, mergeOutcome, mergedSince, branchCleanup };
+module.exports = { unitCommand, lastTestRun, shippedDesigns, withTestKinds, testKindsOf, designSpec, reviewVerdict, reworkOf, parseCriteria, resolveIssue, latestRoleComment, columnReport, commitOf, outsidePaths, COLUMNS, boardColumns, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, stopColumn, formatStopComment, allRunResults, formatDigest, parseChecksOutput, mergeArgs, mergeOutcome, mergedSince, branchCleanup };

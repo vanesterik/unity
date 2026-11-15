@@ -30,7 +30,7 @@ If the section is missing, ask the user for these locations and suggest adding t
 
 ### 1. Define test requirements
 
-**Inside the `unity:tester` agent** (project mode, for `/unity:test`), the requirements already exist: the designs of the shipped stories (`pipeline.js designs`) and the flows and smoke set the agent chose. Keep the suite small:
+**Inside the `unity:tester` agent** (project mode, for `/unity:test`), the requirements already exist: the designs of the stories shipped since the last run (`pipeline.js designs`) and the flows and smoke set the agent chose. Keep the suite small:
 
 - one test per main flow across stories, checking each story's rule where the flow passes it
 - a smoke set: the system starts with its real command and configuration, its real data loads, each entry point answers once
