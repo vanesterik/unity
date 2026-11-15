@@ -4,11 +4,15 @@
 // - design.md has exactly the five sections, in order, none empty
 // - the criteria are "- AC<n>: text" lines numbered from 1 without gaps, and every AC<n> mentioned exists
 // - a comment over GitHub's size limit is refused, never trimmed
+// - a design with more criteria than CRITERIA_LIMIT is reported as large, never refused: the developer decides whether to split it
 const fs = require('fs');
 const path = require('path');
 
 const SECTIONS = ['Context', 'Design', 'Acceptance criteria', 'Out of scope', 'Risks and open questions'];
 const LIMIT = 65000;
+// The builder works a whole story in one context, so what a story costs grows faster than its number of
+// tasks. Above this many acceptance criteria the designer asks the developer whether to split the story.
+const CRITERIA_LIMIT = 8;
 
 const usage = () => {
   console.error('Usage: node <plugin>/skills/design/references/generate-design.js artifacts/<n>-<slug>/design.md');
@@ -89,4 +93,4 @@ if (comment.length > LIMIT) fail(`the comment is ${comment.length} characters, o
 
 const commentPath = path.join(dir, 'comment.md');
 fs.writeFileSync(commentPath, comment);
-console.log(JSON.stringify({ comment: commentPath, designVersion: version, criteria: criteria.length }));
+console.log(JSON.stringify({ comment: commentPath, designVersion: version, criteria: criteria.length, criteriaLimit: CRITERIA_LIMIT, large: criteria.length > CRITERIA_LIMIT }));
