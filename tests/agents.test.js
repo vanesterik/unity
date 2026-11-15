@@ -32,3 +32,11 @@ test('the reviewer fetches the diff once', () => {
   assert.equal((text.match(/^gh pr diff <pr>$/gm) || []).length, 1);
   assert.doesNotMatch(text, /The full diff, commit by commit/);
 });
+
+test('the builder loads at most three Superpowers skills, the debugging one only for a failure it does not understand', () => {
+  const text = agent('builder');
+  const skills = [...new Set([...text.matchAll(/superpowers:([a-z-]+)/g)].map((match) => match[1]))].sort();
+  assert.deepEqual(skills, ['systematic-debugging', 'test-driven-development', 'writing-plans']);
+  assert.match(text, /`superpowers:systematic-debugging`, the last only when something fails for a reason you don't understand/);
+  assert.match(text, /don't load those two skills/);
+});

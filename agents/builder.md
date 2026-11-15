@@ -73,7 +73,7 @@ Use the `superpowers:writing-plans` skill on `artifacts/<n>-<slug>/build-design.
 - **Plan against the code as it is now**, on the branch you just made from an up-to-date main. Earlier stories may have changed it since the design was written.
 - Draft the plan in `artifacts/<n>-<slug>/plan.md`, not under `docs/`, and do not commit it.
 - Each task names the files it touches, the unit tests it adds, and the acceptance criteria it serves (`AC2`). Each task ends in one commit.
-- In the plan header, name `superpowers:executing-plans` as the execution skill.
+- In the plan header, where the skill asks for the execution skill, write `Carried out by the builder, as its step 4 says`. Don't name a Superpowers execution skill.
 - Skip the skill's execution handoff: you carry the plan out yourself (step 4), without asking anyone.
 - Some older design comments still carry an **Implementation plan** section from before the builder planned. Ignore it and plan afresh: it was written against an older main.
 
@@ -87,14 +87,17 @@ It reads `story.json` from step 2. It refuses a plan without `Task <n>` headings
 
 ### 4. Implement the plan
 
-Use the `superpowers:executing-plans` skill on `artifacts/<n>-<slug>/plan.md`, with `build-design.md` as its spec, and these changes:
+Carry the plan out yourself, task by task, in the order it gives. The rules below are all you need of Superpowers' `executing-plans` and `verification-before-completion`: **don't load those two skills**, they would only repeat this at length. On a build you load at most three: `superpowers:writing-plans` (step 3), `superpowers:test-driven-development` (before the first task), and `superpowers:systematic-debugging`, the last only when something fails for a reason you don't understand.
 
 - **Workspace:** you are on the feature branch from step 2, in the developer's working directory. Do not create a worktree.
-- **Ledger:** keep it where the skill's scripts put it; it is git-ignored scratch.
+- **Ledger:** keep `artifacts/<n>-<slug>/ledger.md`, with the plan's path on its first line. It is your memory: a long build outlives what you remember of it. After each task add one line, in the same step as the commit: `Task <k>: complete (<sha>, <test command> → <passed>/<total>)`. When you no longer know where you are, the ledger and `git log main..HEAD` say so; a task with a ledger line and a commit is done and is not redone.
+- **One task at a time.** Read the task in `plan.md` again before you start it; what you remember of it is a summary, and the plan has the exact names, values and test cases. Work its steps in order, test first: a test you watched fail, then the code that makes it pass.
+- **Compare every result with what the plan expects.** If the code is wrong, find the cause instead of adjusting until the output matches; load `superpowers:systematic-debugging` when you don't understand the failure. If the plan is wrong (a step contradicts the design, an earlier task's interface doesn't fit, a command can't work), make the smallest change that satisfies the design and go on.
+- **Rulings, not stalls.** The design is the authority, the plan is how you meant to get there, and your judgment settles what neither answers. Write every such decision in the ledger as `Ruling: <what you decided> — <why> — <what it costs if wrong>`. A deviation without a ruling is a decision made in secret. Nobody is there to ask, so don't pause between tasks. Only two things stop you: a decision the design leaves open (hard rule 1), and a plan so broken that every way forward is a guess. Stop and say which in your report.
+- **A task is done when**, with output you read in this run and not because the diff looks right: every unit test the task names exists, failed before its code and passes now; the whole unit suite passed after the task's last change; and every deviation has its ruling in the ledger.
+- **No claim without the run that proves it.** Before you write that something passes, works or is fixed, in the ledger, a commit message, the PR body or your report, run the command that shows it and read its result and exit code. "Should pass" and an earlier run are not evidence. The counts in the PR body are the ones a run printed.
 - **Commits:** one commit per plan task, as the plan says. After the first task's commit, push and open a **draft** PR (step 5); after every later task, only push, so each task is checked on its own.
-- **No final whole-branch review and no `finishing-a-development-branch`.** In this team the review role is that review. Steps 5 and 6 replace them.
-
-Everything else applies as written, including continuous execution, rulings in the ledger, `superpowers:verification-before-completion` for every claim, and `superpowers:systematic-debugging` when something fails for a reason you don't understand.
+- **No review of your own branch at the end.** In this team the review role is that review. Steps 5 and 6 are how you finish.
 
 ### Running the unit tests
 
