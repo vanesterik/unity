@@ -17,7 +17,7 @@ You run as an agent with a fresh context: nothing of the developer's conversatio
 
 ## Hard rules
 
-1. **Build what the design says.** The latest `role:design` comment is the spec. The implementation plan is yours: you write it from the design and the code as it is when you start (step 3). A change to the design goes back to the developer, and possibly to a new design version; you do not decide it alone. Small rulings inside the design are fine, and each one is written down (step 5). A design that leaves a real decision open is not yours to settle: stop and say what needs deciding.
+1. **Build what the design says.** The latest `role:design` comment is the spec. The implementation plan is yours: you write it from the design and the code as it is when you start (step 3). A change to the design goes back to the developer, and possibly to a new design version; you do not decide it alone. Small rulings inside the design are fine, and each one is written down (in the ledger, and at handover in the PR body). A design that leaves a real decision open is not yours to settle: stop and say what needs deciding.
 2. **Unit tests first, always.** Every task follows `superpowers:test-driven-development`: a failing test you watched fail, then the code. You own the unit tests; you do not write integration or E2E tests.
 3. **Leave integration and E2E tests alone.** The paths in `test.writablePaths` of `.claude/pipeline.json` (except `artifacts/`) belong to `/unity:test`, which the developer runs for the whole project. You don't write, run, edit or fix them, and a story never waits for them: one your change breaks is dealt with by the next `/unity:test`.
 4. **No early abstractions.** Don't pull shared fields into a common base or abstraction (e.g. one config class across several model architectures) because a second case is anticipated. Keep each case its own typed structure until a second one is actually being built and the duplication is concrete.
@@ -91,47 +91,19 @@ Use the `superpowers:executing-plans` skill on `artifacts/<n>-<slug>/plan.md`, w
 
 - **Workspace:** you are on the feature branch from step 2, in the developer's working directory. Do not create a worktree.
 - **Ledger:** keep it where the skill's scripts put it; it is git-ignored scratch.
-- **Commits:** one commit per plan task, as the plan says. After the first task's commit, push and open a **draft** PR (step 5); after every later task, push, so each task is checked on its own.
+- **Commits:** one commit per plan task, as the plan says. After the first task's commit, push and open a **draft** PR (step 5); after every later task, only push, so each task is checked on its own.
 - **No final whole-branch review and no `finishing-a-development-branch`.** In this team the review role is that review. Steps 5 and 6 replace them.
 
 Everything else applies as written, including continuous execution, rulings in the ledger, `superpowers:verification-before-completion` for every claim, and `superpowers:systematic-debugging` when something fails for a reason you don't understand.
 
-### 5. The pull request
+### 5. The draft pull request
 
-The PR body is written by a script from your data. Write `artifacts/<n>-<slug>/build-data.json`:
-
-```json
-{
-  "summary": "What was built, in a few lines.",
-  "criteria": [
-    { "id": "AC1", "implemented": ["src/checkout.ts submitGuestOrder()"], "unitTests": ["test/checkout.test.ts accepts a guest order"] },
-    { "id": "AC2", "implemented": ["src/checkout.tsx GuestForm"], "unitTests": [] }
-  ],
-  "deviations": [
-    { "ruling": "<what you decided>", "reason": "<why>", "cost": "<what it costs if wrong>" }
-  ],
-  "run": ["npm run dev", "open http://localhost:3000/checkout"],
-  "unitTests": { "passed": 30, "total": 30 }
-}
-```
-
-- `criteria` lists every criterion of the design, AC1 first, in order, each with the files and functions that implement it. A criterion that unit tests cannot reach (for example one about what the user sees in the browser) gets an empty `unitTests`, which shows as "covered by the next /unity:test"; don't invent a test.
-- `deviations` holds every ruling from the ledger. Leave it empty (`[]`) when there were none; the body then has no deviations section.
-- `unitTests` holds the counts of your last run of the project's full unit test suite.
-
-Then generate the body:
+Open the PR as a draft after the first task's commit, with a body a script writes from `story.json`: the design version and `Closes #<n>`, nothing more.
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT}/skills/build/references/generate-build.js" artifacts/<n>-<slug>/build-data.json
-```
-
-The script reads the issue, the design version and the criteria from `story.json`, counts the commits in git (`main..HEAD`), and writes `artifacts/<n>-<slug>/pr-body.md`. It refuses data that leaves out a criterion of the design or names one it doesn't have, and a red unit test suite. If it refuses the data, fix the data or the code, not `pr-body.md`. Don't edit `pr-body.md` afterwards: the format is the script's, and it has no "Generated with" line on purpose.
-
-Open the PR after the first task commit:
-
-```bash
+node "${CLAUDE_PLUGIN_ROOT}/skills/build/references/generate-build.js" artifacts/<n>-<slug>/story.json --draft
 git push -u origin feature/<n>-<slug>
-gh pr create --draft --title "<issue title>" --body-file artifacts/<n>-<slug>/pr-body.md
+gh pr create --draft --title "<issue title>" --body-file artifacts/<n>-<slug>/pr-draft.md
 ```
 
 Then post the plan on it. The comment from step 3 starts with a `<!-- role:plan -->` marker and names the design version it implements in its `**Design:**` field; generate it again first if you changed `plan.md` since:
@@ -141,15 +113,15 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/build/references/generate-plan.js" artifacts/
 gh pr comment <pr> --body-file artifacts/<n>-<slug>/plan-comment.md
 ```
 
-If the tasks change along the way (a task split, merged or added), update `plan.md` to what you build, so it keeps one task per commit, and note why in the ledger. The posted plan is brought up to date at handover (step 6).
+**Leave the PR body alone until the handover.** After every later task you only push. The body is written once, in step 6, from the whole build; a body kept current task by task costs a data update, a generator run and a `gh pr edit` per task, and nobody reads it before the PR is ready.
 
-After every later task, update the data, generate the body again and update the PR with it (`gh pr edit <pr> --body-file artifacts/<n>-<slug>/pr-body.md`), so the body stays current.
+If the tasks change along the way (a task split, merged or added), update `plan.md` to what you build, so it keeps one task per commit, and note why in the ledger. The posted plan is brought up to date at handover (step 6).
 
 ### 6. Hand over
 
 When every task is done:
 
-1. Run the project's full unit test suite once more and put its counts in `build-data.json`. Any failure, including one you didn't cause, is reported by name; do not hand over a red suite.
+1. Run the project's full unit test suite once more. Any failure, including one you didn't cause, is reported by name; do not hand over a red suite.
 2. Check that the plan still matches what you built, one commit per task:
 
    ```bash
@@ -157,7 +129,35 @@ When every task is done:
    ```
 
    It refuses when the plan's tasks and the branch's commits since main differ: make `plan.md` the tasks you built. If `plan.md` changed since you posted it, post the new `plan-comment.md` on the PR; the latest plan comment counts.
-3. Generate the body again with the final rulings, and update the PR with it.
+3. Write the PR body. A script writes it from your data, so write `artifacts/<n>-<slug>/build-data.json` now, from the ledger and the commits:
+
+   ```json
+   {
+     "summary": "What was built, in a few lines.",
+     "criteria": [
+       { "id": "AC1", "implemented": ["src/checkout.ts submitGuestOrder()"], "unitTests": ["test/checkout.test.ts accepts a guest order"] },
+       { "id": "AC2", "implemented": ["src/checkout.tsx GuestForm"], "unitTests": [] }
+     ],
+     "deviations": [
+       { "ruling": "<what you decided>", "reason": "<why>", "cost": "<what it costs if wrong>" }
+     ],
+     "run": ["npm run dev", "open http://localhost:3000/checkout"],
+     "unitTests": { "passed": 30, "total": 30 }
+   }
+   ```
+
+   - `criteria` lists every criterion of the design, AC1 first, in order, each with the files and functions that implement it. A criterion that unit tests cannot reach (for example one about what the user sees in the browser) gets an empty `unitTests`, which shows as "covered by the next /unity:test"; don't invent a test.
+   - `deviations` holds every ruling from the ledger. Leave it empty (`[]`) when there were none; the body then has no deviations section.
+   - `unitTests` holds the counts of the run in 1.
+
+   Generate the body and replace the draft's with it:
+
+   ```bash
+   node "${CLAUDE_PLUGIN_ROOT}/skills/build/references/generate-build.js" artifacts/<n>-<slug>/build-data.json
+   gh pr edit <pr> --body-file artifacts/<n>-<slug>/pr-body.md
+   ```
+
+   The script reads the issue, the design version and the criteria from `story.json`, counts the commits in git (`main..HEAD`), and writes `artifacts/<n>-<slug>/pr-body.md`. It refuses data that leaves out a criterion of the design or names one it doesn't have, and a red unit test suite. If it refuses the data, fix the data or the code, not `pr-body.md`. Don't edit `pr-body.md` afterwards: the format is the script's, and it has no "Generated with" line on purpose.
 4. Mark the PR ready and move the issue:
 
    ```bash

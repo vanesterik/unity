@@ -8,12 +8,14 @@
 // - a red unit test suite is refused: the builder doesn't hand one over
 // - a rework fix names a commit that is on the branch; a finding left unfixed says why
 // - both files avoid GitHub mentions: @words in prose are wrapped in backticks
+// With --draft it turns story.json into pr-draft.md, the body the draft pull request is opened with: the design
+// version and the closing keyword, without the role marker, so nothing reads a build result before the handover.
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
 const usage = () => {
-  console.error('Usage: node <plugin>/skills/build/references/generate-build.js artifacts/<n>-<slug>/<build-data|rework-data>.json');
+  console.error('Usage: node <plugin>/skills/build/references/generate-build.js artifacts/<n>-<slug>/<build-data|rework-data>.json\n       node <plugin>/skills/build/references/generate-build.js artifacts/<n>-<slug>/story.json --draft');
   process.exit(1);
 };
 
@@ -170,5 +172,23 @@ const writeBody = () => {
   console.log(JSON.stringify({ body: bodyPath, commits: commits.length, criteria: criteria.length, unitTests: { passed: unit.passed, total: unit.total } }));
 };
 
-if (data.rework !== undefined) writeRework();
+// ---------- the draft pull request's body ----------
+
+// The story is the data here. No marker and no counts: the build's result is the body written at handover.
+const writeDraft = () => {
+  if (!Number.isInteger(data.number) || !Number.isInteger(data.designVersion)) fail('it has no issue number or design version; save it again with pipeline.js story <n>');
+  const md = [
+    `**Design:** v${data.designVersion}`,
+    '',
+    'Build in progress, one commit per task of the plan posted below. At handover this text makes way for the criteria table, the unit test counts and any deviations from the design.',
+    '',
+    `Closes #${data.number}`,
+  ];
+  const bodyPath = path.join(dir, 'pr-draft.md');
+  fs.writeFileSync(bodyPath, md.join('\n') + '\n');
+  console.log(JSON.stringify({ body: bodyPath, draft: true, issue: data.number, designVersion: data.designVersion }));
+};
+
+if (process.argv.includes('--draft')) writeDraft();
+else if (data.rework !== undefined) writeRework();
 else writeBody();
