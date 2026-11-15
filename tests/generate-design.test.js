@@ -101,10 +101,29 @@ test('it refuses a comment over GitHub\'s size limit instead of trimming it', ()
 test('it prints the version, the counts and the path it wrote as JSON', () => {
   const { dir, result } = generate();
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(JSON.parse(result.stdout), { comment: path.join(dir, 'comment.md'), designVersion: 1, criteria: 2 });
+  assert.deepEqual(JSON.parse(result.stdout), { comment: path.join(dir, 'comment.md'), designVersion: 1, criteria: 2, criteriaLimit: 8, large: false });
 });
 
 test('it refuses a subheading called Acceptance criteria before the real one, which the parser would read instead', () => {
   assert.match(refusal({ designText: design.replace('### Parsing', '### Acceptance criteria for parsing') }), /"### Acceptance criteria for parsing" in Design/);
 });
 
+
+// A design with the given number of criteria.
+const designWith = (count) => design.replace(/- AC1:[\s\S]*?\n\n## Out of scope/, `${Array.from({ length: count }, (_, i) => `- AC${i + 1}: Rule ${i + 1} holds`).join('\n')}\n\n## Out of scope`);
+
+test('a design at the criteria limit is not large', () => {
+  const { result } = generate({ designText: designWith(8) });
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.criteria, 8);
+  assert.equal(output.large, false);
+});
+
+test('a design above the criteria limit is reported as large, and its comment is still written', () => {
+  const { dir, result } = generate({ designText: designWith(9) });
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout);
+  assert.deepEqual([output.criteria, output.criteriaLimit, output.large], [9, 8, true]);
+  assert.match(fs.readFileSync(path.join(dir, 'comment.md'), 'utf8'), /\n- AC9: Rule 9 holds\n/);
+});

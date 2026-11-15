@@ -71,7 +71,7 @@ The repository is its own marketplace.
    /unity:design <issue>
    ```
 
-   This is the one role you work with. It moves the issue to **Design**, reads the codebase, and works out the design with you, with numbered acceptance criteria (`AC1`, `AC2`, ...) that can be checked from outside the code. A script assembles the design into one comment and checks its sections and criteria. The comment is posted on the issue and read back to make sure it arrived unchanged, while the issue stays in **Design**. You read it on GitHub and approve it in the conversation: that approval is the one human gate in the flow, and only then does the issue move to **Build**. Changes you ask for go up as a new version (v2, v3...).
+   This is the one role you work with. It moves the issue to **Design**, reads the codebase, and works out the design with you, with numbered acceptance criteria (`AC1`, `AC2`, ...) that can be checked from outside the code. A script assembles the design into one comment and checks its sections and criteria. The comment is posted on the issue and read back to make sure it arrived unchanged, while the issue stays in **Design**. You read it on GitHub and approve it in the conversation: that approval is the one human gate in the flow, and only then does the issue move to **Build**. Changes you ask for go up as a new version (v2, v3...). A design with more than 8 acceptance criteria is flagged before it is posted, and Claude asks whether to split the story: the builder works a whole story in one context, so a large story costs more than its parts would. You decide; nothing is split for you.
 
 5. **Ship it**, from a fresh session: run `/clear` first, or open a new session.
 

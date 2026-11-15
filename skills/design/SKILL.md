@@ -59,6 +59,8 @@ Use the `superpowers:brainstorming` skill, with these changes:
 - Size: treat the issue as "a project with a written design" unless the developer says it is smaller.
 - The written design follows the comment structure in step 4 (Context through Risks), so it can be posted as it is.
 
+**Watch the story's size.** The builder works a whole story in one context, so what a story costs grows faster than its number of tasks. When the design is heading past 8 acceptance criteria, say so as soon as you see it, name where it could be cut into stories that each ship something on their own, and ask the developer whether to split it. The developer decides: you split nothing by yourself, and a story they keep whole goes on as it is. A split means this issue keeps one part and the developer gets a new issue for each other part (`node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" new-story --title "<title>" --body-file artifacts/<n>-<slug>/<part>.md` puts one in Backlog, when they ask you to file it), each designed in its own `/unity:design`.
+
 Its hard gate applies unchanged: the developer approves the full written design. Skip what the skill does after approval: **don't write an implementation plan**. The builder plans when it starts, against the `main` it branches from, so a plan written now would be stale by then. Once the developer approves the design in conversation, assemble and post it (steps 4 and 5) for their approval on GitHub.
 
 ### 4. Assemble the comment
@@ -94,6 +96,8 @@ node "${CLAUDE_SKILL_DIR}/references/generate-design.js" artifacts/<n>-<slug>/de
 ```
 
 The script writes `artifacts/<n>-<slug>/comment.md`: the marker with the version (`v1` for a first design, otherwise the previous version plus one), and the five sections. It refuses a missing, empty or extra section, criteria with gaps, a criterion that is named but doesn't exist, and a comment over GitHub's limit of about 65,000 characters. If it refuses, fix the draft and generate again; if the comment is too long, tell the developer instead of trimming it on your own. Don't edit `comment.md` afterwards: the format is the script's.
+
+The script prints the number of criteria and its limit. If it prints `"large": true`, **don't post yet**, unless the developer already chose in this conversation to keep this version whole: tell them the design has `criteria` acceptance criteria, over the limit of `criteriaLimit`, what that costs in the build, and where it could be split, and ask whether to split it. Post only what they choose.
 
 ### 5. Post and verify
 
