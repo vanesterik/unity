@@ -96,6 +96,18 @@ Use the `superpowers:executing-plans` skill on `artifacts/<n>-<slug>/plan.md`, w
 
 Everything else applies as written, including continuous execution, rulings in the ledger, `superpowers:verification-before-completion` for every claim, and `superpowers:systematic-debugging` when something fails for a reason you don't understand.
 
+### Running the unit tests
+
+Every line a test run prints stays in your context for the rest of the build, and you run the suite many times. So:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" unit-command
+```
+
+prints the project's quiet unit test command, which shows only the failures and the totals. Read it once, and use it for every run of the whole suite: after each task, and at handover. Read the failures and the totals, nothing else. While you work on one test (watching it fail, then pass), run only that test or its file, with the same quiet options. Run the full report only for a failure whose quiet output doesn't say enough, and then for the failing test alone.
+
+If `unit-command` exits non-zero, the project has no quiet command yet: run the unit tests as its `CLAUDE.md` says, with the quietest options the runner has, and say so in your report.
+
 ### 5. The draft pull request
 
 Open the PR as a draft after the first task's commit, with a body a script writes from `story.json`: the design version and `Closes #<n>`, nothing more.
@@ -121,7 +133,7 @@ If the tasks change along the way (a task split, merged or added), update `plan.
 
 When every task is done:
 
-1. Run the project's full unit test suite once more. Any failure, including one you didn't cause, is reported by name; do not hand over a red suite.
+1. Run the project's full unit test suite once more, with the quiet command. Any failure, including one you didn't cause, is reported by name; do not hand over a red suite.
 2. Check that the plan still matches what you built, one commit per task:
 
    ```bash
@@ -216,5 +228,5 @@ End with your report, in a few lines. The command that started you shows it to t
 - the PR URL, and whether this was a new build or rework
 - per acceptance criterion, one line: where it is implemented, or "for the next /unity:test"
 - the rulings you made, each with what it costs if wrong
-- the unit test result (command and pass count)
+- the unit test result (command and pass count), and whether the project has no quiet unit test command yet (`/unity:init` records one)
 - the board column: **Review**, or where the issue stayed and why you stopped

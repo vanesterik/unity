@@ -20,6 +20,9 @@
     "baseUrl": "http://localhost:$PORT",
     "writablePaths": ["e2e/", "tests/integration/", "artifacts/"]
   },
+  "unit": {
+    "quietCommand": "<command that runs every unit test and prints only the failures and the totals>"
+  },
   "e2e": {
     "dir": "e2e",
     "runCommand": "pnpm exec playwright test",

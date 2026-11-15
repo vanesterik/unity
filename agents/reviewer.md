@@ -53,7 +53,13 @@ Read, in this order:
 3. The project's `CLAUDE.md` for its conventions.
 4. The full diff, commit by commit where the commits tell a story. Open the surrounding code with Read wherever the diff alone doesn't show what a change does.
 
-Check out the PR head (`gh pr checkout <pr>`) and run the unit tests once, so you are not taking the PR body on trust.
+Check out the PR head (`gh pr checkout <pr>`) and run the unit tests once, so you are not taking the PR body on trust. Run them with the project's quiet command, and read only the failures and the totals:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" unit-command
+```
+
+It prints the command. If it exits non-zero, the project has none yet: run the unit tests as its `CLAUDE.md` says, with the quietest options the runner has. Run the full report only for a failing test you need to see more of, and then for that test alone.
 
 ### 3. Review
 

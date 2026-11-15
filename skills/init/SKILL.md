@@ -65,6 +65,7 @@ Then inspect the repository and propose values for the `test` block of `.claude/
 - **Health check**: an existing `/health` or similar route; otherwise the base URL itself.
 - **E2E setup**: `playwright.config.*`, an existing `e2e/` or `tests/e2e/` directory, fixtures.
 - **Integration tests**: their directory, framework and the command that runs them all, and how they start or call the system.
+- **Unit tests, in their quiet form**: the command that runs every unit test and prints only the failures and the totals, for `unit.quietCommand`. The builder runs the suite several times per task and the reviewer once more, and every line of a full report is paid for each time. Start from the project's unit test command and add the runner's own quiet option: `pytest -q`, `vitest run --reporter=dot`, `jest --silent`, `cargo test --quiet`. Run it once and keep it only if its output still names each failing test and gives the counts (passed and total, or passed and failed). Where the quiet reporter drops the counts, as Node's `--test-reporter=dot` does, filter the normal report down to the failures and the summary lines instead, in a form that keeps the exit code (`set -o pipefail`). It must not run the integration or E2E tests.
 - **i18n**: a messages or translations file, and the helper the code uses for it.
 - **UI components** and the **API layer** (GraphQL schema/resolvers or REST routes).
 
@@ -78,7 +79,7 @@ Present the proposed kinds and values in one short list and ask the user to conf
 node "${CLAUDE_SKILL_DIR}/../../scripts/pipeline.js" test-kinds <integration|e2e|both>
 ```
 
-Write the confirmed values into the chosen blocks, and into `CLAUDE.md`, inside the `unity:workflow` markers only:
+Write the confirmed values into the chosen blocks and the `unit` block, and into `CLAUDE.md`, inside the `unity:workflow` markers only. A `.claude/pipeline.json` from an older unity has no `unit` block: add it (`"unit": { "quietCommand": "..." }`).
 
 - Keep the section of each chosen kind (**Integration testing**, **E2E testing**) and fill it in. Remove the section of a kind that wasn't chosen, so no role reads a section for tests the project doesn't write.
 - On a re-run, the existing section may carry another heading or a note pointing to the old one; give it the chosen kind's heading and drop such a note.
@@ -90,6 +91,7 @@ Report, without installing anything:
 - whether Playwright is installed and has a config (E2E)
 - whether the `playwright-cli` skill is available (`test-user-story` drives the browser through it)
 - whether `integration.runCommand` runs (integration)
+- whether `pipeline.js unit-command` prints the quiet unit test command, and what a run of it printed: the totals, and how many lines
 - whether the start command brings the app up: only if the user agrees, run `test.start` and the health check once with a test `ISSUE=0`, then `test.stop`
 
 ### 6. Finish

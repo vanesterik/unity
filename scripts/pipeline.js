@@ -33,6 +33,8 @@
 //   pipeline.js test-kinds [integration|e2e|both]
 //                                               the kinds of tests /unity:test writes, from the blocks in .claude/pipeline.json;
 //                                               with a choice, keep only those blocks and set test.writablePaths to match
+//   pipeline.js unit-command                   the quiet unit test command of .claude/pipeline.json (unit.quietCommand):
+//                                               failures and totals only; exit 1 when the project has none yet
 //   pipeline.js digest --since <time> [--stopped <issue>] [--blocked] [--markdown]
 //                                               what an autopilot run merged, where it stopped and what waits in Build, as JSON
 //                                               (--markdown: the digest /unity:autopilot prints)
@@ -1010,6 +1012,20 @@ const testKinds = (choice) => {
   return testKindsOf(next);
 };
 
+// ---------- the unit test command ----------
+
+// The form of the project's unit test command that prints only the failures and the totals, which
+// /unity:init records as unit.quietCommand, so a run costs the builder and the reviewer a few lines
+// instead of the whole report. Null when it is missing, empty or still the template's <placeholder>.
+const unitCommand = (config) => {
+  const command = config && config.unit && config.unit.quietCommand;
+  if (typeof command !== 'string') return null;
+  const trimmed = command.trim();
+  return trimmed && !/^<.*>$/.test(trimmed) ? trimmed : null;
+};
+
+const NO_UNIT_COMMAND = 'No quiet unit test command in .claude/pipeline.json (unit.quietCommand). Run the unit tests as the project\'s CLAUDE.md says, in the quietest form the runner has, and say in your report that /unity:init can record one.';
+
 // ---------- CLI ----------
 
 if (require.main === module) {
@@ -1057,12 +1073,13 @@ if (require.main === module) {
       const at = (flag) => (args.indexOf(flag) === -1 ? undefined : args[args.indexOf(flag) + 1]);
       console.log(JSON.stringify(newStory(at('--title'), at('--body-file'))));
     }
+    else if (command === 'unit-command') { const quiet = unitCommand(readConfig()); if (!quiet) die(NO_UNIT_COMMAND); console.log(quiet); }
     else if (command === 'test-kinds') console.log(JSON.stringify(testKinds(args[0])));
     else if (command === 'board') console.log(args.includes('--markdown') ? formatBoard(board()) : JSON.stringify(board(), null, 2));
-    else die('Commands: init | resolve | story | design | check-design | comments | pr | queue | check | status | port | board | pointer | summary | merge | reworks | stop | resume | digest | test-kinds | designs | new-story');
+    else die('Commands: init | resolve | story | design | check-design | comments | pr | queue | check | status | port | board | pointer | summary | merge | reworks | stop | resume | digest | unit-command | test-kinds | designs | new-story');
   } catch (error) {
     die(error.stderr ? String(error.stderr) : error.message);
   }
 }
 
-module.exports = { shippedDesigns, withTestKinds, testKindsOf, designSpec, reviewVerdict, reworkOf, parseCriteria, resolveIssue, latestRoleComment, columnReport, commitOf, outsidePaths, COLUMNS, boardColumns, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, stopColumn, formatStopComment, allRunResults, formatDigest, parseChecksOutput, mergeArgs, mergeOutcome, mergedSince, branchCleanup };
+module.exports = { unitCommand, shippedDesigns, withTestKinds, testKindsOf, designSpec, reviewVerdict, reworkOf, parseCriteria, resolveIssue, latestRoleComment, columnReport, commitOf, outsidePaths, COLUMNS, boardColumns, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, stopColumn, formatStopComment, allRunResults, formatDigest, parseChecksOutput, mergeArgs, mergeOutcome, mergedSince, branchCleanup };
