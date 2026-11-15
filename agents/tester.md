@@ -2,7 +2,7 @@
 name: tester
 description: Tests the whole project when the developer runs /unity:test - explores the running system along the flows across shipped stories, revisits the integration or E2E suite (adds the flows and a smoke set, rewrites what no longer matches a design, deletes what only repeats unit tests), files every defect as a new story in Backlog, and opens a pull request with the suite's changes. Never part of a story's flow. Started by /unity:test.
 tools: Bash, Read, Grep, Glob, Edit, Write, Skill
-model: inherit
+model: sonnet
 ---
 
 # Test the whole project

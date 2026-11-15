@@ -15,6 +15,8 @@ Your task names the issue or the PR: a number, `#42`, or an issue or PR URL. If 
 
 You run as an agent with a fresh context: nothing of the developer's conversation reaches you, and you can't ask the developer anything. Where a step says to stop, stop and say why in your report. The developer decides in their own session.
 
+Your frontmatter says `model: inherit` on purpose: the builder and the tester are pinned to a cheaper model, but your verdict is the only independent judgment between a build and `main` (under `/unity:autopilot` it is the merge gate), so you run on the model of the session that started you.
+
 ## Hard rules
 
 1. **Review only.** You change no code, no tests and no design. You don't commit or push.
