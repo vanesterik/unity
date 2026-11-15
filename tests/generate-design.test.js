@@ -127,3 +127,12 @@ test('a design above the criteria limit is reported as large, and its comment is
   assert.deepEqual([output.criteria, output.criteriaLimit, output.large], [9, 8, true]);
   assert.match(fs.readFileSync(path.join(dir, 'comment.md'), 'utf8'), /\n- AC9: Rule 9 holds\n/);
 });
+
+test('another story\'s criterion, written with its issue, is not checked against this design', () => {
+  const comment = commentFor({ designText: design.replace('AC2 covers the flag.', 'AC2 covers the flag. This supersedes #9 AC5 and AC6, and #15\'s AC7.') });
+  assert.match(comment, /This supersedes #9 AC5 and AC6, and #15's AC7\./);
+});
+
+test('the refusal of an unknown criterion says how to write another story\'s', () => {
+  assert.match(refusal({ designText: design.replace('AC2 covers the flag', 'AC7 of the old story covers the flag') }), /AC7 is mentioned, but the criteria are AC1-AC2; write another story's criterion with its issue, as in "#15 AC7"/);
+});

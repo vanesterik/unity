@@ -2,7 +2,7 @@
 // Turns the design role's draft (design.md) into comment.md, the design comment on the issue.
 // - the version comes from story.json (pipeline.js story): the previous design's plus one, or v1
 // - design.md has exactly the five sections, in order, none empty
-// - the criteria are "- AC<n>: text" lines numbered from 1 without gaps, and every AC<n> mentioned exists
+// - the criteria are "- AC<n>: text" lines numbered from 1 without gaps, and every AC<n> mentioned exists, unless it names another story's ("#15 AC7")
 // - a comment over GitHub's size limit is refused, never trimmed
 // - a design with more criteria than CRITERIA_LIMIT is reported as large, never refused: the developer decides whether to split it
 const fs = require('fs');
@@ -77,9 +77,13 @@ const criteria = sections[2].body.split('\n').filter((line) => line.trim()).map(
   return match[2];
 });
 
+// Another story's criterion, written with its issue ("#15 AC7", "#9 AC5 and AC6"), is not one of this
+// design's, so the check below leaves it out.
+const ownMentions = (text) => text.replace(/#\d+(?:'s)?\s+@?AC\d+(?:(?:\s*,\s*|\s*,?\s+and\s+)@?AC\d+)*/g, '');
+
 const range = criteria.length === 1 ? 'AC1' : `AC1-AC${criteria.length}`;
-for (const [, n] of designText.matchAll(/\bAC(\d+)\b/g)) {
-  if (Number(n) < 1 || Number(n) > criteria.length) fail(`AC${n} is mentioned, but the criteria are ${range}`);
+for (const [, n] of ownMentions(designText).matchAll(/\bAC(\d+)\b/g)) {
+  if (Number(n) < 1 || Number(n) > criteria.length) fail(`AC${n} is mentioned, but the criteria are ${range}; write another story's criterion with its issue, as in "#15 AC${n}"`);
 }
 
 // ---------- comment.md ----------

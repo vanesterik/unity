@@ -120,3 +120,14 @@ test('at handover it refuses a plan whose tasks no longer match the commits', ()
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /plan\.md has 2 tasks, but the branch has 3 commits since main/);
 });
+
+test('another story\'s criterion, written with its issue, is not checked against this design', () => {
+  const planText = plan.replace('Write the failing test.', 'Write the failing test. It replaces the tests of #15 AC7 and of #9 AC5 and AC6.');
+  assert.match(commentFor({ planText }), /the tests of #15 AC7 and of #9 AC5 and AC6\./);
+});
+
+test('a criterion of another story without its issue is refused, and the refusal says how to write it', () => {
+  const stderr = refusal({ planText: plan.replace('Write the failing test.', 'Update the test "@AC7 returns null".') });
+  assert.match(stderr, /AC7 is mentioned, but the design's criteria are AC1-AC2; write another story's criterion with its issue, as in "#15 AC7"/);
+  assert.match(stderr, /name an existing test tagged for another story by its file/);
+});
