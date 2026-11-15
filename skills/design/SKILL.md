@@ -85,7 +85,7 @@ What this issue deliberately does not do.
 What could go wrong, and anything the builder may have to decide.
 ```
 
-- Only the criteria go under `## Acceptance criteria`, one `- AC<n>: text` line each, numbered from 1 without gaps. Wherever the design names a criterion, it uses one of these IDs.
+- Only the criteria go under `## Acceptance criteria`, one `- AC<n>: text` line each, numbered from 1 without gaps. Wherever the design names a criterion, it uses one of these IDs. A criterion of another story (one this design supersedes, for example) is written with its issue, `#15 AC7`, so the script doesn't take it for one of this design's.
 - Use `###` and deeper for subsections, and don't call one "Acceptance criteria".
 
 Save the story, so the script knows the version, and generate the comment:

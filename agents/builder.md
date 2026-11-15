@@ -73,7 +73,8 @@ Use the `superpowers:writing-plans` skill on `artifacts/<n>-<slug>/build-design.
 - **Plan against the code as it is now**, on the branch you just made from an up-to-date main. Earlier stories may have changed it since the design was written.
 - Draft the plan in `artifacts/<n>-<slug>/plan.md`, not under `docs/`, and do not commit it.
 - Each task names the files it touches, the unit tests it adds, and the acceptance criteria it serves (`AC2`). Each task ends in one commit.
-- In the plan header, where the skill asks for the execution skill, write `Carried out by the builder, as its step 4 says`. Don't name a Superpowers execution skill.
+- In the plan header, where the skill asks for the execution skill, write `Carried out by the builder, as its step 4 says`. Don't name a Superpowers execution skill. Write the rest of the header as the skill asks, a line or two each: the spec is `build-design.md`, and what it calls the review focus is read by the reviewer on the PR.
+- An `AC<n>` in the plan is a criterion of this design; the script below refuses any other. Write another story's criterion with its issue (`#15 AC7`), and name an existing test that is tagged for another story by its file and what it checks, not by its `@AC<n>` tag.
 - Skip the skill's execution handoff: you carry the plan out yourself (step 4), without asking anyone.
 - Some older design comments still carry an **Implementation plan** section from before the builder planned. Ignore it and plan afresh: it was written against an older main.
 
@@ -107,7 +108,7 @@ Every line a test run prints stays in your context for the rest of the build, an
 node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" unit-command
 ```
 
-prints the project's quiet unit test command, which shows only the failures and the totals. Read it once, and use it for every run of the whole suite: after each task, and at handover. Read the failures and the totals, nothing else. While you work on one test (watching it fail, then pass), run only that test or its file, with the same quiet options. Run the full report only for a failure whose quiet output doesn't say enough, and then for the failing test alone.
+prints the project's quiet unit test command, which shows only the failures and the totals. Read it once, and use it for every run of the whole suite: after each task, and at handover. Read the failures and the totals, nothing else. While you work on one test (watching it fail, then pass), run only that test or its file. The quiet command runs the whole suite and has no form for one file, so make it yourself: the runner's own way to name a file or a test, with the same quiet options, and behind the same filter when the quiet command pipes its report through one (`node --test test/greet.test.js 2>&1 | grep ...`). Run the full report only for a failure whose quiet output doesn't say enough, and then for the failing test alone.
 
 If `unit-command` exits non-zero, the project has no quiet command yet: run the unit tests as its `CLAUDE.md` says, with the quietest options the runner has, and say so in your report.
 

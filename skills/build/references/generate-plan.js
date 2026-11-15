@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Turns the builder's plan (plan.md) into plan-comment.md, the plan comment on the pull request.
 // - the design version it implements comes from story.json (pipeline.js story)
-// - every AC<n> the plan mentions is a criterion of that design
+// - every AC<n> the plan mentions is a criterion of that design, unless it names another story's ("#15 AC7")
 // - the plan follows its task count, with its headings demoted below ##
 // - a comment over GitHub's size limit is refused, never trimmed
 // - with --handover, the tasks must match the branch's commits since main, one commit per task
@@ -45,10 +45,14 @@ const withFences = (text) => {
 };
 const heading = ({ line, code }) => (code ? null : line.match(/^(#{1,6})\s+(.*?)\s*$/));
 
+// Another story's criterion, written with its issue ("#15 AC7", "#9 AC5 and AC6"), is not one of this
+// design's, so the check below leaves it out.
+const ownMentions = (text) => text.replace(/#\d+(?:'s)?\s+@?AC\d+(?:(?:\s*,\s*|\s*,?\s+and\s+)@?AC\d+)*/g, '');
+
 const count = (story.criteria || []).length;
 const range = count === 1 ? 'AC1' : `AC1-AC${count}`;
-for (const [, n] of planText.matchAll(/\bAC(\d+)\b/g)) {
-  if (Number(n) < 1 || Number(n) > count) fail(`AC${n} is mentioned, but the design's criteria are ${range}`);
+for (const [, n] of ownMentions(planText).matchAll(/\bAC(\d+)\b/g)) {
+  if (Number(n) < 1 || Number(n) > count) fail(`AC${n} is mentioned, but the design's criteria are ${range}; write another story's criterion with its issue, as in "#15 AC${n}", and name an existing test tagged for another story by its file, not by its tag`);
 }
 
 const planLines = withFences(planText.trim());
