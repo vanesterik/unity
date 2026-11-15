@@ -118,6 +118,17 @@ The repository is its own marketplace.
 
    The tester may only write tests. A hook enforces this: it writes `artifacts/.test-active` when a run starts and removes it at the end, and while that file exists, edits outside `test.writablePaths` in `.claude/pipeline.json` are blocked. If a run is interrupted, the file stays behind and the builder stops until you delete it.
 
+**Which model each role runs on.** Most of a story's tokens go to the build, so the agents don't all follow your session's model:
+
+| Role | Model | Why |
+| --- | --- | --- |
+| Design (`/unity:design`) | your session's model | It is a conversation in your own session. |
+| Builder (`unity:builder`) | `sonnet` | It carries out an approved design test-first, task by task: the largest share of the work, and the one that needs the most capable model least. |
+| Reviewer (`unity:reviewer`) | your session's model (`inherit`) | Its verdict is the only independent judgment between a build and `main`, and under `/unity:autopilot` it is the merge gate. Start `/unity:ship` from a session on a cheaper model to make the review cheaper too. |
+| Tester (`unity:tester`) | `sonnet` | It checks the system against designs that are already written. |
+
+The model is the `model:` line in each file under `agents/`.
+
 The agents can't ask you anything mid-run: where a role needs a decision, it stops and hands back. Each role also checks the board first, so a role started on an issue in the wrong column stops. Along the way the issue collects a one-line pointer to each role's result, written by a script from what the role posted, so it reads as a timeline of the story. To see where every issue stands and what to run next, without opening GitHub, run `/unity:status`.
 
 ## Board

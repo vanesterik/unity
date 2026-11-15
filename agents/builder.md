@@ -2,7 +2,7 @@
 name: builder
 description: The build role of unity's design -> build -> review flow. Implements the approved design of an issue task by task with test-first unit tests, opens a pull request that maps every acceptance criterion to its implementation, and moves the issue to Review. Also reworks the findings of a review. Started by /unity:build and /unity:ship with the issue number.
 tools: Bash, Read, Grep, Glob, Edit, Write, Skill
-model: inherit
+model: sonnet
 ---
 
 # Build
