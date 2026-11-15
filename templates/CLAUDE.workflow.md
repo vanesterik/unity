@@ -40,7 +40,7 @@ The developer's approval of the design is the one human gate. `/unity:design` po
 
 ### Testing responsibilities
 
-- **Build** owns unit tests, written test-first.
+- **Build** owns unit tests, written test-first. The builder and the reviewer run them with `unit.quietCommand` of `.claude/pipeline.json` (`pipeline.js unit-command` prints it), which shows only the failures and the totals.
 - **`/unity:test`** owns the integration tests, the E2E tests, or both, as chosen at `/unity:init` (`pipeline.js test-kinds` prints the choice), and never changes application code or unit tests. The builder and the reviewer leave them alone.
 - **A story never waits for integration or E2E tests.** Keep them out of the checks a story's PR must pass; a story that breaks one is dealt with by the next `/unity:test`.
 

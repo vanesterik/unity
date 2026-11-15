@@ -51,7 +51,7 @@ The repository is its own marketplace.
    /unity:init <owner> <project-number>
    ```
 
-   It writes `.claude/pipeline.json` with the board's IDs and the project's start and test commands, adds a workflow section to `CLAUDE.md` and `artifacts/` to `.gitignore`, and enables the plugin. It also asks which tests `/unity:test` writes: **integration** tests, **E2E** tests through the browser, or **both**. It proposes an answer from what it finds, and records it as the blocks in `.claude/pipeline.json` and the matching sections in `CLAUDE.md`. It asks you to confirm what it detected, and suggests the commit to make. Run it again to change the choice.
+   It writes `.claude/pipeline.json` with the board's IDs, the project's start and test commands and a quiet form of its unit test command (failures and totals only, which is all the builder and the reviewer read of a run), adds a workflow section to `CLAUDE.md` and `artifacts/` to `.gitignore`, and enables the plugin. It also asks which tests `/unity:test` writes: **integration** tests, **E2E** tests through the browser, or **both**. It proposes an answer from what it finds, and records it as the blocks in `.claude/pipeline.json` and the matching sections in `CLAUDE.md`. It asks you to confirm what it detected, and suggests the commit to make. Run it again to change the choice.
 
 2. **Let the board move merged issues to Done.** This is the only move no role makes, and GitHub's API can't configure it, so you set it once by hand. It works in two links: the pull request that the builder opens has `Closes #<issue>` in its body, so merging it into `main` closes the issue; the board's **Item closed** workflow then sets a closed issue's Status to **Done**. To turn the workflow on:
 
@@ -165,7 +165,7 @@ Designs live in the issue, as the latest `role:design` comment, and the builder'
 
 | Command | What it does |
 | --- | --- |
-| `/unity:init <owner> <project>` | Sets up a repository: `.claude/pipeline.json` with the board IDs and the detected start and test commands and the chosen kinds of tests (integration, E2E or both), the `CLAUDE.md` workflow section, `.gitignore`, plugin settings |
+| `/unity:init <owner> <project>` | Sets up a repository: `.claude/pipeline.json` with the board IDs, the detected start and test commands, the quiet unit test command and the chosen kinds of tests (integration, E2E or both), the `CLAUDE.md` workflow section, `.gitignore`, plugin settings |
 | `/unity:design <issue>` | Works out the design and acceptance criteria with you, posts them as one issue comment for you to read on GitHub, and moves the issue to Build once you approve the posted version |
 | `/unity:ship <issue>` | Runs the builder and reviewer agents one after the other, from the issue's current column, as long as each one moves it on |
 | `/unity:autopilot` | Builds, reviews and merges every story in Build, top first, through `pipeline.js merge`; stops the run at the first story that can't get to `main` and ends with a digest |
