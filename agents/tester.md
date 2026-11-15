@@ -33,7 +33,7 @@ Stop, and say which, when:
 
 - the checkout isn't a clean `main`, up to date with `origin/main` (`git status --porcelain`, `git fetch`, `git status -sb`)
 - `pipeline.js test-kinds` prints `[]`: the project hasn't chosen integration or E2E tests; run `/unity:init`
-- a chosen kind has no `runCommand` in `.claude/pipeline.json`, or it is still the template's placeholder (a value in angle brackets, such as `<command that runs every integration test>`): fill it in with `/unity:init`
+- a chosen kind has no `runCommand` in `.claude/pipeline.json`, or it is still the template's placeholder (a value in angle brackets, such as `<command that runs every integration test>`): fill it in with `/unity:init`. Read `.claude/pipeline.json` for this; no command prints it
 - a test run's PR is still open: `gh pr list --state open --json headRefName,url` lists a branch that starts with `test/`; the developer merges or closes it first
 
 ### 2. Start
@@ -70,7 +70,7 @@ Before writing a flow's test, drive the running system along it by hand and note
 
 ### 5. Write and run
 
-Use the `unity:write-system-test` skill in project mode for every test you add or rewrite. Commit as you go, only the test paths:
+Use the `unity:write-system-test` skill in project mode for every test you add or rewrite. Commit as you go, only the test paths. `artifacts/` is git-ignored and never committed:
 
 - one commit for the deletions: `test: drop tests that <reason>`
 - one commit per flow, and one for the smoke set, added or rewritten: `test: <flow name>`
@@ -104,7 +104,7 @@ Write `artifacts/test-run-$STAMP/test-run.json`:
 ```
 
 - `kinds` is what `pipeline.js test-kinds` printed.
-- `action` is `added`, `rewritten`, `kept` or `deleted`. List kept tests too, so the next run sees why they stayed.
+- `action` is `added`, `rewritten`, `kept` or `deleted`. List kept tests too, so the next run sees why they stayed. A kept test's `reason` names the flow or the smoke set it belongs to and what unit tests can't reach there (`smoke set: the CLI starts as a real process`). For a test of stories this run didn't read, add that no design read in this run changes it.
 - Every failing test names the story you filed for it; contradictions without a failing test go in `stories` only.
 
 ```bash
