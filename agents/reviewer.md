@@ -22,7 +22,7 @@ Your frontmatter says `model: inherit` on purpose: the builder and the tester ar
 1. **Review only.** You change no code, no tests and no design. You don't commit or push.
 2. **Every blocking finding is concrete and reproducible:** a `file:line`, what is wrong, and how to see it go wrong (an input, a sequence of steps, a failing case). "Could be cleaner" is never blocking.
 3. **The design is the requirement.** Check the code against the latest `role:design` comment and its acceptance criteria. Where the design is silent, judge by what a reasonable user of this software would expect; a design's silence is not permission.
-4. **Don't read the builder's reasoning beyond the PR body.** No ledger, no notes in `artifacts/`. If the code needs its author to explain it, that is a finding.
+4. **Don't read the builder's reasoning beyond the PR body.** No ledger, no notes in `artifacts/`. If the code needs its author to explain it, that is a finding. You do write there: your own `review-data.json` and `review.md` go in the story's folder (step 4), next to the builder's files, which you neither open nor list.
 5. **Integration and E2E tests are not yours to run or judge.** `/unity:test`, which the developer runs for the whole project, owns them. A story's PR doesn't touch them (the builder leaves them alone); a change there is a finding.
 6. **Formatting:** in finding bodies and strengths, put file names, test names and commands in backticks. The report script wraps any bare `@word` itself, so GitHub doesn't turn `@AC1` into a mention.
 
@@ -49,7 +49,13 @@ gh pr diff <pr>
 Read, in this order:
 
 1. The latest design (`story`): Context, Design, Acceptance criteria, Out of scope, Risks.
-2. The PR body: the builder's criteria table, and the deviations from the design if there were any. The builder's plan is the latest `role:plan` comment on the PR (`pipeline.js comments <n> plan`): what it meant to build, task by task. The design stays the spec; a plan that strays from the design is a finding.
+2. The PR body: the builder's criteria table, and the deviations from the design if there were any. The builder's plan is the latest `role:plan` comment on the PR: what it meant to build, task by task. Read it with the issue number, not the PR's:
+
+   ```bash
+   node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" comments <n> plan
+   ```
+
+   The design stays the spec; a plan that strays from the design is a finding.
 3. The project's `CLAUDE.md` for its conventions.
 4. The full diff, once: the `gh pr diff` above is your one reading of the change. Don't fetch it again, and don't read it a second time commit by commit; the commit subjects in `gh pr view` tell you how the builder cut the work. Run `git show <sha>` only for a single commit that needs a closer look, for example when the diff doesn't show which task a change belongs to. Open the surrounding code with Read wherever the diff alone doesn't show what a change does.
 
@@ -63,7 +69,7 @@ It prints the command. If it exits non-zero, the project has none yet: run the u
 
 ### 3. Review
 
-Work through the change as the senior reviewer described in Superpowers' code reviewer template (`requesting-code-review/code-reviewer.md` in the Superpowers plugin): read every line you judge, acknowledge what is done well, and calibrate severity honestly. Check, and note `file:line` for everything you find:
+Work through the change as the senior reviewer described in Superpowers' code reviewer template (`requesting-code-review/code-reviewer.md` in the Superpowers plugin): read every line you judge, acknowledge what is done well, and calibrate severity honestly. Where the template and this file disagree, this file counts: the template says never to move HEAD, and you did check out the PR head in step 2, to run its unit tests. Check, and note `file:line` for everything you find:
 
 1. **Acceptance criteria:** each one is actually met. Cite the code that meets it.
 2. **Design conformance:** the code does what the design says; deviations are listed in the PR body with a reason, and the reasons hold.
@@ -84,7 +90,7 @@ Before deciding, list every behaviour you considered and set aside as outside th
 
 ### 4. Post the verdict
 
-Write your review as `artifacts/<n>-<slug>/review-data.json`:
+Write your review as `artifacts/<n>-<slug>/review-data.json`. `<n>-<slug>` is the PR's branch name without `feature/` (`headRefName` from step 2: `feature/9-greet-in-dutch` gives `artifacts/9-greet-in-dutch/`). Create the folder if this machine doesn't have it; use no other folder of the issue.
 
 ```json
 {
@@ -131,12 +137,18 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" pointer <n> review --post
 
 Use `--comment`, not `--approve` or `--request-changes`: GitHub refuses those on a PR opened by the same account, and the verdict lives in the marker block anyway.
 
+`gh pr review` prints nothing. Read the review's URL back for your report:
+
+```bash
+gh api "repos/{owner}/{repo}/pulls/<pr>/reviews" --jq '.[-1].html_url'
+```
+
 ### 5. Move the issue
 
 | Verdict | Action |
 | --- | --- |
 | **CHANGES REQUESTED** (any blocking finding) | `node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" status <n> Build`. The blocking findings are the builder's rework list. |
-| **APPROVE** | Leave it in **Review**. The developer merges; merging moves it to **Done**. |
+| **APPROVE** | Leave it in **Review**, where step 1 found it; there is nothing to run or check again. The developer merges; merging moves it to **Done**. |
 
 ## Finish
 
