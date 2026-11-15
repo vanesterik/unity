@@ -44,12 +44,12 @@ const baseData = {
 };
 
 // Runs the generator on a data file in a fresh artifacts directory, from inside the repository.
-const generate = (data, { repo = repoWith(['Add the Dutch greeting', 'Add the flag']), storyData = story, name = 'build-data.json' } = {}) => {
+const generate = (data, { repo = repoWith(['Add the Dutch greeting', 'Add the flag']), storyData = story, name = 'build-data.json', flags = [] } = {}) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'unity-build-artifacts-'));
   const dataPath = path.join(dir, name);
   fs.writeFileSync(dataPath, JSON.stringify(data));
   if (storyData) fs.writeFileSync(path.join(dir, 'story.json'), JSON.stringify(storyData));
-  return { dir, repo, result: spawnSync('node', [generator, dataPath], { cwd: repo, encoding: 'utf8' }) };
+  return { dir, repo, result: spawnSync('node', [generator, dataPath, ...flags], { cwd: repo, encoding: 'utf8' }) };
 };
 
 const bodyFor = (data, options) => {
@@ -202,4 +202,31 @@ test('a rework prints its counts and the path it wrote as JSON', () => {
   const { dir, result } = reworkFor(repo, [{ finding: 'Case 2', fix: 'Validate', commit: headSha(repo), proof: 'unit test' }]);
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), { comment: path.join(dir, 'rework.md'), rework: 'review', fixed: 1, notFixed: 0 });
+});
+
+// ---------- the draft body ----------
+
+const draft = (storyData = story) => generate(storyData, { storyData: null, name: 'story.json', flags: ['--draft'] });
+
+test('the draft body names the design version and closes the issue, without a role marker or counts', () => {
+  const { dir, result } = draft();
+  assert.equal(result.status, 0, result.stderr);
+  const body = fs.readFileSync(path.join(dir, 'pr-draft.md'), 'utf8');
+  assert.match(body, /^\*\*Design:\*\* v2\n\nBuild in progress/);
+  assert.match(body, /\nCloses #9\n$/);
+  assert.doesNotMatch(body, /role:build|\*\*Commits:\*\*|\*\*Unit tests:\*\*|\*\*Commit:\*\*/);
+});
+
+test('the draft body needs no build data and no commits, and leaves pr-body.md unwritten', () => {
+  const repo = repoWith([]);
+  const { dir, result } = generate(story, { repo, storyData: null, name: 'story.json', flags: ['--draft'] });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), { body: path.join(dir, 'pr-draft.md'), draft: true, issue: 9, designVersion: 2 });
+  assert.equal(fs.existsSync(path.join(dir, 'pr-body.md')), false);
+});
+
+test('the draft body is refused for a story without a design version', () => {
+  const { result } = draft({ number: 9, title: 'Greet in Dutch', designVersion: null });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /no issue number or design version/);
 });
