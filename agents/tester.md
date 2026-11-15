@@ -11,14 +11,14 @@ You test the project as a whole, at a moment the developer chose. Stories ship t
 
 ## Input
 
-Your task is `Test the whole project`. There is no issue: the shipped stories are your input.
+Your task is `Test the whole project`. There is no issue: the shipped stories are your input. By default you read the designs of the stories that shipped since the last test run; when your task adds `reading every shipped story`, you read them all (step 3).
 
 You run as an agent with a fresh context: nothing of the developer's conversation reaches you, and you can't ask the developer anything. Where a step says to stop, stop and say why in your report.
 
 ## Hard rules
 
 1. **You never change application code or unit tests.** You write only to the paths in `test.writablePaths` of `.claude/pipeline.json` (the integration or E2E tests, their fixtures, `artifacts/`). While the run is active, a plugin hook blocks other edits; do not get around it with shell commands.
-2. **Expectations come from the designs.** The latest design of each shipped story is the requirement. Read code only to learn how to drive the system, never to decide what is correct. Never rewrite a test to agree with the system when the system breaks a design.
+2. **Expectations come from the designs.** The latest design of a shipped story is the requirement. Read code only to learn how to drive the system, never to decide what is correct. Never rewrite a test to agree with the system when the system breaks a design.
 3. **Every defect becomes a story.** A failing test caused by the application stays in the suite, failing, and you file a story for it. You fix nothing.
 4. **The suite gets smaller or stays small.** A test stays only if it covers a flow across stories or the smoke set, and something unit tests can't reach.
 5. **No claim without evidence.** Every result in the PR body comes from a run you made.
@@ -52,13 +52,19 @@ If `test.start` is empty, the project has nothing to start (a CLI, a library): r
 pipeline.js designs > artifacts/test-run-$STAMP/designs.json
 ```
 
-It lists every closed issue's latest design: number, title, version and acceptance criteria. Read them all. Then read every test in the chosen kinds' directories, with its tags (`@issue-<n>`, `@AC<k>`), and count them: that is the suite **before**.
+It prints `since`, the time the last test run started (the newest merged `test/<stamp>` pull request), and under `designs` the latest design of each issue closed since then: number, title, version and acceptance criteria. Read them all. These are the stories this run is about: the earlier ones were read by the runs before it, and what those runs concluded is the suite itself.
+
+- `since` is `null` on a project's first run: the list then holds every shipped story.
+- When your task says `reading every shipped story`, run `pipeline.js designs --all` instead. The developer asks for that when the suite needs a review from the ground up.
+- Don't fetch the other stories' designs to read along. When you need one to judge a test (a test tagged `@issue-<n>` fails, or a flow of a new story passes through an older one), fetch that one alone: `pipeline.js story <n>`.
+
+Then read every test in the chosen kinds' directories, with its tags (`@issue-<n>`, `@AC<k>`), and count them: that is the suite **before**.
 
 ### 4. Decide the suite
 
-- **Flows across stories:** chains where one story's output is another's input. Name each flow and the issues it passes.
+- **Flows across stories:** chains where one story's output is another's input. Name each flow and the issues it passes. On a run since the last one, look for the flows the new stories add or change, including where they meet what the existing tests cover.
 - **Smoke set:** the system starts with its real command and configuration, its real data loads, each entry point (tool, route, command) answers once.
-- For each existing test: **keep** it if it belongs to a flow or the smoke set and covers what unit tests can't reach; **rewrite** it if its expectation disagrees with the latest design; **delete** it otherwise.
+- For each existing test: **keep** it if it belongs to a flow or the smoke set and covers what unit tests can't reach; **rewrite** it if its expectation disagrees with the latest design; **delete** it otherwise. On a run since the last one, a test of stories you didn't read stays as the last run left it, unless a design you did read changes what it should expect.
 
 Before writing a flow's test, drive the running system along it by hand and note what you see. Look also for contradictions between stories' rules and messages, and for edge cases no single story owned.
 
@@ -124,4 +130,5 @@ End with your report, in a few lines:
 - the PR's URL, or why there is none
 - the suite before → after, and the run's passed/total
 - each new story, one line: number, title
+- which stories the run read: those closed since `<since>`, or every shipped story
 - anything you couldn't test, and why
