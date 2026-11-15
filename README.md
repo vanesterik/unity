@@ -73,11 +73,13 @@ The repository is its own marketplace.
 
    This is the one role you work with. It moves the issue to **Design**, reads the codebase, and works out the design with you, with numbered acceptance criteria (`AC1`, `AC2`, ...) that can be checked from outside the code. A script assembles the design into one comment and checks its sections and criteria. The comment is posted on the issue and read back to make sure it arrived unchanged, while the issue stays in **Design**. You read it on GitHub and approve it in the conversation: that approval is the one human gate in the flow, and only then does the issue move to **Build**. Changes you ask for go up as a new version (v2, v3...).
 
-5. **Ship it**, from the same session:
+5. **Ship it**, from a fresh session: run `/clear` first, or open a new session.
 
    ```
    /unity:ship <issue>
    ```
+
+   The design is on GitHub, and that is all the roles read. A session that still holds the design conversation and the code you explored sends all of it along again on every turn of the run, for nothing.
 
    This runs the builder and the reviewer one after the other, each as its own agent with a fresh context, so none of them sees your design conversation or another role's reasoning. After each agent, it reads the board and goes on only if the issue moved to the next column. You watch nothing in between. At the end it prints one line per role with its result and link, then the column and the next step, written by a script from what the roles posted on GitHub. When it stopped early, it also lists the commits that landed since a role last signed off, so you can see where a failure may come from.
 
@@ -91,7 +93,7 @@ The repository is its own marketplace.
 
    To run a single role instead, use `/unity:build` or `/unity:review`. Each starts its agent the same way, and `/unity:ship` picks up from whatever column the issue is in.
 
-7. **Or let autopilot ship and merge them all**, from the same session:
+7. **Or let autopilot ship and merge them all**, also from a fresh session (`/clear`, or a new one):
 
    ```
    /unity:autopilot

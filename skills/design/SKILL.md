@@ -128,7 +128,8 @@ Report to the developer in a few lines:
 - the acceptance criteria, one line each
 - the board column: **Build** once approved. If the session ends before approval, the column is **Design**: the issue moves to Build only on approval, and `/unity:design <n>` picks it up again.
 
-End with the next step. The other roles run as agents with a fresh context, so the developer can start them from this session:
+End with the next step, and recommend a fresh session for it: `/clear` first, or a new session. The design is on GitHub, which is all the other roles read; this conversation and the code you explored would only be sent along again on every turn of the run, at the developer's cost. Say so in one line, then name the commands:
 
-- `/unity:ship <n>` builds, tests and reviews the issue in one go, and stops at the first role that doesn't move it on.
+- `/unity:ship <n>` builds and reviews the issue in one go, and stops at the first role that doesn't move it on.
+- `/unity:autopilot` does that for every story in Build, and merges each one.
 - `/unity:build <n>` runs only the build.
