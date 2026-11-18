@@ -63,10 +63,10 @@ Repeat until the story merges or stops:
 1. Read the issue's column:
 
    ```bash
-   pipeline.js check <n> Build
+   pipeline.js column <n>
    ```
 
-   It prints the column as JSON and exits non-zero when the issue is in another column. That is not an error here.
+   It prints the column as JSON, whichever it is. It exits non-zero only when it can't read one, such as an issue that is not on the board: stop the story with its message.
 
 2. Act on the column:
 
@@ -78,7 +78,7 @@ Repeat until the story merges or stops:
 
    Start each agent with the prompt `Issue: <n>` and wait for it to finish before you read the column again.
 
-3. After each agent, read the column again and decide:
+3. After each agent, read the column again with `pipeline.js column <n>` and decide:
 
    | Agent | Column after it | Next |
    | --- | --- | --- |
