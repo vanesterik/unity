@@ -2,7 +2,9 @@
 // Turns the review role's review-data.json into review.md, the PR review comment.
 // - the verdict and every count are computed here, never trusted from the input
 // - a criterion not met or a failed test run needs a blocking finding, so the verdict can't contradict the tables
-// - every criterion of the design is reviewed: the count comes from the design, not from the review
+// - every criterion of the design is reviewed: the design version, the criteria and their wording come from
+//   story.json (pipeline.js story) next to the data, not from the review
+// - the criteria table shows each criterion's wording and status; the code cited for it goes in a folded list below
 // - review.md avoids GitHub autolinks and mentions: @words are wrapped in backticks
 const fs = require('fs');
 const path = require('path');
@@ -21,7 +23,8 @@ const dataPath = process.argv[2];
 if (!dataPath) usage();
 
 const absoluteDataPath = path.resolve(dataPath);
-const reviewPath = path.join(path.dirname(absoluteDataPath), 'review.md');
+const dir = path.dirname(absoluteDataPath);
+const reviewPath = path.join(dir, 'review.md');
 const data = JSON.parse(fs.readFileSync(absoluteDataPath, 'utf8'));
 
 // Markdown table cells: no pipes or line breaks.
@@ -39,11 +42,15 @@ const nonEmpty = (value) => typeof value === 'string' && value.trim() !== '';
 const issue = data.issue || {};
 if (!Number.isInteger(issue.number) || !nonEmpty(issue.title)) fail('"issue" needs a "number" and a "title"');
 if (!nonEmpty(data.commit)) fail('"commit" is required');
-if (!Number.isInteger(data.designVersion)) fail('"designVersion" must be the design version number, e.g. 1');
 
-if (!Number.isInteger(data.designCriteria) || data.designCriteria < 1) fail('"designCriteria" must be the number of criteria in the design, from story');
+const storyPath = path.join(dir, 'story.json');
+if (!fs.existsSync(storyPath)) fail(`no story.json next to it; save it with pipeline.js story ${issue.number} > ${path.relative(process.cwd(), storyPath)}`);
+const story = JSON.parse(fs.readFileSync(storyPath, 'utf8'));
+const designCriteria = Array.isArray(story.criteria) ? story.criteria : [];
+if (!Number.isInteger(story.designVersion) || !designCriteria.length) fail(`story.json has no design version or no criteria; save it again with pipeline.js story ${issue.number}`);
+const wording = Object.fromEntries(designCriteria.map((criterion) => [criterion.id, criterion.text]));
 const criteria = Array.isArray(data.criteria) ? data.criteria : [];
-if (criteria.length !== data.designCriteria) fail(`the design has ${data.designCriteria} criteria and the review lists ${criteria.length}; review every one`);
+if (criteria.length !== designCriteria.length) fail(`the design has ${designCriteria.length} criteria and the review lists ${criteria.length}; review every one`);
 criteria.forEach((criterion, index) => {
   const expected = `AC${index + 1}`;
   if (!criterion || criterion.id !== expected) fail(`criteria must be AC1, AC2, ... in order; entry ${index + 1} is "${criterion && criterion.id}", expected ${expected}`);
@@ -110,7 +117,7 @@ md.push('<!-- role:review -->');
 // The heading carries the verdict as an icon, as the tables do: ✅ approved, ❌ changes requested.
 md.push(`## ${blocking.length ? '❌' : '✅'} Review`);
 md.push('');
-md.push(`**Design:** v${data.designVersion}  `);
+md.push(`**Design:** v${story.designVersion}  `);
 md.push(`**Criteria met:** ${criteria.length - unmet.length}/${criteria.length}  `);
 md.push(`**Findings:** ${blocking.length} blocking, ${suggestions.length} ${suggestions.length === 1 ? 'suggestion' : 'suggestions'}  `);
 md.push(`**Tests run:** ${runs.map((run) => `${run.kind} ${run.passed}/${run.total}`).join(', ')}  `);
@@ -118,12 +125,21 @@ md.push(`**Commit:** ${code(data.commit.trim().slice(0, 7))}`);
 md.push('');
 md.push('### Acceptance criteria');
 md.push('');
-md.push('| Criterion | Where | Status |');
+md.push('| Criterion | Description | Status |');
 md.push('| --- | --- | --- |');
 for (const criterion of criteria) {
-  const where = (criterion.where || []).map(code).join(', ') || '—';
-  md.push(`| ${criterion.id} | ${where} | ${criterion.met ? '✅' : '❌'} |`);
+  md.push(`| ${criterion.id} | ${cell(wording[criterion.id])} | ${criterion.met ? '✅' : '❌'} |`);
 }
+md.push('');
+// The code cited per criterion, folded: the evidence stays on the record without crowding the table.
+md.push('<details>');
+md.push('<summary>Where each criterion is met</summary>');
+md.push('');
+for (const criterion of criteria) {
+  md.push(`- **${criterion.id}** ${(criterion.where || []).map(code).join(', ') || '—'}`);
+}
+md.push('');
+md.push('</details>');
 md.push('');
 md.push('### Blocking');
 md.push('');

@@ -7,11 +7,19 @@ const { spawnSync } = require('child_process');
 
 const generator = path.join(__dirname, '..', 'skills', 'review', 'references', 'generate-review.js');
 
-// Runs the generator on a review-data.json in a fresh directory.
-const generate = (data) => {
+const story = {
+  number: 9,
+  title: 'Greet in Dutch',
+  designVersion: 1,
+  criteria: [{ id: 'AC1', text: 'Greets in Dutch, as @koen asked' }, { id: 'AC2', text: 'Shows the flag' }],
+};
+
+// Runs the generator on a review-data.json in a fresh directory, with the story next to it.
+const generate = (data, storyData = story) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'unity-review-'));
   const dataPath = path.join(dir, 'review-data.json');
   fs.writeFileSync(dataPath, JSON.stringify(data));
+  if (storyData) fs.writeFileSync(path.join(dir, 'story.json'), JSON.stringify(storyData));
   return { dir, result: spawnSync('node', [generator, dataPath], { encoding: 'utf8' }) };
 };
 
@@ -25,8 +33,6 @@ const baseData = {
   issue: { number: 9, title: 'Greet in Dutch' },
   branch: 'feature/9-greet-in-dutch',
   commit: 'abc1234',
-  designVersion: 1,
-  designCriteria: 2,
   criteria: [
     { id: 'AC1', where: ['greet.js:12', 'greet.js:20-22'], met: true },
     { id: 'AC2', where: ['greet.js:30'], met: true },
@@ -44,10 +50,27 @@ test('an approval is headed by the icon and the role, with Design first and Comm
   assert.doesNotMatch(review, /APPROVE|#9|Greet in Dutch|feature\/9/);
 });
 
-test('the criteria table holds IDs, references and a status icon', () => {
+test('the criteria table holds IDs, the wording from the design and a status icon', () => {
   const review = reviewFor(baseData);
-  assert.match(review, /^\| Criterion \| Where \| Status \|$/m);
-  assert.match(review, /^\| AC1 \| `greet\.js:12`, `greet\.js:20-22` \| ✅ \|$/m);
+  assert.match(review, /^\| Criterion \| Description \| Status \|$/m);
+  assert.match(review, /^\| AC1 \| Greets in Dutch, as `@koen` asked \| ✅ \|$/m);
+  assert.match(review, /^\| AC2 \| Shows the flag \| ✅ \|$/m);
+});
+
+test('the references per criterion follow the table, folded', () => {
+  const review = reviewFor(baseData);
+  assert.match(review, /\| ✅ \|\n\n<details>\n<summary>Where each criterion is met<\/summary>\n\n- \*\*AC1\*\* `greet\.js:12`, `greet\.js:20-22`\n- \*\*AC2\*\* `greet\.js:30`\n\n<\/details>\n\n### Blocking/);
+});
+
+test('the design version comes from the story, whatever the data says', () => {
+  const review = reviewFor({ ...baseData, designVersion: 7 });
+  assert.match(review, /^\*\*Design:\*\* v1  $/m);
+});
+
+test('a review without story.json next to it is refused', () => {
+  const { result } = generate(baseData, null);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /no story\.json/);
 });
 
 test('a blocking finding makes the verdict CHANGES REQUESTED, whatever the input says', () => {
@@ -62,7 +85,8 @@ test('a blocking finding makes the verdict CHANGES REQUESTED, whatever the input
   const review = fs.readFileSync(path.join(dir, 'review.md'), 'utf8');
   assert.match(review, /^## ❌ Review$/m);
   assert.match(review, /^\*\*Criteria met:\*\* 1\/2  $/m);
-  assert.match(review, /^\| AC2 \| — \| ❌ \|$/m);
+  assert.match(review, /^\| AC2 \| Shows the flag \| ❌ \|$/m);
+  assert.match(review, /^- \*\*AC2\*\* —$/m);
   assert.match(review, /^1\. \*\*Dutch ignored after --shout\*\* · `greet\.js:18`$/m);
 });
 
@@ -109,14 +133,13 @@ test('a full commit SHA is shortened to 7 characters', () => {
 });
 
 test('a review that leaves out the design\'s last criterion is refused', () => {
-  const { result } = generate({ ...baseData, designCriteria: 3 });
+  const { result } = generate(baseData, { ...story, criteria: [...story.criteria, { id: 'AC3', text: 'Waves' }] });
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /design has 3 criteria/);
+  assert.match(result.stderr, /design has 3 criteria and the review lists 2/);
 });
 
-test('a review without the design\'s criterion count is refused', () => {
-  const { designCriteria, ...data } = baseData;
-  const { result } = generate(data);
+test('a story without criteria is refused', () => {
+  const { result } = generate(baseData, { ...story, criteria: [] });
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /designCriteria/);
+  assert.match(result.stderr, /no design version or no criteria/);
 });
