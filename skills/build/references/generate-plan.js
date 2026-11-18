@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const { withFences, heading, isTask, ownMentions } = require('./plan-tasks');
 
 const LIMIT = 65000;
 
@@ -33,22 +34,6 @@ if (!story.design) fail(`#${story.number} has no design comment; the plan implem
 const planText = fs.readFileSync(path.resolve(planPath), 'utf8').replace(/\r\n/g, '\n');
 if (/<!--\s*role:/.test(planText)) fail('plan.md holds a role comment, not the plan; write the plan there again');
 
-// Lines with whether each one sits inside a fenced code block (the fence lines themselves count as inside).
-const withFences = (text) => {
-  let inside = false;
-  return text.split('\n').map((line) => {
-    const fence = /^\s*(```|~~~)/.test(line);
-    const entry = { line, code: inside || fence };
-    if (fence) inside = !inside;
-    return entry;
-  });
-};
-const heading = ({ line, code }) => (code ? null : line.match(/^(#{1,6})\s+(.*?)\s*$/));
-
-// Another story's criterion, written with its issue ("#15 AC7", "#9 AC5 and AC6"), is not one of this
-// design's, so the check below leaves it out.
-const ownMentions = (text) => text.replace(/#\d+(?:'s)?\s+@?AC\d+(?:(?:\s*,\s*|\s*,?\s+and\s+)@?AC\d+)*/g, '');
-
 const count = (story.criteria || []).length;
 const range = count === 1 ? 'AC1' : `AC1-AC${count}`;
 for (const [, n] of ownMentions(planText).matchAll(/\bAC(\d+)\b/g)) {
@@ -58,7 +43,7 @@ for (const [, n] of ownMentions(planText).matchAll(/\bAC(\d+)\b/g)) {
 const planLines = withFences(planText.trim());
 const levels = planLines.map(heading).filter(Boolean).map((match) => match[1].length);
 const shift = levels.length ? Math.max(0, 3 - Math.min(...levels)) : 0;
-const tasks = planLines.map(heading).filter((match) => match && /^Task\s+\d+\b/.test(match[2])).length;
+const tasks = planLines.map(heading).filter(isTask).length;
 if (!tasks) fail('plan.md has no "Task <n>" headings; give every task one, such as "## Task 1: <name>"');
 const plan = planLines.map((entry) => {
   const match = heading(entry);
