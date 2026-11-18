@@ -151,8 +151,8 @@ When every task is done:
    {
      "summary": "What was built, in a few lines.",
      "criteria": [
-       { "id": "AC1", "implemented": ["src/checkout.ts submitGuestOrder()"], "unitTests": ["test/checkout.test.ts accepts a guest order"] },
-       { "id": "AC2", "implemented": ["src/checkout.tsx GuestForm"], "unitTests": [] }
+       { "id": "AC1", "unitTests": ["test/checkout.test.ts accepts a guest order"] },
+       { "id": "AC2", "unitTests": [] }
      ],
      "deviations": [
        { "ruling": "<what you decided>", "reason": "<why>", "cost": "<what it costs if wrong>" }
@@ -162,7 +162,7 @@ When every task is done:
    }
    ```
 
-   - `criteria` lists every criterion of the design, AC1 first, in order, each with the files and functions that implement it. A criterion that unit tests cannot reach (for example one about what the user sees in the browser) gets an empty `unitTests`, which shows as "covered by the next /unity:test"; don't invent a test.
+   - `criteria` lists every criterion of the design, AC1 first, in order, each with the unit tests that cover it. The body shows the criterion's wording from the design and the commits of the plan tasks that name it, so a task's `AC<n>` in `plan.md` is what links a criterion to its commits. A criterion that unit tests cannot reach (for example one about what the user sees in the browser) gets an empty `unitTests`, which shows as "covered by the next /unity:test"; don't invent a test.
    - `deviations` holds every ruling from the ledger. Leave it empty (`[]`) when there were none; the body then has no deviations section.
    - `unitTests` holds the counts of the run in 1.
 
@@ -173,7 +173,7 @@ When every task is done:
    gh pr edit <pr> --body-file artifacts/<n>-<slug>/pr-body.md
    ```
 
-   The script reads the issue, the design version and the criteria from `story.json`, counts the commits in git (`main..HEAD`), and writes `artifacts/<n>-<slug>/pr-body.md`. It refuses data that leaves out a criterion of the design or names one it doesn't have, and a red unit test suite. If it refuses the data, fix the data or the code, not `pr-body.md`. Don't edit `pr-body.md` afterwards: the format is the script's, and it has no "Generated with" line on purpose.
+   The script reads the issue, the design version and the criteria with their wording from `story.json`, the tasks and their criteria from `plan.md` (task k is the k-th commit since main), counts the commits in git (`main..HEAD`), and writes `artifacts/<n>-<slug>/pr-body.md`. It refuses data that leaves out a criterion of the design or names one it doesn't have, and a red unit test suite. If it refuses the data, fix the data or the code, not `pr-body.md`. Don't edit `pr-body.md` afterwards: the format is the script's, and it has no "Generated with" line on purpose.
 4. Mark the PR ready and move the issue:
 
    ```bash
@@ -195,7 +195,7 @@ The PR exists, so the review sent the issue back. Rework works from its findings
 node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" comments <n> review
 ```
 
-Its blocking findings are your list. Check out the PR branch (`gh pr checkout <pr>`) and pull. Save the story again (`pipeline.js story <n> > artifacts/<n>-<slug>/story.json`, as in step 2), so the PR body is generated against the current design.
+Its blocking findings are your list. Check out the PR branch (`gh pr checkout <pr>`) and pull. Save the story again (`pipeline.js story <n> > artifacts/<n>-<slug>/story.json`, as in step 2), so the PR body is generated against the current design. If this machine has no `artifacts/<n>-<slug>/plan.md`, save the posted plan there (`pipeline.js comments <n> plan`, the latest comment's text): the PR body links each criterion to its commits through it.
 
 For each finding: reproduce it with a failing unit test where a unit test can reach it, fix the code, and commit (one commit per finding, or per group of findings with one cause). Push after every commit.
 
@@ -230,7 +230,7 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" pointer <n> build --post
 End with your report, in a few lines. The command that started you shows it to the developer:
 
 - the PR URL, and whether this was a new build or rework
-- per acceptance criterion, one line: where it is implemented, or "for the next /unity:test"
+- per acceptance criterion, one line: the commits that deliver it, and its unit tests or "for the next /unity:test"
 - the rulings you made, each with what it costs if wrong
 - the unit test result (command and pass count), and whether the project has no quiet unit test command yet (`/unity:init` records one)
 - the board column: **Review**, or where the issue stayed and why you stopped
