@@ -40,3 +40,15 @@ test('the builder loads at most three Superpowers skills, the debugging one only
   assert.match(text, /`superpowers:systematic-debugging`, the last only when something fails for a reason you don't understand/);
   assert.match(text, /don't load those two skills/);
 });
+
+test('the builder also loads the pattern skill for the code it writes, when one is installed', () => {
+  const text = agent('builder');
+  assert.match(text, /the pattern skill for the language or framework of the code you write/);
+  assert.match(text, /if one is installed/);
+});
+
+test('the reviewer can load skills, and judges the code against its pattern skill', () => {
+  const tools = (frontmatter(agent('reviewer')).match(/^tools:\s*(.+)$/m) || [])[1] || '';
+  assert.ok(tools.split(/,\s*/).includes('Skill'), 'the reviewer has no Skill tool');
+  assert.match(agent('reviewer'), /the pattern skill for the language or framework of the change/);
+});
