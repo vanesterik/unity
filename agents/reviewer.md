@@ -96,8 +96,6 @@ Write your review as `artifacts/<n>-<slug>/review-data.json`. `<n>-<slug>` is th
 {
   "issue": { "number": 9, "title": "Greet in Dutch" },
   "commit": "<head sha>",
-  "designVersion": 1,
-  "designCriteria": 8,
   "criteria": [
     { "id": "AC1", "where": ["greet.js:12", "greet.js:20-22"], "met": true }
   ],
@@ -115,8 +113,8 @@ Write your review as `artifacts/<n>-<slug>/review-data.json`. `<n>-<slug>` is th
 }
 ```
 
-- `designVersion` and `designCriteria` (the number of criteria) come from `story`, not from your own count; the script refuses a review that lists a different number.
-- `criteria` lists every criterion of the design, AC1 first, in order. `where` holds only `file:line` or `file:line-line` references, no explanation: the code that meets the criterion, or the code that fails it.
+- The design version and the criteria, with their wording, come from `story.json`, which the script reads next to the data; it refuses a review that lists a different number of criteria. Save it there before you generate: `node "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline.js" story <n> > artifacts/<n>-<slug>/story.json`.
+- `criteria` lists every criterion of the design, AC1 first, in order. `where` holds only `file:line` or `file:line-line` references, no explanation: the code that meets the criterion, or the code that fails it. The comment shows them folded under the criteria table.
 - `tests` holds your own unit test run from step 2, not the numbers from the PR body. The script refuses any other kind.
 - Leave a list empty (`[]`) when it has no entries.
 
