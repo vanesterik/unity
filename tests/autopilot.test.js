@@ -72,3 +72,24 @@ test('formatStopComment says the story moved to Design and how to continue from 
     'Moved to Design. Revise the design with /unity:design 8, or move the story back to Build to try it again as it is; the next /unity:autopilot continues from there.',
   ].join('\n\n'));
 });
+
+const fs = require('fs');
+const path = require('path');
+const { columnRead } = require('../scripts/pipeline.js');
+
+test('columnRead reports any column on the board without an error', () => {
+  for (const status of ['Backlog', 'Design', 'Build', 'Review', 'Done', null]) {
+    assert.deepEqual(columnRead(20, { onBoard: true, status }), { report: { number: 20, status }, error: null });
+  }
+});
+
+test('columnRead fails only for an issue that is not on the board', () => {
+  assert.deepEqual(columnRead(20, { onBoard: false, status: null }), { report: { number: 20, status: null }, error: '#20 is not on the board' });
+});
+
+test('autopilot reads the column with column, not with a check that exits 1 on every handover', () => {
+  const text = fs.readFileSync(path.join(__dirname, '..', 'skills', 'autopilot', 'SKILL.md'), 'utf8');
+  assert.match(text, /^\s*pipeline\.js column <n>$/m);
+  assert.doesNotMatch(text, /pipeline\.js check <n>/);
+  assert.doesNotMatch(text, /That is not an error here/);
+});

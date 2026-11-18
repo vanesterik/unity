@@ -13,6 +13,7 @@
 //   pipeline.js pr <issue>                      the open PR for the issue (number, url, branch, head SHA), as JSON
 //   pipeline.js queue <Column>                  issues of this repo in a board column, as JSON
 //   pipeline.js check <issue> <Column>          exit 1 unless the issue is in this column; prints its column as JSON
+//   pipeline.js column <issue>                  the issue's column as JSON, exit 0 in any column (1 only when not on the board)
 //   pipeline.js status <issue> <Column>         move the issue's project item to a column
 //   pipeline.js port <issue>                    deterministic local port for this issue's test environment
 //   pipeline.js board [--markdown]              every board issue per column, with PR, latest result, next step and warnings, as JSON
@@ -621,6 +622,22 @@ const check = (issueArg, column) => {
   if (status !== column) die(`#${number} is ${onBoard ? `in ${status || 'no column'}` : 'not on the board'}, expected ${column}`);
 };
 
+// A read, not a precondition: any column is an answer, and only an issue off the board is an error.
+// Autopilot reads the column after every agent, and Review there is the expected outcome, not a failure.
+const columnRead = (number, { onBoard, status }) => ({
+  report: { number, status },
+  error: onBoard ? null : `#${number} is not on the board`,
+});
+
+const column = (issueArg) => {
+  const config = loadConfig();
+  const number = resolveIssue(issueArg);
+  if (!number) die('Usage: pipeline.js column <issue>');
+  const { report, error } = columnRead(number, issueColumn(number, config));
+  console.log(JSON.stringify(report));
+  if (error) die(error);
+};
+
 // Every issue of this repo on the board, per column in board order, with its PR, latest result
 // and next step, plus the warnings. Read-only.
 const board = () => {
@@ -1062,6 +1079,7 @@ if (require.main === module) {
     else if (command === 'pr') console.log(JSON.stringify(pr(args[0]), null, 2));
     else if (command === 'queue') queue(args.join(' '));
     else if (command === 'check') check(args[0], args.slice(1).join(' '));
+    else if (command === 'column') column(args[0]);
     else if (command === 'status') setStatus(args[0], args.slice(1).join(' '));
     else if (command === 'port') port(args[0]);
     else if (command === 'summary') {
@@ -1098,10 +1116,10 @@ if (require.main === module) {
     else if (command === 'unit-command') { const quiet = unitCommand(readConfig()); if (!quiet) die(NO_UNIT_COMMAND); console.log(quiet); }
     else if (command === 'test-kinds') console.log(JSON.stringify(testKinds(args[0])));
     else if (command === 'board') console.log(args.includes('--markdown') ? formatBoard(board()) : JSON.stringify(board(), null, 2));
-    else die('Commands: init | resolve | story | design | check-design | comments | pr | queue | check | status | port | board | pointer | summary | merge | reworks | stop | resume | digest | unit-command | test-kinds | designs | new-story');
+    else die('Commands: init | resolve | story | design | check-design | comments | pr | queue | check | column | status | port | board | pointer | summary | merge | reworks | stop | resume | digest | unit-command | test-kinds | designs | new-story');
   } catch (error) {
     die(error.stderr ? String(error.stderr) : error.message);
   }
 }
 
-module.exports = { unitCommand, lastTestRun, shippedDesigns, withTestKinds, testKindsOf, designSpec, reviewVerdict, reworkOf, parseCriteria, resolveIssue, latestRoleComment, columnReport, commitOf, outsidePaths, COLUMNS, boardColumns, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, stopColumn, formatStopComment, allRunResults, formatDigest, parseChecksOutput, mergeArgs, mergeOutcome, mergedSince, branchCleanup };
+module.exports = { unitCommand, lastTestRun, shippedDesigns, withTestKinds, testKindsOf, designSpec, reviewVerdict, reworkOf, parseCriteria, resolveIssue, latestRoleComment, columnReport, commitOf, outsidePaths, COLUMNS, boardColumns, closedWorkflowWarning, prForIssue, boardStatus, designVersion, closesIssue, latestResult, nextStep, boardWarnings, formatBoard, formatPointer, runResults, formatSummary, compareComment, changesSince, signOffs, checksState, mergeDecision, mergedRange, reworksSince, maxReworks, stoppedPlan, stopColumn, formatStopComment, allRunResults, formatDigest, parseChecksOutput, mergeArgs, mergeOutcome, mergedSince, branchCleanup, columnRead };
