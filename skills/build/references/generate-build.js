@@ -2,7 +2,8 @@
 // Turns the build role's build-data.json into pr-body.md, the pull request body, and its
 // rework-data.json into rework.md, the PR comment on reworked findings.
 // - the issue, the design version and its criteria come from story.json (pipeline.js story), not from the data
-// - every criterion of the design is in the table, and no other one
+// - every criterion of the design is in the table, and no other one, with its wording from the design
+// - each criterion links the commits of the plan tasks that serve it: task k of plan.md is the k-th commit since main
 // - the deviations section is left out when there are none
 // - the commit count and the handed-over commit (the branch head) come from git (main..HEAD), never from the data
 // - a red unit test suite is refused: the builder doesn't hand one over
@@ -13,6 +14,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const { planTasks } = require('./plan-tasks');
 
 const usage = () => {
   console.error('Usage: node <plugin>/skills/build/references/generate-build.js artifacts/<n>-<slug>/<build-data|rework-data>.json\n       node <plugin>/skills/build/references/generate-build.js artifacts/<n>-<slug>/story.json --draft');
@@ -116,9 +118,7 @@ const writeBody = () => {
   const dataIds = criteria.map((criterion) => criterion && criterion.id);
   if (!designIds.length) fail('the design in story.json has no criteria');
   if (dataIds.join(',') !== designIds.join(',')) fail(`"criteria" must list every criterion of the design, in order: the design has ${designIds.join(', ')}; the data has ${dataIds.join(', ') || 'none'}`);
-  for (const criterion of criteria) {
-    if (!list(criterion.implemented).filter(nonEmpty).length) fail(`${criterion.id} needs "implemented": the files and functions that implement it`);
-  }
+  const wording = Object.fromEntries(list(story.criteria).map((criterion) => [criterion.id, criterion.text]));
 
   if (!nonEmpty(data.summary)) fail('"summary" is required');
   const run = list(data.run).filter(nonEmpty);
@@ -135,6 +135,14 @@ const writeBody = () => {
   const commits = branchCommits();
   if (!commits.length) fail('there are no commits on this branch (main..HEAD) yet');
 
+  // Task k of the plan is the k-th commit since main; commits after the last task are rework.
+  const planPath = path.join(dir, 'plan.md');
+  if (!fs.existsSync(planPath)) fail(`no plan.md next to it; the criteria table links each criterion to the commits of its plan tasks`);
+  const tasks = planTasks(fs.readFileSync(planPath, 'utf8').replace(/\r\n/g, '\n'));
+  if (!tasks.length) fail('plan.md has no "Task <n>" headings');
+  if (commits.length < tasks.length) fail(`plan.md has ${tasks.length} tasks, but the branch has ${commits.length} ${commits.length === 1 ? 'commit' : 'commits'} since main; make plan.md the tasks you built, one per commit`);
+  const commitsOf = (id) => tasks.flatMap((task, index) => (task.criteria.includes(id) ? [commits[index].full] : []));
+
   const md = [];
   md.push('<!-- role:build -->');
   md.push(`**Design:** v${story.designVersion}  `);
@@ -150,11 +158,13 @@ const writeBody = () => {
   md.push('');
   md.push('## Acceptance criteria');
   md.push('');
-  md.push('| Criterion | Implemented in | Unit tests |');
-  md.push('| --- | --- | --- |');
+  md.push('| Criterion | Description | Commits | Unit tests |');
+  md.push('| --- | --- | --- | --- |');
   for (const criterion of criteria) {
-    const tests = list(criterion.unitTests).filter(nonEmpty);
-    md.push(`| ${criterion.id} | ${criterion.implemented.filter(nonEmpty).map(code).join(', ')} | ${tests.length ? tests.map(code).join(', ') : 'covered by the next /unity:test'} |`);
+    const tests = list(criterion.unitTests).filter(nonEmpty).length;
+    // A full SHA, bare: GitHub links it to the commit and shows it short.
+    const shas = commitsOf(criterion.id);
+    md.push(`| ${criterion.id} | ${mentions(flat(wording[criterion.id]))} | ${shas.length ? shas.join(', ') : '—'} | ${tests ? `${tests} ${tests === 1 ? 'test' : 'tests'}` : 'next /unity:test'} |`);
   }
   md.push('');
   if (deviations.length) {

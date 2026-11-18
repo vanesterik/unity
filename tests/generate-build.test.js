@@ -14,6 +14,8 @@ const git = (cwd, args) => {
 };
 
 const headSha = (repo) => git(repo, ['rev-parse', '--short', 'HEAD']);
+// The branch's full commit SHAs, oldest first.
+const branchShas = (repo) => git(repo, ['log', '--reverse', '--format=%H', 'main..HEAD']).split('\n');
 
 // A repository with main and a feature branch holding the given commits, oldest first.
 const repoWith = (subjects) => {
@@ -29,14 +31,32 @@ const story = {
   number: 9,
   title: 'Greet in Dutch',
   designVersion: 2,
-  criteria: [{ id: 'AC1', text: 'Greets in Dutch' }, { id: 'AC2', text: 'Shows the flag' }],
+  criteria: [{ id: 'AC1', text: 'Greets in Dutch' }, { id: 'AC2', text: 'Shows the flag' }, { id: 'AC3', text: 'Says `@koen` by name' }],
 };
+
+// Two tasks, one commit each: the first serves AC1, the second AC1 and AC2; another story's criterion
+// and a task-level heading inside the second task don't end it or count. AC3 has no task.
+const plan = [
+  '# Greet in Dutch',
+  '',
+  '## Task 1: Add the Dutch greeting',
+  'Serves AC1.',
+  '',
+  '## Task 2: Add the flag',
+  '### Steps',
+  'Serves AC2, keeps AC1 and #15 AC3 working.',
+  '```js',
+  '## Task 9: not a task, in a code block',
+  '```',
+  '',
+].join('\n');
 
 const baseData = {
   summary: 'Adds a `--dutch` flag to the greeting CLI.',
   criteria: [
-    { id: 'AC1', implemented: ['greet.js greet()'], unitTests: ['test/greet.test.js greets in Dutch'] },
-    { id: 'AC2', implemented: ['greet.js flag()'], unitTests: [] },
+    { id: 'AC1', unitTests: ['test/greet.test.js greets in Dutch', 'test/greet.test.js greets with a capital'] },
+    { id: 'AC2', unitTests: ['test/greet.test.js reads the flag'] },
+    { id: 'AC3', unitTests: [] },
   ],
   deviations: [{ ruling: 'Lowercase flag only', reason: 'The design names no other spelling', cost: 'a user typing --Dutch gets an error' }],
   run: ['node greet.js --dutch Koen'],
@@ -44,11 +64,12 @@ const baseData = {
 };
 
 // Runs the generator on a data file in a fresh artifacts directory, from inside the repository.
-const generate = (data, { repo = repoWith(['Add the Dutch greeting', 'Add the flag']), storyData = story, name = 'build-data.json', flags = [] } = {}) => {
+const generate = (data, { repo = repoWith(['Add the Dutch greeting', 'Add the flag']), storyData = story, planText = plan, name = 'build-data.json', flags = [] } = {}) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'unity-build-artifacts-'));
   const dataPath = path.join(dir, name);
   fs.writeFileSync(dataPath, JSON.stringify(data));
   if (storyData) fs.writeFileSync(path.join(dir, 'story.json'), JSON.stringify(storyData));
+  if (planText) fs.writeFileSync(path.join(dir, 'plan.md'), planText);
   return { dir, repo, result: spawnSync('node', [generator, dataPath, ...flags], { cwd: repo, encoding: 'utf8' }) };
 };
 
@@ -82,11 +103,37 @@ test('the commit count comes from git, whatever the data says, and the commits a
   assert.doesNotMatch(body, /Review commit by commit|Add the flag/);
 });
 
-test('the criteria table puts each place and test in backticks, and leaves an untested criterion to the next /unity:test', () => {
+test('the criteria table gives each criterion its wording from the design, the commits of its tasks and its unit test count', () => {
+  const repo = repoWith(['Add the Dutch greeting', 'Add the flag']);
+  const [first, second] = branchShas(repo);
+  const body = bodyFor(baseData, { repo });
+  assert.match(body, /^\| Criterion \| Description \| Commits \| Unit tests \|$/m);
+  assert.match(body, new RegExp(`^\\| AC1 \\| Greets in Dutch \\| ${first}, ${second} \\| 2 tests \\|$`, 'm'));
+  assert.match(body, new RegExp(`^\\| AC2 \\| Shows the flag \\| ${second} \\| 1 test \\|$`, 'm'));
+});
+
+test('a criterion no task serves has no commits, and one without unit tests is left to the next /unity:test', () => {
   const body = bodyFor(baseData);
-  assert.match(body, /^\| Criterion \| Implemented in \| Unit tests \|$/m);
-  assert.match(body, /^\| AC1 \| `greet\.js greet\(\)` \| `test\/greet\.test\.js greets in Dutch` \|$/m);
-  assert.match(body, /^\| AC2 \| `greet\.js flag\(\)` \| covered by the next \/unity:test \|$/m);
+  assert.match(body, /^\| AC3 \| Says `@koen` by name \| — \| next \/unity:test \|$/m);
+  assert.doesNotMatch(body, /greet\.test\.js/);
+});
+
+test('rework commits after the last task are not linked to a criterion', () => {
+  const repo = repoWith(['Add the Dutch greeting', 'Add the flag', 'Validate the name']);
+  const [, second, rework] = branchShas(repo);
+  const body = bodyFor(baseData, { repo });
+  assert.match(body, new RegExp(`^\\| AC2 \\| Shows the flag \\| ${second} \\| 1 test \\|$`, 'm'));
+  assert.doesNotMatch(body, new RegExp(rework));
+});
+
+test('it refuses a plan with more tasks than the branch has commits', () => {
+  const stderr = refusal(baseData, { repo: repoWith(['Add the Dutch greeting']) });
+  assert.match(stderr, /plan\.md has 2 tasks, but the branch has 1 commit/);
+});
+
+test('it refuses to run without plan.md next to the data', () => {
+  const stderr = refusal(baseData, { planText: null });
+  assert.match(stderr, /no plan\.md/);
 });
 
 test('the deviations and the run commands each get their section, which end the body', () => {
@@ -99,7 +146,7 @@ test('the deviations and the run commands each get their section, which end the 
 test('without deviations the section is left out', () => {
   const body = bodyFor({ ...baseData, deviations: [] });
   assert.doesNotMatch(body, /Deviations from the design/);
-  assert.match(body, /\| AC2 \| `greet\.js flag\(\)` \| covered by the next \/unity:test \|\n\n## How to run it\n/);
+  assert.match(body, /\| AC3 \| .* \| next \/unity:test \|\n\n## How to run it\n/);
 });
 
 test('an @word in the prose is wrapped in backticks, so GitHub mentions nobody', () => {
@@ -108,18 +155,13 @@ test('an @word in the prose is wrapped in backticks, so GitHub mentions nobody',
 });
 
 test('it refuses data that leaves out a criterion of the design', () => {
-  const stderr = refusal({ ...baseData, criteria: [baseData.criteria[0]] });
-  assert.match(stderr, /the design has AC1, AC2; the data has AC1/);
+  const stderr = refusal({ ...baseData, criteria: baseData.criteria.slice(0, 2) });
+  assert.match(stderr, /the design has AC1, AC2, AC3; the data has AC1, AC2/);
 });
 
 test('it refuses a criterion the design does not have', () => {
-  const stderr = refusal({ ...baseData, criteria: [...baseData.criteria, { id: 'AC3', implemented: ['x.js'], unitTests: [] }] });
-  assert.match(stderr, /the design has AC1, AC2; the data has AC1, AC2, AC3/);
-});
-
-test('it refuses a criterion without the code that implements it', () => {
-  const stderr = refusal({ ...baseData, criteria: [baseData.criteria[0], { id: 'AC2', implemented: [], unitTests: [] }] });
-  assert.match(stderr, /AC2 needs "implemented"/);
+  const stderr = refusal({ ...baseData, criteria: [...baseData.criteria, { id: 'AC4', unitTests: [] }] });
+  assert.match(stderr, /the design has AC1, AC2, AC3; the data has AC1, AC2, AC3, AC4/);
 });
 
 test('it refuses a red unit test suite', () => {
@@ -140,7 +182,7 @@ test('it refuses a branch without commits', () => {
 test('it prints the counts and the path it wrote as JSON', () => {
   const { dir, result } = generate(baseData);
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(JSON.parse(result.stdout), { body: path.join(dir, 'pr-body.md'), commits: 2, criteria: 2, unitTests: { passed: 12, total: 12 } });
+  assert.deepEqual(JSON.parse(result.stdout), { body: path.join(dir, 'pr-body.md'), commits: 2, criteria: 3, unitTests: { passed: 12, total: 12 } });
 });
 
 // ---------- rework comment ----------
